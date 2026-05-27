@@ -22,7 +22,8 @@ const pet = new PetController()
 // 佇列時鐘與事件 timestamp 一致用 performance.now()，否則卡片會被誤判過期
 const queue = new NotificationQueue({ now: () => performance.now() })
 
-window.petBridge.onPetEvent((event: AppEvent) => {
+// optional-chaining 防護：即使 preload 載入失敗，idle 動畫迴圈仍會啟動
+window.petBridge?.onPetEvent?.((event: AppEvent) => {
   pet.onEvent(event, performance.now())
   queue.push({ ...event, timestamp: performance.now() })
 })

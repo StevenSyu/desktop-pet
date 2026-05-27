@@ -114,7 +114,12 @@ export default defineConfig({
   },
   preload: {
     build: {
-      rollupOptions: { input: { index: 'src/preload/index.ts' } },
+      rollupOptions: {
+        input: { index: 'src/preload/index.ts' },
+        // sandbox 預設下 preload 必須是 CJS；type:module 時 electron-vite 預設會輸出 .mjs
+        // 導致載入失敗（window.petBridge 為 undefined）。強制 cjs + .cjs。
+        output: { format: 'cjs', entryFileNames: '[name].cjs' },
+      },
     },
   },
   renderer: {
@@ -187,7 +192,7 @@ function createWindow(): BrowserWindow {
     width: 240,
     height: 260,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../preload/index.cjs'),
     },
   })
 
@@ -319,7 +324,7 @@ export function createPetWindow(): BrowserWindow {
     alwaysOnTop: true,
     hasShadow: false,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../preload/index.cjs'),
     },
   })
 
