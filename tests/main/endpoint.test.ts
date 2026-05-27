@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs'
+import { mkdtempSync, rmSync, readFileSync, existsSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { writeEndpointFile, generateToken, type EndpointInfo } from '../../src/main/endpoint'
@@ -30,5 +30,11 @@ describe('writeEndpointFile', () => {
     const path = writeEndpointFile(dir, info)
     expect(existsSync(path)).toBe(true)
     expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual({ port: 8765, token: 'tok123' })
+  })
+
+  it('writes the credential file with owner-only permissions (0600)', () => {
+    const dir = tempDir()
+    const path = writeEndpointFile(dir, { port: 8765, token: 'tok123' })
+    expect(statSync(path).mode & 0o777).toBe(0o600)
   })
 })

@@ -1,5 +1,5 @@
 import { createServer } from 'node:net'
-import { writeFileSync } from 'node:fs'
+import { writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
 
@@ -35,9 +35,12 @@ export function findFreePort(startPort = DEFAULT_PORT): Promise<number> {
   })
 }
 
-/** 寫 endpoint.json 到 userDataDir，回傳檔案路徑。 */
+/** 寫 endpoint.json 到 userDataDir，回傳檔案路徑。
+ * endpoint.json 含 token（憑證），以 owner-only(0600) 寫入；先移除舊檔，
+ * 確保以 0600 重新建立（避免殘留寬鬆權限或被他人預先建立）。 */
 export function writeEndpointFile(userDataDir: string, info: EndpointInfo): string {
   const path = join(userDataDir, 'endpoint.json')
-  writeFileSync(path, JSON.stringify({ port: info.port, token: info.token }), 'utf8')
+  rmSync(path, { force: true })
+  writeFileSync(path, JSON.stringify({ port: info.port, token: info.token }), { mode: 0o600 })
   return path
 }
