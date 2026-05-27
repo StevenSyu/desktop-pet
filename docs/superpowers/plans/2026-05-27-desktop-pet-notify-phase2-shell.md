@@ -849,7 +849,8 @@ petEl.style.backgroundImage = `url(${sheetUrl})`
 petEl.style.backgroundSize = `${SPRITE_FORMAT.sheetWidth * DISPLAY_SCALE}px ${SPRITE_FORMAT.sheetHeight * DISPLAY_SCALE}px`
 
 const pet = new PetController()
-const queue = new NotificationQueue()
+// 佇列時鐘與事件 timestamp 一致用 performance.now()，否則 active() 會誤判過期、卡片不顯示
+const queue = new NotificationQueue({ now: () => performance.now() })
 
 window.petBridge.onPetEvent((event: AppEvent) => {
   pet.onEvent(event, performance.now())
