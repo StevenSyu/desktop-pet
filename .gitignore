@@ -8,3 +8,6 @@
 node_modules/
 dist/
 out/
+
+# 工具產生物
+.serena/
