@@ -27,6 +27,8 @@ export function createPetWindow(): BrowserWindow {
   })
 
   win.setAlwaysOnTop(true, 'screen-saver')
+  // 顯示在所有虛擬桌面 / Spaces（含全螢幕 App 的 Space）
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
 
   if (process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(process.env.ELECTRON_RENDERER_URL)
