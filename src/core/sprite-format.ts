@@ -15,15 +15,16 @@ export const SPRITE_FORMAT = {
   frameWidth: 192,
   frameHeight: 208,
   animations: {
-    idle: { row: 0, frames: 6, fps: 4, loop: true },
-    'running-right': { row: 1, frames: 8, fps: 8, loop: true },
-    'running-left': { row: 2, frames: 8, fps: 8, loop: true },
-    waving: { row: 3, frames: 4, fps: 6, loop: false },
-    jumping: { row: 4, frames: 5, fps: 8, loop: false },
-    failed: { row: 5, frames: 8, fps: 8, loop: false },
-    waiting: { row: 6, frames: 6, fps: 4, loop: true },
-    running: { row: 7, frames: 6, fps: 8, loop: true },
-    review: { row: 8, frames: 7, fps: 6, loop: false },
+    // fps 放慢約 1.5×（每影格間隔加長），讓 loop 更清楚、反應持續更久
+    idle: { row: 0, frames: 6, fps: 3, loop: true },
+    'running-right': { row: 1, frames: 8, fps: 5, loop: true },
+    'running-left': { row: 2, frames: 8, fps: 5, loop: true },
+    waving: { row: 3, frames: 4, fps: 4, loop: false },
+    jumping: { row: 4, frames: 5, fps: 5, loop: false },
+    failed: { row: 5, frames: 8, fps: 5, loop: false },
+    waiting: { row: 6, frames: 6, fps: 3, loop: true },
+    running: { row: 7, frames: 6, fps: 5, loop: true },
+    review: { row: 8, frames: 7, fps: 4, loop: false },
   },
 } as const satisfies {
   sheetWidth: number

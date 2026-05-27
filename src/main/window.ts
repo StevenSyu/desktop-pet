@@ -1,8 +1,8 @@
 import { BrowserWindow, screen, ipcMain } from 'electron'
 import { join } from 'node:path'
 
-const PET_WIDTH = 180
-const PET_HEIGHT = 220
+const PET_WIDTH = 280
+const PET_HEIGHT = 300
 const MARGIN = 24
 let interactiveHandlerRegistered = false
 

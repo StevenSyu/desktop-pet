@@ -8,17 +8,22 @@ html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
 }
 #cards {
   position: absolute;
-  right: 8px;
-  bottom: 170px;
+  right: 10px;
+  bottom: 165px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   align-items: flex-end;
 }
 
 .card {
-  background: #fff; color: #222; border-radius: 10px; padding: 6px 9px;
-  font: 11px sans-serif; max-width: 160px; box-shadow: 0 3px 10px rgba(0,0,0,.3);
+  background: #fff;
+  color: #222;
+  border-radius: 12px;
+  padding: 9px 13px;
+  font-family: sans-serif;
+  max-width: 210px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
 }
-.card-title { font-weight: 700; }
-.card-body { opacity: .75; margin-top: 2px; }
+.card-title { font-weight: 700; font-size: 14px; }
+.card-body { font-size: 13px; opacity: .8; margin-top: 3px; line-height: 1.35; }
