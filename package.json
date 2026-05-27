@@ -3,12 +3,18 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "main": "./out/main/index.js",
   "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
+    "electron": "^42.3.0",
+    "electron-vite": "^5.0.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.7"
   }
