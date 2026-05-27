@@ -55,6 +55,7 @@ function renderCards(): void {
 function render(now: number): void {
   const view = pet.advance(now)
   const anim = SPRITE_FORMAT.animations[view.animation as AnimationName]
+  // 所有動畫（含反應）持續循環輪播；反應由 FSM 維持約 3 秒後回 idle
   const frameIndex = Math.floor((now / 1000) * anim.fps) % anim.frames
   const rect = frameRect(anim.row, frameIndex)
   petEl.style.backgroundPosition = `-${rect.x * DISPLAY_SCALE}px -${rect.y * DISPLAY_SCALE}px`

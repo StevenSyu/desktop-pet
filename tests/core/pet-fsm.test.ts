@@ -14,10 +14,10 @@ describe('PetController', () => {
 
   it('plays a one-shot reaction then returns to idle after its duration', () => {
     const pet = new PetController()
-    pet.onEvent(ev('done', 0), 0) // jumping: 5 frames @ 5fps = 1000ms
+    pet.onEvent(ev('done', 0), 0) // jumping: 1000ms 播放 + 3000ms hold = 4000ms
     expect(pet.advance(100)).toEqual({ mode: 'reaction', animation: 'jumping' })
-    expect(pet.advance(900)).toEqual({ mode: 'reaction', animation: 'jumping' })
-    expect(pet.advance(1000)).toEqual({ mode: 'idle', animation: 'idle' })
+    expect(pet.advance(3999)).toEqual({ mode: 'reaction', animation: 'jumping' })
+    expect(pet.advance(4000)).toEqual({ mode: 'idle', animation: 'idle' })
   })
 
   it('info events do not change the pet (card-only)', () => {
@@ -35,17 +35,17 @@ describe('PetController', () => {
 
   it('a lower-or-equal-priority event does NOT interrupt an in-flight reaction', () => {
     const pet = new PetController()
-    pet.onEvent(ev('error', 0), 0) // failed: 8 frames @ 5fps = 1600ms
+    pet.onEvent(ev('error', 0), 0) // failed: 1600ms 播放 + 3000ms hold = 4600ms
     pet.onEvent(ev('done', 100), 100) // done < error → ignored
     expect(pet.advance(200)).toEqual({ mode: 'reaction', animation: 'failed' })
   })
 
   it('after a reaction finishes, a lower-priority event can play', () => {
     const pet = new PetController()
-    pet.onEvent(ev('error', 0), 0) // failed ends at 1600ms
-    expect(pet.advance(1600)).toEqual({ mode: 'idle', animation: 'idle' })
-    pet.onEvent(ev('done', 1600), 1600)
-    expect(pet.advance(1700)).toEqual({ mode: 'reaction', animation: 'jumping' })
+    pet.onEvent(ev('error', 0), 0) // failed ends at 4600ms (1600 播放 + 3000 hold)
+    expect(pet.advance(4600)).toEqual({ mode: 'idle', animation: 'idle' })
+    pet.onEvent(ev('done', 4600), 4600)
+    expect(pet.advance(4700)).toEqual({ mode: 'reaction', animation: 'jumping' })
   })
 
   it('a looped reaction (working→waiting) persists until replaced', () => {

@@ -10,6 +10,9 @@ export interface PetView {
 
 const IDLE_VIEW: PetView = { mode: 'idle', animation: 'idle' }
 
+// 非循環反應播完一輪後，多定格停留這麼久再回 idle（依使用者回饋：停約 3 秒）
+const HOLD_AFTER_REACTION_MS = 3000
+
 function durationMs(animation: AnimationName): number {
   const spec = SPRITE_FORMAT.animations[animation]
   return (spec.frames / spec.fps) * 1000
@@ -36,7 +39,9 @@ export class PetController {
     this.mode = 'reaction'
     this.animation = animation
     this.currentPriority = event.priority
-    this.reactionEndsAt = spec.loop ? Number.POSITIVE_INFINITY : now + durationMs(animation)
+    this.reactionEndsAt = spec.loop
+      ? Number.POSITIVE_INFINITY
+      : now + durationMs(animation) + HOLD_AFTER_REACTION_MS
   }
 
   /** 推進到時間 now，回傳當下應顯示的視圖。非 loop 動畫播畢自動回 idle。 */
