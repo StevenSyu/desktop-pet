@@ -5,4 +5,5 @@ contextBridge.exposeInMainWorld('petBridge', {
   onPetEvent: (cb: (event: AppEvent) => void) => {
     ipcRenderer.on('pet-event', (_e, event: AppEvent) => cb(event))
   },
+  setInteractive: (interactive: boolean) => ipcRenderer.send('set-interactive', interactive),
 })

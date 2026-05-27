@@ -61,3 +61,15 @@ function render(now: number): void {
   requestAnimationFrame(render)
 }
 requestAnimationFrame(render)
+
+function bindHover(): void {
+  const enableInteractive = () => window.petBridge.setInteractive(true)
+  const disableInteractive = () => window.petBridge.setInteractive(false)
+
+  petEl.addEventListener('mouseenter', enableInteractive)
+  petEl.addEventListener('mouseleave', disableInteractive)
+  cardsEl.addEventListener('mouseenter', enableInteractive)
+  cardsEl.addEventListener('mouseleave', disableInteractive)
+}
+
+bindHover()
