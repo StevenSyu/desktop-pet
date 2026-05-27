@@ -1,0 +1,10 @@
+# 腦力激盪視覺輔助暫存
+.superpowers/
+
+# macOS
+.DS_Store
+
+# Node（之後實作用）
+node_modules/
+dist/
+out/
