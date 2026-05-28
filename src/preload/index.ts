@@ -23,6 +23,9 @@ contextBridge.exposeInMainWorld('petBridge', {
   onWalkEnded: (cb: () => void) => {
     ipcRenderer.on('walk-ended', () => cb())
   },
+  onWalkDirection: (cb: (direction: 'left' | 'right') => void) => {
+    ipcRenderer.on('walk-direction', (_e, direction: 'left' | 'right') => cb(direction))
+  },
   getAutoWalk: () => ipcRenderer.invoke('get-auto-walk') as Promise<boolean>,
   onAutoWalkChanged: (cb: (enabled: boolean) => void) => {
     ipcRenderer.on('auto-walk-changed', (_e, enabled: boolean) => cb(enabled))

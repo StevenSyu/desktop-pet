@@ -131,6 +131,11 @@ window.petBridge?.onWalkEnded?.(() => {
   nextWalkAt = pickWalk(Math.random, performance.now()).nextWalkAt
 })
 
+// main 端方向反轉（撞牆 → 改向對面）時同步 CSS anim
+window.petBridge?.onWalkDirection?.((direction) => {
+  if (walking) setAnim(direction === 'right' ? 'running-right' : 'running-left')
+})
+
 let tickTimer: ReturnType<typeof setInterval> | null = setInterval(tick, 100)
 
 document.addEventListener('visibilitychange', () => {

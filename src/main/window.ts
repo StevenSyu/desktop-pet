@@ -155,18 +155,22 @@ export function createPetWindow(): BrowserWindow {
         endWalk(false)
         const [startX, startY] = petWinRef.getPosition()
         const display = screen.getDisplayNearestPoint({ x: startX, y: startY })
-        const sign = req.direction === 'right' ? 1 : -1
-        const available = clampWalkToWorkArea(
-          startX,
-          req.direction,
-          req.distance,
-          display.workArea,
-          PET_WIDTH,
-        )
+        let direction: 'left' | 'right' = req.direction
+        let available = clampWalkToWorkArea(startX, direction, req.distance, display.workArea, PET_WIDTH)
         if (available <= 0) {
-          if (petWinRef && !petWinRef.isDestroyed()) petWinRef.webContents.send('walk-ended')
-          return
+          // 該方向到底了，試對向
+          const flipped: 'left' | 'right' = direction === 'right' ? 'left' : 'right'
+          const alt = clampWalkToWorkArea(startX, flipped, req.distance, display.workArea, PET_WIDTH)
+          if (alt > 0) {
+            direction = flipped
+            available = alt
+            petWinRef.webContents.send('walk-direction', direction)
+          } else {
+            petWinRef.webContents.send('walk-ended')
+            return
+          }
         }
+        const sign: number = direction === 'right' ? 1 : -1
         const startedAt = Date.now()
         const step = (): void => {
           if (!petWinRef || petWinRef.isDestroyed()) {
