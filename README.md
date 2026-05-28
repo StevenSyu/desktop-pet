@@ -1,6 +1,6 @@
-# may — 桌面寵物通知工具
+# desktop pet — 桌面寵物通知工具
 
-一隻常駐 macOS 桌面右下角的像素風寵物，把 Claude Code 等 coding agent 的事件用可愛的精靈動畫＋色彩編碼的卡片通知「演」給你看。所有訊息進通知中心歷史，零遺失。
+一隻常駐 macOS 桌面右下角的像素風寵物（預設造型 **may**），把 Claude Code 等 coding agent 的事件用可愛的精靈動畫＋色彩編碼的卡片通知「演」給你看。所有訊息進通知中心歷史，零遺失。
 
 ## 特色
 
@@ -14,7 +14,8 @@
 - **Hook Kit**：Claude Code hooks（`Stop`／`Notification`（`permission_prompt`）／`StopFailure`）→ `notify.mjs` 讀 hook stdin →帶 `X-Token` POST 本機 127.0.0.1 HTTP 端點 → 寵物反應＋卡片。介接契約通用，Codex/CI/腳本也能 POST。
 - 本機 only：HTTP 端點僅 bind 127.0.0.1，共用 token 寫入 `0600` 權限的 `endpoint.json`。
 - 右鍵選單：更換造型、自動走動開關、進階設定（走動間隔／秒數）、通知中心、關閉小幫手（含確認對話框，避免誤觸）。
-- **使用者偏好持久化**：`prefs.json`（自動走動開關、走動間隔、走動秒數）寫在 `~/Library/Application Support/desktop-notify/`，跨重啟記得。
+- **使用者偏好持久化**：`prefs.json`（自動走動開關、走動間隔、走動秒數、上次選的造型）寫在 `~/Library/Application Support/desktop-notify/`，跨重啟記得。
+- **寵物互動 sprite 反應**：hover / 單擊隨機反應動畫（waving / jumping / review 三選一）；雙擊（< 300ms）直接開通知中心；拖動時 sprite 依累計位移方向（DIR_THRESHOLD=8px）切 `running-left` / `running-right`，剛拖起無方向時為 jumping。動畫優先級由純函式 `resolveAnimation` 仲裁：FSM reaction > drag > userAnim > walking > idle。
 - 核心邏輯純 TypeScript＋Vitest TDD，UI 用 Playwright `_electron` 自動煙霧測試＋截圖驗證。
 
 ## 快速開始
@@ -125,7 +126,7 @@ desktop-notify/
 
 ## 狀態與規劃
 
-**已完成**：核心庫、Electron 外殼（透明置頂／點擊穿透／all-spaces）、3 隻可換造型、色彩編碼即時卡片、Hook Kit、通知中心（歷史／未讀徽章／篩選／分組／展開）、視窗行為（拖動記憶／floating 層級／多螢幕重吸附／關閉確認）、動畫與效能（idle 走動／撞牆反向／CSS-only sprite／不可見暫停／進階設定）。
+**已完成**：核心庫、Electron 外殼（透明置頂／點擊穿透／all-spaces）、3 隻可換造型＋造型記憶、色彩編碼即時卡片、Hook Kit（含 Stop 抓 transcript 最後文字、cwd 過濾 retry 防 race）、通知中心（歷史／未讀徽章／篩選／分組／展開）、視窗行為（拖動記憶／floating 層級／多螢幕重吸附／關閉確認）、動畫與效能（idle 走動／撞牆反向／CSS-only sprite／不可見暫停／進階設定）、寵物互動（hover/click/dblclick/drag 方向 sprite 反應）。
 
 **規劃中**：
 

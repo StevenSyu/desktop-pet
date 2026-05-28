@@ -22,6 +22,9 @@
 - **右鍵選單「進階設定」面板**（Spec ③）：開設定視窗可調走動間隔（最短/最長秒）與走動秒數（最短/最長秒）；按「儲存」即時生效。
 - **使用者偏好（`prefs.json`）**：寫於 `~/Library/Application Support/desktop-notify/`，sanitize 防呆（min/max 自動互換、無效型別退回預設、忽略未知欄位）。
 - **點寵物未讀徽章直接開通知中心**：徽章 hover 放大、按下回彈微動畫；不必再透過右鍵選單。
+- **寵物互動 sprite 反應**（Spec ④）：hover / 單擊隨機反應動畫（waving / jumping / review）；雙擊（< 300ms）直接開通知中心；拖動時 sprite 依累計位移方向（DIR_THRESHOLD=8px）切 `running-left` / `running-right`，剛拖起無方向時為 jumping。動畫優先級由純函式 `resolveAnimation` 仲裁：FSM reaction > drag > userAnim > walking > idle。新增 `src/core/anim-resolver.ts` + `src/core/click-dispatcher.ts` 兩個純函式（14 條測試）。
+- **造型更換記憶**：右鍵選單「更換造型」選的造型寫入 `prefs.json`，重啟自動還原；選單以 radio 顯示當前造型。
+- **Stop hook 抓 transcript 最後文字**：hook 觸發時讀取 transcript JSONL，把 Claude 該輪最後一個 text entry 當卡片 body；retry 機制（initialWait 300ms → emptyRetries 5×200ms → settleWait 400ms）解決 fsync race；turn 邊界以「使用者打字訊息」判定，避免跨輪抓到上一次的內容；sidechain（Task 子代理）排除。
 - **本機 HTTP Ingest**：127.0.0.1 + `X-Token`；事件契約通用，任何來源（Claude Code hook / Codex / CI / 腳本）皆可 POST `/notify`。
 - **Hook Kit**：`notify.mjs`（讀 hook stdin + endpoint.json → 帶 token POST）、`payload.mjs` 事件映射、`print-config.mjs` 印出 settings.json hooks 區塊、README 與 env-gated 除錯日誌（`DESKPET_HOOK_LOG`）。
 - **核心庫**（純 TypeScript + Vitest）：`events` 正規化、`sprite-format`、`message-store`、`time-format`、`pet-fsm`、`pet-validation`、`skins`、`window-position`、`walk-planner`。76 個單元測試。
