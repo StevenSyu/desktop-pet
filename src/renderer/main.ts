@@ -5,6 +5,7 @@ import { PetController } from '../core/pet-fsm'
 import { DEFAULT_SKIN_ID } from '../core/skins'
 import { pickWalk, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
 import { resolveAnimation, type AnimationContext } from '../core/anim-resolver'
+import { classifyClick, DEFAULT_DOUBLE_CLICK_MS } from '../core/click-dispatcher'
 import type { AppEvent, NotifyType } from '../core/events'
 import maySheet from '../../resources/pets/may/spritesheet.webp'
 import marukoSheet from '../../resources/pets/maruko/spritesheet.webp'
@@ -131,6 +132,41 @@ let nextWalkAt = pickWalk(Math.random, performance.now(), walkBounds).nextWalkAt
 let walkDirection: 'left' | 'right' | null = null
 let userAnim: { name: string; expiresAt: number } | null = null
 let dragDirection: 'left' | 'right' | null = null
+let lastClickAt: number | null = null
+let pendingClickTimer: ReturnType<typeof setTimeout> | null = null
+let justDragged = false
+const REACTION_POOL = ['waving', 'jumping', 'review'] as const
+const REACTION_DURATION_MS: Record<string, number> = {
+  waving: 1000,
+  jumping: 1000,
+  review: 1750,
+}
+
+function triggerClickReaction(): void {
+  const pick = REACTION_POOL[Math.floor(Math.random() * REACTION_POOL.length)]
+  userAnim = { name: pick, expiresAt: performance.now() + REACTION_DURATION_MS[pick] }
+}
+
+function handleClick(now: number): void {
+  if (justDragged) return
+  const kind = classifyClick(lastClickAt, now)
+  if (kind === 'double') {
+    if (pendingClickTimer) {
+      clearTimeout(pendingClickTimer)
+      pendingClickTimer = null
+    }
+    lastClickAt = null
+    window.petBridge.openCenter()
+  } else {
+    if (pendingClickTimer) clearTimeout(pendingClickTimer)
+    lastClickAt = now
+    pendingClickTimer = setTimeout(() => {
+      pendingClickTimer = null
+      lastClickAt = null
+      triggerClickReaction()
+    }, DEFAULT_DOUBLE_CLICK_MS)
+  }
+}
 
 window.petBridge.getPrefs().then((p) => {
   autoWalkEnabled = p.autoWalk
@@ -277,6 +313,14 @@ function endDrag(e: PointerEvent): void {
       flushDragMove()
     }
     window.petBridge.dragEnd()
+    dragDirection = null
+    justDragged = true
+    setTimeout(() => {
+      justDragged = false
+    }, 60)
+  } else {
+    // 沒移動就放開 → click 路徑（dblclick 由 handleClick 自己判定）
+    handleClick(performance.now())
   }
   dragState = null
 }
