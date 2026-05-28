@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { SKINS } from '../core/skins'
 import { bus } from './bus'
 import { clampToValidPosition, defaultPosition, type DisplayInfo } from '../core/window-position'
+import { clampWalkToWorkArea } from '../core/walk-planner'
 import { loadWindowState, saveWindowState } from './window-state'
 
 const PET_WIDTH = 280
@@ -95,6 +96,7 @@ export function createPetWindow(): BrowserWindow {
 
     ipcMain.on('drag-start', (_event, sx: number, sy: number) => {
       if (!petWinRef || petWinRef.isDestroyed()) return
+      endWalk(true) // 拖動時取消任何走動
       const [wx, wy] = petWinRef.getPosition()
       dragStartScreen = { x: sx, y: sy }
       dragStartWin = { x: wx, y: wy }
@@ -114,6 +116,61 @@ export function createPetWindow(): BrowserWindow {
       const d = screen.getDisplayMatching(petWinRef.getBounds())
       saveWindowState(app.getPath('userData'), { displayId: d.id, x, y })
     })
+
+    // ===== walk session：單一 in-flight；setTimeout 鏈式推進避免時鐘漂移 =====
+    let walkTimer: NodeJS.Timeout | null = null
+    const endWalkInner = (notify: boolean): void => {
+      if (walkTimer) {
+        clearTimeout(walkTimer)
+        walkTimer = null
+      }
+      if (notify && petWinRef && !petWinRef.isDestroyed()) {
+        petWinRef.webContents.send('walk-ended')
+      }
+    }
+    function endWalk(notify: boolean): void {
+      endWalkInner(notify)
+    }
+
+    ipcMain.on(
+      'walk-start',
+      (_event, req: { direction: 'left' | 'right'; distance: number; duration: number }) => {
+        if (!petWinRef || petWinRef.isDestroyed()) return
+        endWalk(false)
+        const [startX, startY] = petWinRef.getPosition()
+        const display = screen.getDisplayNearestPoint({ x: startX, y: startY })
+        const sign = req.direction === 'right' ? 1 : -1
+        const available = clampWalkToWorkArea(
+          startX,
+          req.direction,
+          req.distance,
+          display.workArea,
+          PET_WIDTH,
+        )
+        if (available <= 0) {
+          if (petWinRef && !petWinRef.isDestroyed()) petWinRef.webContents.send('walk-ended')
+          return
+        }
+        const startedAt = Date.now()
+        const step = (): void => {
+          if (!petWinRef || petWinRef.isDestroyed()) {
+            walkTimer = null
+            return
+          }
+          const elapsed = Date.now() - startedAt
+          const t = Math.min(1, elapsed / req.duration)
+          const x = Math.round(startX + sign * available * t)
+          petWinRef.setPosition(x, startY)
+          if (t >= 1) {
+            endWalk(true)
+            return
+          }
+          walkTimer = setTimeout(step, 16)
+        }
+        step()
+      },
+    )
+    ipcMain.on('walk-cancel', () => endWalk(true))
 
     // ===== display-removed：失效時吸附回 primary =====
     screen.on('display-removed', () => {
