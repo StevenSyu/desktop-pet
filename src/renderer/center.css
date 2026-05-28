@@ -30,6 +30,20 @@ header {
   border-radius: 6px;
 }
 .actions button:hover { color: #2a2622; background: #efe9df; }
+#close {
+  margin-left: 4px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 16px;
+  line-height: 1;
+  color: #8a7f70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#close:hover { background: #efe9df; color: #d6453d; }
 
 #chips { display: flex; gap: 6px; padding: 0 14px 9px; flex-wrap: wrap; }
 .chip {

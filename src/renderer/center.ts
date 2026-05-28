@@ -137,6 +137,10 @@ function render(): void {
 
 document.querySelector('#mark-all')!.addEventListener('click', () => window.petBridge.markAllRead())
 document.querySelector('#clear')!.addEventListener('click', () => window.petBridge.clearMessages())
+document.querySelector('#close')!.addEventListener('click', () => window.close())
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') window.close()
+})
 
 window.petBridge.onMessagesUpdated((msgs) => {
   all = msgs
