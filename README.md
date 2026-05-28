@@ -132,3 +132,7 @@ desktop-notify/
 - 跨 App 重啟的歷史持久化
 - tool-failure 偵測 → 自動觸發 error
 - 打包與簽章（codesign / notarize）
+
+## 變更紀錄
+
+詳見 [CHANGELOG.md](./CHANGELOG.md)。
