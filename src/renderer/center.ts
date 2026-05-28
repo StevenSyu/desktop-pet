@@ -87,10 +87,13 @@ function buildItem(m: StoredMessage, now: number): HTMLDivElement {
   }
 
   const sourceText = m.title || m.source.name || m.source.kind
-  if (sourceText) {
+  const sessionTag =
+    m.sessionId && m.sessionId !== 'default' ? `#${m.sessionId.slice(0, 6)}` : ''
+  const display = [sourceText, sessionTag].filter(Boolean).join(' · ')
+  if (display) {
     const s = document.createElement('div')
     s.className = 'src'
-    s.textContent = sourceText
+    s.textContent = display
     main.appendChild(s)
   }
 

@@ -78,10 +78,13 @@ function renderCard(): void {
   }
 
   const sourceText = e.title || e.source.name || e.source.kind
-  if (sourceText) {
+  const sessionTag =
+    e.sessionId && e.sessionId !== 'default' ? `#${e.sessionId.slice(0, 6)}` : ''
+  const display = [sourceText, sessionTag].filter(Boolean).join(' · ')
+  if (display) {
     const source = document.createElement('div')
     source.className = 'card-source'
-    source.textContent = sourceText
+    source.textContent = display
     card.appendChild(source)
   }
 
