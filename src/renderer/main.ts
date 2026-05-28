@@ -166,11 +166,14 @@ document.addEventListener('visibilitychange', () => {
 function bindHover(): void {
   const enableInteractive = () => window.petBridge.setInteractive(true)
   const disableInteractive = () => window.petBridge.setInteractive(false)
+  const badge = document.querySelector<HTMLDivElement>('#badge')!
 
   petEl.addEventListener('mouseenter', enableInteractive)
   petEl.addEventListener('mouseleave', disableInteractive)
   cardsEl.addEventListener('mouseenter', enableInteractive)
   cardsEl.addEventListener('mouseleave', disableInteractive)
+  badge.addEventListener('mouseenter', enableInteractive)
+  badge.addEventListener('mouseleave', disableInteractive)
 }
 
 bindHover()
@@ -234,8 +237,9 @@ document.addEventListener('contextmenu', (e) => {
   window.petBridge?.showContextMenu?.()
 })
 
-// 未讀徽章：訂閱 main 推送的未讀數
+// 未讀徽章：訂閱 main 推送的未讀數，點擊開啟通知中心
 const badgeEl = document.querySelector<HTMLDivElement>('#badge')!
+badgeEl.addEventListener('click', () => window.petBridge.openCenter())
 window.petBridge?.onUnreadCount?.((n) => {
   if (n > 0) {
     badgeEl.textContent = n > 99 ? '99+' : String(n)

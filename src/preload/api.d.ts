@@ -8,6 +8,7 @@ declare global {
       onPetEvent: (cb: (event: AppEvent) => void) => void
       setInteractive: (interactive: boolean) => void
       showContextMenu: () => void
+      openCenter: () => void
       onSetSkin: (cb: (id: string) => void) => void
       onUnreadCount: (cb: (n: number) => void) => void
       markRead: (id: string) => void

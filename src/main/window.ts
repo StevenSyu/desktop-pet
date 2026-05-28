@@ -193,6 +193,7 @@ export function createPetWindow(): BrowserWindow {
     )
     ipcMain.on('walk-cancel', () => endWalk(true))
 
+    ipcMain.on('open-center', () => bus.emit('open-center'))
     ipcMain.handle('get-auto-walk', () => prefs.autoWalk)
     ipcMain.handle('get-prefs', () => prefs)
     ipcMain.on('set-walk-bounds', (_e, partial: Partial<WalkBounds>) => {
