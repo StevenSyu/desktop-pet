@@ -4,6 +4,7 @@ import { SPRITE_FORMAT } from '../core/sprite-format'
 import { PetController } from '../core/pet-fsm'
 import { DEFAULT_SKIN_ID } from '../core/skins'
 import { pickWalk, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
+import { resolveAnimation, type AnimationContext } from '../core/anim-resolver'
 import type { AppEvent, NotifyType } from '../core/events'
 import maySheet from '../../resources/pets/may/spritesheet.webp'
 import marukoSheet from '../../resources/pets/maruko/spritesheet.webp'
@@ -126,6 +127,10 @@ let walking = false
 let autoWalkEnabled = true
 let walkBounds: WalkBounds = { ...DEFAULT_WALK_BOUNDS }
 let nextWalkAt = pickWalk(Math.random, performance.now(), walkBounds).nextWalkAt
+// 互動狀態（Spec ④）：由 resolveAnimation 仲裁優先級
+let walkDirection: 'left' | 'right' | null = null
+let userAnim: { name: string; expiresAt: number } | null = null
+let dragDirection: 'left' | 'right' | null = null
 
 window.petBridge.getPrefs().then((p) => {
   autoWalkEnabled = p.autoWalk
@@ -152,30 +157,39 @@ function setAnim(name: string): void {
 function tick(): void {
   const now = performance.now()
   const view = pet.advance(now)
-  // 走動期間：保持 running-{left,right}，僅當 FSM 進入非 idle 反應（事件中斷）時才覆寫
-  if (walking) {
-    if (view.animation !== 'idle') setAnim(view.animation)
-  } else {
-    setAnim(view.animation)
+
+  // 過期清除 userAnim
+  if (userAnim && now >= userAnim.expiresAt) userAnim = null
+
+  const ctx: AnimationContext = {
+    fsmAnimation: view.animation,
+    dragMoved: dragState !== null && dragState.moved,
+    dragDirection,
+    userAnim: userAnim?.name ?? null,
+    walking,
+    walkDirection,
   }
-  // 僅 idle 且未在走動、未被暫停、自動走動開啟時觸發走動
+  setAnim(resolveAnimation(ctx))
+
+  // 自走觸發（idle 且未走動、未隱藏、自動走動開啟、到時間）
   if (autoWalkEnabled && !walking && view.animation === 'idle' && !document.hidden && now >= nextWalkAt) {
     const w = pickWalk(Math.random, now, walkBounds)
-    nextWalkAt = w.nextWalkAt // 即便走不動，也排下次
+    nextWalkAt = w.nextWalkAt
     walking = true
-    setAnim(w.direction === 'right' ? 'running-right' : 'running-left')
+    walkDirection = w.direction
     window.petBridge.walkStart({ direction: w.direction, distance: w.distance, duration: w.duration })
   }
 }
 
 window.petBridge?.onWalkEnded?.(() => {
   walking = false
+  walkDirection = null
   nextWalkAt = pickWalk(Math.random, performance.now(), walkBounds).nextWalkAt
 })
 
-// main 端方向反轉（撞牆 → 改向對面）時同步 CSS anim
+// main 端方向反轉（撞牆 → 改向對面）時同步 walkDirection
 window.petBridge?.onWalkDirection?.((direction) => {
-  if (walking) setAnim(direction === 'right' ? 'running-right' : 'running-left')
+  if (walking) walkDirection = direction
 })
 
 let tickTimer: ReturnType<typeof setInterval> | null = setInterval(tick, 100)
