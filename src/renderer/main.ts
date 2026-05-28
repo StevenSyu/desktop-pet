@@ -102,7 +102,12 @@ function setAnim(name: string): void {
 function tick(): void {
   const now = performance.now()
   const view = pet.advance(now)
-  setAnim(view.animation)
+  // 走動期間：保持 running-{left,right}，僅當 FSM 進入非 idle 反應（事件中斷）時才覆寫
+  if (walking) {
+    if (view.animation !== 'idle') setAnim(view.animation)
+  } else {
+    setAnim(view.animation)
+  }
   // 僅 idle 且未在走動、未被暫停時觸發走動
   if (!walking && view.animation === 'idle' && !document.hidden && now >= nextWalkAt) {
     const w = pickWalk(Math.random, now)
