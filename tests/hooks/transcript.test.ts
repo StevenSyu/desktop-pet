@@ -138,29 +138,33 @@ describe('extractLastAssistantText', () => {
 })
 
 describe('extractLastAssistantTextWithRetry', () => {
-  it('一開始就抓得到 → 立刻回，不延遲', async () => {
+  const fast = { initialWaitMs: 20, settleWaitMs: 30, emptyRetries: 3, emptyRetryMs: 20 }
+
+  it('一開始就抓得到 → 經過 settle 後回該文字（不被空覆蓋）', async () => {
     const file = tempFile([U('q'), A('answer')].join('\n'))
-    const t0 = Date.now()
-    const text = await extractLastAssistantTextWithRetry(file, { retries: 3, delayMs: 100 })
+    const text = await extractLastAssistantTextWithRetry(file, fast)
     expect(text).toBe('answer')
-    expect(Date.now() - t0).toBeLessThan(50) // 不應該等
   })
 
-  it('檔案延遲寫入 → 在第 N 次 retry 時抓到', async () => {
-    const file = tempFile(U('q')) // 一開始只有 user，沒 assistant
-    // 80ms 後追加 assistant 文字（落在第 1 次 retry 視窗內）
-    setTimeout(() => appendFileSync(file, '\n' + A('delayed answer')), 80)
-    const t0 = Date.now()
-    const text = await extractLastAssistantTextWithRetry(file, { retries: 3, delayMs: 100 })
-    const elapsed = Date.now() - t0
+  it('檔案延遲寫入 → retry 等到出現後抓到', async () => {
+    const file = tempFile(U('q'))
+    // 在 initialWait + 1 個 retry 之間追加（fast: ~40ms 內出現）
+    setTimeout(() => appendFileSync(file, '\n' + A('delayed answer')), 30)
+    const text = await extractLastAssistantTextWithRetry(file, fast)
     expect(text).toBe('delayed answer')
-    expect(elapsed).toBeGreaterThanOrEqual(100) // 至少跑過一次 delay
-    expect(elapsed).toBeLessThan(400)
   })
 
-  it('全程都抓不到 → retries 用完回空', async () => {
-    const file = tempFile([U('q'), '{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"..."}]}}'].join('\n'))
-    const text = await extractLastAssistantTextWithRetry(file, { retries: 2, delayMs: 50 })
+  it('抓到後仍被「更新版」蓋過 → 回最新版（避免回 penultimate）', async () => {
+    const file = tempFile([U('q'), A('penultimate')].join('\n'))
+    // initialWait 後讀到 'penultimate'；在 settleWait 期間追加 final
+    setTimeout(() => appendFileSync(file, '\n' + A('final wrap-up')), 35)
+    const text = await extractLastAssistantTextWithRetry(file, fast)
+    expect(text).toBe('final wrap-up')
+  })
+
+  it('全程都抓不到（當輪只有 thinking）→ 回空', async () => {
+    const file = tempFile([U('q'), THINK()].join('\n'))
+    const text = await extractLastAssistantTextWithRetry(file, fast)
     expect(text).toBe('')
   })
 })

@@ -77,16 +77,33 @@ export function extractLastAssistantText(transcriptPath) {
  */
 export async function extractLastAssistantTextWithRetry(
   transcriptPath,
-  { retries = 3, delayMs = 100 } = {},
+  {
+    initialWaitMs = 300, // 先等一段讓 disk 落定（Claude Code 寫 entry 跟觸發 hook 是同時）
+    settleWaitMs = 400, // 抓到後再等一段，看會不會有更新的 entry 蓋過來
+    emptyRetries = 5,
+    emptyRetryMs = 200,
+  } = {},
 ) {
-  for (let i = 0; i <= retries; i++) {
-    const text = extractLastAssistantText(transcriptPath)
-    if (text) return text
-    if (i < retries) {
-      await new Promise((r) => setTimeout(r, delayMs))
-    }
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+  // 1. 先等一段時間讓檔案落定，再讀第一次
+  if (initialWaitMs > 0) await sleep(initialWaitMs)
+  let text = extractLastAssistantText(transcriptPath)
+
+  // 2. 若空（最後 entry 還沒寫進來）→ 持續 retry 直到拿到非空 或 retries 用完
+  for (let i = 0; i < emptyRetries && !text; i++) {
+    await sleep(emptyRetryMs)
+    text = extractLastAssistantText(transcriptPath)
   }
-  return ''
+  if (!text) return ''
+
+  // 3. 已抓到非空 → 再等一段看是否被新 entry 蓋過（避免回 penultimate）
+  if (settleWaitMs > 0) {
+    await sleep(settleWaitMs)
+    const newer = extractLastAssistantText(transcriptPath)
+    if (newer) text = newer
+  }
+  return text
 }
 
 /**

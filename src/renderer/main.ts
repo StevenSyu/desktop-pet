@@ -72,6 +72,7 @@ window.petBridge?.onPetEvent?.((event: AppEvent) => {
   currentEvent = event
   renderCard()
   startReplay(event)
+  refreshBadge()
 })
 
 function renderCard(): void {
@@ -90,6 +91,7 @@ function renderCard(): void {
     currentEvent = null
     stopReplay()
     renderCard()
+    refreshBadge()
   })
 
   const label = document.createElement('div')
@@ -268,13 +270,21 @@ document.addEventListener('contextmenu', (e) => {
 })
 
 // 未讀徽章：訂閱 main 推送的未讀數，點擊開啟通知中心
+// 邏輯：總未讀 - 螢幕上正在顯示的卡片（=1）= 徽章顯示的數字；只有 1 則且就是當前卡片時不顯示
 const badgeEl = document.querySelector<HTMLDivElement>('#badge')!
 badgeEl.addEventListener('click', () => window.petBridge.openCenter())
-window.petBridge?.onUnreadCount?.((n) => {
-  if (n > 0) {
-    badgeEl.textContent = n > 99 ? '99+' : String(n)
+let lastUnreadCount = 0
+function refreshBadge(): void {
+  const visibleAndUnread = currentEvent ? 1 : 0
+  const effective = Math.max(0, lastUnreadCount - visibleAndUnread)
+  if (effective > 0) {
+    badgeEl.textContent = effective > 99 ? '99+' : String(effective)
     badgeEl.hidden = false
   } else {
     badgeEl.hidden = true
   }
+}
+window.petBridge?.onUnreadCount?.((n) => {
+  lastUnreadCount = n
+  refreshBadge()
 })
