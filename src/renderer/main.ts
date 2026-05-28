@@ -1,8 +1,9 @@
 /// <reference path="../preload/api.d.ts" />
 
-import { SPRITE_FORMAT, frameRect, type AnimationName } from '../core/sprite-format'
+import { SPRITE_FORMAT } from '../core/sprite-format'
 import { PetController } from '../core/pet-fsm'
 import { DEFAULT_SKIN_ID } from '../core/skins'
+import { pickWalk } from '../core/walk-planner'
 import type { AppEvent, NotifyType } from '../core/events'
 import maySheet from '../../resources/pets/may/spritesheet.webp'
 import marukoSheet from '../../resources/pets/maruko/spritesheet.webp'
@@ -44,6 +45,7 @@ window.petBridge?.onPetEvent?.((event: AppEvent) => {
   pet.onEvent(event, performance.now())
   currentEvent = event
   renderCard()
+  if (walking) window.petBridge.walkCancel()
 })
 
 function renderCard(): void {
@@ -86,16 +88,52 @@ function renderCard(): void {
   cardsEl.replaceChildren(card)
 }
 
-function render(now: number): void {
-  const view = pet.advance(now)
-  const anim = SPRITE_FORMAT.animations[view.animation as AnimationName]
-  // 所有動畫（含反應）持續循環輪播；反應由 FSM 維持約 3 秒後回 idle
-  const frameIndex = Math.floor((now / 1000) * anim.fps) % anim.frames
-  const rect = frameRect(anim.row, frameIndex)
-  petEl.style.backgroundPosition = `-${rect.x * DISPLAY_SCALE}px -${rect.y * DISPLAY_SCALE}px`
-  requestAnimationFrame(render)
+// ===== 動畫驅動：setInterval 輪詢 FSM 並切 #pet[data-anim]；影格動畫由 CSS @keyframes 負責 =====
+let currentAnim: string | null = null
+let walking = false
+let nextWalkAt = pickWalk(Math.random, performance.now()).nextWalkAt
+
+function setAnim(name: string): void {
+  if (currentAnim === name) return
+  currentAnim = name
+  petEl.setAttribute('data-anim', name)
 }
-requestAnimationFrame(render)
+
+function tick(): void {
+  const now = performance.now()
+  const view = pet.advance(now)
+  setAnim(view.animation)
+  // 僅 idle 且未在走動、未被暫停時觸發走動
+  if (!walking && view.animation === 'idle' && !document.hidden && now >= nextWalkAt) {
+    const w = pickWalk(Math.random, now)
+    nextWalkAt = w.nextWalkAt // 即便走不動，也排下次
+    walking = true
+    setAnim(w.direction === 'right' ? 'running-right' : 'running-left')
+    window.petBridge.walkStart({ direction: w.direction, distance: w.distance, duration: w.duration })
+  }
+}
+
+window.petBridge?.onWalkEnded?.(() => {
+  walking = false
+  nextWalkAt = pickWalk(Math.random, performance.now()).nextWalkAt
+})
+
+let tickTimer: ReturnType<typeof setInterval> | null = setInterval(tick, 100)
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    petEl.setAttribute('data-paused', 'true')
+    if (tickTimer) {
+      clearInterval(tickTimer)
+      tickTimer = null
+    }
+    if (walking) window.petBridge.walkCancel()
+  } else {
+    petEl.removeAttribute('data-paused')
+    if (!tickTimer) tickTimer = setInterval(tick, 100)
+    nextWalkAt = pickWalk(Math.random, performance.now()).nextWalkAt
+  }
+})
 
 function bindHover(): void {
   const enableInteractive = () => window.petBridge.setInteractive(true)

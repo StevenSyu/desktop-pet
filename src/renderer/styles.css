@@ -6,6 +6,31 @@ html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
   image-rendering: pixelated;
   background-repeat: no-repeat;
 }
+
+/* sprite 影格動畫：9 個 @keyframes 對應 SPRITE_FORMAT.animations。
+   DISPLAY_SCALE = 0.7、frameWidth = 192、frameHeight = 208 → 縮放後 134.4 × 145.6。 */
+@keyframes pet-idle           { from { background-position-x: 0; } to { background-position-x: -806.4px; } }   /* 6 */
+@keyframes pet-running-right  { from { background-position-x: 0; } to { background-position-x: -1075.2px; } }  /* 8 */
+@keyframes pet-running-left   { from { background-position-x: 0; } to { background-position-x: -1075.2px; } }  /* 8 */
+@keyframes pet-waving         { from { background-position-x: 0; } to { background-position-x: -537.6px; } }   /* 4 */
+@keyframes pet-jumping        { from { background-position-x: 0; } to { background-position-x: -672px; } }     /* 5 */
+@keyframes pet-failed         { from { background-position-x: 0; } to { background-position-x: -1075.2px; } }  /* 8 */
+@keyframes pet-waiting        { from { background-position-x: 0; } to { background-position-x: -806.4px; } }   /* 6 */
+@keyframes pet-running        { from { background-position-x: 0; } to { background-position-x: -806.4px; } }   /* 6 */
+@keyframes pet-review         { from { background-position-x: 0; } to { background-position-x: -940.8px; } }   /* 7 */
+
+#pet[data-anim="idle"]          { background-position-y: 0;          animation: pet-idle          4.8s  steps(6) infinite; }
+#pet[data-anim="running-right"] { background-position-y: -145.6px;   animation: pet-running-right 1.6s  steps(8) infinite; }
+#pet[data-anim="running-left"]  { background-position-y: -291.2px;   animation: pet-running-left  1.6s  steps(8) infinite; }
+#pet[data-anim="waving"]        { background-position-y: -436.8px;   animation: pet-waving        1s    steps(4) infinite; }
+#pet[data-anim="jumping"]       { background-position-y: -582.4px;   animation: pet-jumping       1s    steps(5) infinite; }
+#pet[data-anim="failed"]        { background-position-y: -728px;     animation: pet-failed        1.6s  steps(8) infinite; }
+#pet[data-anim="waiting"]       { background-position-y: -873.6px;   animation: pet-waiting       2s    steps(6) infinite; }
+#pet[data-anim="running"]       { background-position-y: -1019.2px;  animation: pet-running       1.2s  steps(6) infinite; }
+#pet[data-anim="review"]        { background-position-y: -1164.8px;  animation: pet-review        1.75s steps(7) infinite; }
+
+#pet[data-paused="true"] { animation-play-state: paused; }
+
 #cards {
   position: absolute;
   right: 10px;
