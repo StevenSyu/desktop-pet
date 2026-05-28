@@ -26,29 +26,37 @@ describe('loadPrefs', () => {
   })
   it('autoWalk 型別錯 → 該欄位回預設、walk 仍 sanitize', () => {
     const d = tempDir()
-    writeFileSync(join(d, 'prefs.json'), JSON.stringify({ autoWalk: 'no', walk: { intervalMinMs: 5000 } }))
+    writeFileSync(join(d, 'prefs.json'), JSON.stringify({ autoWalk: 'no', walk: { durationMinMs: 800 } }))
     const p = loadPrefs(d)
     expect(p.autoWalk).toBe(true)
-    expect(p.walk.intervalMinMs).toBe(5000)
+    expect(p.walk.durationMinMs).toBe(800)
   })
-  it('合法 + 部分 walk → 缺項回預設', () => {
+  it('舊版欄位（distance/interval）會被忽略，duration 仍生效', () => {
     const d = tempDir()
     writeFileSync(
       join(d, 'prefs.json'),
-      JSON.stringify({ autoWalk: false, walk: { distanceMinPx: 30, distanceMaxPx: 80 } }),
+      JSON.stringify({
+        autoWalk: false,
+        walk: {
+          intervalMinMs: 5_000,
+          intervalMaxMs: 6_000,
+          distanceMinPx: 10,
+          distanceMaxPx: 50,
+          durationMinMs: 1000,
+          durationMaxMs: 4000,
+        },
+      }),
     )
     const p = loadPrefs(d)
     expect(p.autoWalk).toBe(false)
-    expect(p.walk.distanceMinPx).toBe(30)
-    expect(p.walk.distanceMaxPx).toBe(80)
-    expect(p.walk.intervalMinMs).toBe(DEFAULT_WALK_BOUNDS.intervalMinMs)
+    expect(p.walk).toEqual({ durationMinMs: 1000, durationMaxMs: 4000 })
   })
 })
 
 describe('savePrefs', () => {
   it('寫入後可讀回相同值', () => {
     const d = tempDir()
-    const prefs = { autoWalk: false, walk: { ...DEFAULT_WALK_BOUNDS, intervalMinMs: 8000 } }
+    const prefs = { autoWalk: false, walk: { durationMinMs: 1000, durationMaxMs: 4000 } }
     savePrefs(d, prefs)
     expect(existsSync(join(d, 'prefs.json'))).toBe(true)
     expect(JSON.parse(readFileSync(join(d, 'prefs.json'), 'utf8'))).toEqual(prefs)

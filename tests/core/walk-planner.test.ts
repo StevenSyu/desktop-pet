@@ -4,6 +4,7 @@ import {
   clampWalkToWorkArea,
   sanitizeWalkBounds,
   DEFAULT_WALK_BOUNDS,
+  WALK_SPEED_PX_PER_MS,
   type WalkBounds,
 } from '../../src/core/walk-planner'
 
@@ -13,44 +14,35 @@ function seededRng(seq: number[]): () => number {
 }
 
 describe('pickWalk', () => {
-  it('依注入 rng 決定方向／距離／duration／nextWalkAt 範圍', () => {
-    // 三次 rng：direction(0=left)、distance(0→min)、duration(0→min)、interval(0→min)
-    const rng = seededRng([0, 0, 0, 0])
+  it('rng=0 → direction=left、duration 取下界、distance=duration*speed、interval 取下界', () => {
+    const rng = seededRng([0, 0, 0])
     const w = pickWalk(rng, 10_000)
     expect(w.direction).toBe('left')
-    expect(w.distance).toBe(60)
     expect(w.duration).toBe(1500)
+    expect(w.distance).toBe(Math.round(1500 * WALK_SPEED_PX_PER_MS))
     expect(w.nextWalkAt).toBe(10_000 + 30_000)
   })
 
-  it('rng=0.999 → 方向 right、距離/時長/間隔接近上界', () => {
-    const rng = seededRng([0.999, 0.999, 0.999, 0.999])
+  it('rng=0.999 → direction=right、duration 接近上界、interval 接近上界', () => {
+    const rng = seededRng([0.999, 0.999, 0.999])
     const w = pickWalk(rng, 0)
     expect(w.direction).toBe('right')
-    expect(w.distance).toBeGreaterThanOrEqual(199)
-    expect(w.distance).toBeLessThanOrEqual(200)
     expect(w.duration).toBeGreaterThanOrEqual(2997)
     expect(w.duration).toBeLessThanOrEqual(3000)
+    expect(w.distance).toBe(Math.max(1, Math.round(w.duration * WALK_SPEED_PX_PER_MS)))
     expect(w.nextWalkAt).toBeGreaterThanOrEqual(89_900)
     expect(w.nextWalkAt).toBeLessThanOrEqual(90_000)
   })
-})
 
-describe('pickWalk 自訂 bounds', () => {
-  it('用自訂 bounds 完全覆寫預設範圍', () => {
-    const bounds: WalkBounds = {
-      intervalMinMs: 5_000,
-      intervalMaxMs: 6_000,
-      distanceMinPx: 10,
-      distanceMaxPx: 20,
-      durationMinMs: 500,
-      durationMaxMs: 800,
-    }
-    const rng = seededRng([0, 0, 0, 0])
-    const w = pickWalk(rng, 0, bounds)
-    expect(w.distance).toBe(10)
+  it('distance 永遠 >= 1（即使 duration=0）', () => {
+    const w = pickWalk(seededRng([0, 0, 0]), 0, { durationMinMs: 0, durationMaxMs: 0 })
+    expect(w.distance).toBeGreaterThanOrEqual(1)
+  })
+
+  it('用自訂 duration bounds 覆寫預設', () => {
+    const bounds: WalkBounds = { durationMinMs: 500, durationMaxMs: 600 }
+    const w = pickWalk(seededRng([0, 0, 0]), 0, bounds)
     expect(w.duration).toBe(500)
-    expect(w.nextWalkAt).toBe(5_000)
   })
 })
 
@@ -58,15 +50,14 @@ describe('sanitizeWalkBounds', () => {
   it('空物件 → 全用預設', () => {
     expect(sanitizeWalkBounds({})).toEqual(DEFAULT_WALK_BOUNDS)
   })
-  it('字串/null/負數 → 對應欄位回預設', () => {
-    expect(sanitizeWalkBounds({ intervalMinMs: -1, distanceMaxPx: 'x' as unknown as number })).toEqual(
+  it('字串/負數 → 對應欄位回預設', () => {
+    expect(sanitizeWalkBounds({ durationMinMs: -1, durationMaxMs: 'x' as unknown as number })).toEqual(
       DEFAULT_WALK_BOUNDS,
     )
   })
   it('min > max 自動互換', () => {
-    const out = sanitizeWalkBounds({ intervalMinMs: 90_000, intervalMaxMs: 30_000 })
-    expect(out.intervalMinMs).toBe(30_000)
-    expect(out.intervalMaxMs).toBe(90_000)
+    const out = sanitizeWalkBounds({ durationMinMs: 5000, durationMaxMs: 1000 })
+    expect(out).toEqual({ durationMinMs: 1000, durationMaxMs: 5000 })
   })
 })
 
@@ -80,12 +71,10 @@ describe('clampWalkToWorkArea', () => {
   })
 
   it('向右會出界 → 截到剛好不出界', () => {
-    // startX=1300, petWidth=134, right edge = 1440 → 可走 6px
     expect(clampWalkToWorkArea(1300, 'right', 100, workArea, petWidth)).toBe(6)
   })
 
   it('向左會出界 → 截到剛好不出界', () => {
-    // startX=10 → 可走 10px
     expect(clampWalkToWorkArea(10, 'left', 100, workArea, petWidth)).toBe(10)
   })
 
