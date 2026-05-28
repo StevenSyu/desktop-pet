@@ -4,13 +4,14 @@
 
 ## 特色
 
-- 像素風寵物常駐桌面右下角：透明、無邊框、置頂、點擊穿透，**顯示在所有虛擬桌面 / Spaces**。
+- 像素風寵物常駐桌面右下角：透明、無邊框、置頂（`floating` 層級——別 App 全螢幕時自動退場）、點擊穿透，**顯示在所有虛擬桌面 / Spaces**。
+- **可拖動定位、自動記憶**：左鍵拖動 may 到任意位置，下次啟動自動回到原處；外接螢幕拔掉等情況座標失效時自動退回主螢幕右下角。
 - 9 種動畫狀態（idle、jumping、waving、failed、review、waiting、running…），**3 隻可切換造型**（may 奶油博美／maruko 丸子貓／oil-king-penguin 厭世石油王），全部共用同精靈格式（1536×1872、8 欄×9 列）。
 - **色彩編碼通知卡片**（左色條＋同色狀態標籤、無 emoji），暖白卡面、SF Rounded 圓體字。**持久顯示直到點關閉或被新訊息替換**。
 - **通知中心**：所有訊息進歷史佇列（容量 50）、已讀/未讀、寵物未讀數徽章、狀態 chips 篩選、時間分組（剛剛／今天稍早／更早）、長訊息展開、全部已讀／清空、× 或 Esc 關閉。
 - **Hook Kit**：Claude Code hooks（`Stop`／`Notification`（`permission_prompt`）／`StopFailure`）→ `notify.mjs` 讀 hook stdin →帶 `X-Token` POST 本機 127.0.0.1 HTTP 端點 → 寵物反應＋卡片。介接契約通用，Codex/CI/腳本也能 POST。
 - 本機 only：HTTP 端點僅 bind 127.0.0.1，共用 token 寫入 `0600` 權限的 `endpoint.json`。
-- 右鍵選單：更換造型、通知中心、關閉小幫手。
+- 右鍵選單：更換造型、通知中心、關閉小幫手（含確認對話框，避免誤觸）。
 - 核心邏輯純 TypeScript＋Vitest TDD，UI 用 Playwright `_electron` 自動煙霧測試＋截圖驗證。
 
 ## 快速開始
@@ -121,14 +122,12 @@ desktop-notify/
 
 ## 狀態與規劃
 
-**已完成**：核心庫、Electron 外殼（透明置頂／點擊穿透／all-spaces）、3 隻可換造型、色彩編碼即時卡片、Hook Kit、通知中心（歷史／未讀徽章／篩選／分組／展開）。
+**已完成**：核心庫、Electron 外殼（透明置頂／點擊穿透／all-spaces）、3 隻可換造型、色彩編碼即時卡片、Hook Kit、通知中心（歷史／未讀徽章／篩選／分組／展開）、視窗行為（拖動記憶／floating 層級／多螢幕重吸附／關閉確認）。
 
 **規劃中**：
 
-- 拖動定位記憶
 - idle 走動動畫
 - 效能 / 耗電優化（rAF→CSS、視窗不可見時暫停）
-- 多螢幕重新吸附、全螢幕層級處理
 - 跨 App 重啟的歷史持久化
 - tool-failure 偵測 → 自動觸發 error
 - 打包與簽章（codesign / notarize）
