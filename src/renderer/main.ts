@@ -40,12 +40,38 @@ const pet = new PetController()
 // 目前顯示的訊息：持久顯示、不自動消失。新訊息會替換，使用者點一下卡片才關閉。
 let currentEvent: AppEvent | null = null
 
+// 卡片仍在時每隔 REPLAY_INTERVAL_MS 重播一次對應動畫，提高遠處發現率。
+// info（→ idle）不重播；視窗不可見也跳過。
+const REPLAY_INTERVAL_MS = 30_000
+let replayTimer: ReturnType<typeof setInterval> | null = null
+
+function stopReplay(): void {
+  if (replayTimer) {
+    clearInterval(replayTimer)
+    replayTimer = null
+  }
+}
+
+function applyEvent(event: AppEvent): void {
+  pet.onEvent(event, performance.now())
+  if (walking) window.petBridge.walkCancel()
+}
+
+function startReplay(event: AppEvent): void {
+  stopReplay()
+  if (event.type === 'info') return
+  replayTimer = setInterval(() => {
+    if (document.hidden) return
+    if (currentEvent) applyEvent(currentEvent)
+  }, REPLAY_INTERVAL_MS)
+}
+
 // optional-chaining 防護：即使 preload 載入失敗，idle 動畫迴圈仍會啟動
 window.petBridge?.onPetEvent?.((event: AppEvent) => {
-  pet.onEvent(event, performance.now())
+  applyEvent(event)
   currentEvent = event
   renderCard()
-  if (walking) window.petBridge.walkCancel()
+  startReplay(event)
 })
 
 function renderCard(): void {
@@ -62,6 +88,7 @@ function renderCard(): void {
   card.addEventListener('click', () => {
     window.petBridge?.markRead?.(e.id)
     currentEvent = null
+    stopReplay()
     renderCard()
   })
 
