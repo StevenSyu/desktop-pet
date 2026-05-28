@@ -36,47 +36,32 @@ export function extractLastAssistantText(transcriptPath) {
     return ''
   }
   const lines = raw.split('\n')
-  const parsed = []
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (!trimmed) {
-      parsed.push(null)
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim()
+    if (!line) continue
+    let obj
+    try {
+      obj = JSON.parse(line)
+    } catch {
       continue
     }
-    try {
-      parsed.push(JSON.parse(trimmed))
-    } catch {
-      parsed.push(null)
-    }
-  }
-  // 1. 從後往前找最近的「使用者打字訊息」index；之後的 assistant 才算當輪
-  let turnStart = -1
-  for (let i = parsed.length - 1; i >= 0; i--) {
-    const obj = parsed[i]
-    if (!obj) continue
-    if (obj.isSidechain === true) continue
-    if (obj.type === 'user' && isUserTypedMessage(obj)) {
-      turnStart = i
-      break
-    }
-  }
-  // 2. 從 turnStart 之後（或從頭）正向收集主對話 assistant entries 的 text blocks
-  const collected = []
-  for (let i = turnStart + 1; i < parsed.length; i++) {
-    const obj = parsed[i]
-    if (!obj) continue
-    if (obj.isSidechain === true) continue
-    if (obj.type !== 'assistant') continue
+    // 排除 Task 子代理（subagent）：他們的 assistant 訊息不算主對話
+    if (obj?.isSidechain === true) continue
+
+    // 撞到當輪起點（使用者打字訊息）→ 停。當輪沒有 text 就讓 caller 用 default。
+    if (obj?.type === 'user' && isUserTypedMessage(obj)) return ''
+
+    if (obj?.type !== 'assistant') continue
     const content = obj?.message?.content
     if (!Array.isArray(content)) continue
-    for (const c of content) {
-      if (c && c.type === 'text' && typeof c.text === 'string') {
-        const t = c.text.trim()
-        if (t) collected.push(t)
-      }
-    }
+    // 該 entry 內所有 text block 用 \n 串接（保留 content 內順序）
+    const texts = content
+      .filter((c) => c && c.type === 'text' && typeof c.text === 'string')
+      .map((c) => c.text.trim())
+      .filter(Boolean)
+    if (texts.length > 0) return texts.join('\n').trim()
   }
-  return collected.join('\n').trim()
+  return ''
 }
 
 /**

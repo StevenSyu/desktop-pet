@@ -77,7 +77,7 @@ describe('extractLastAssistantText', () => {
     expect(extractLastAssistantText(file)).toBe('')
   })
 
-  it('多個 assistant entry（thinking + text + tool_use）→ 串接該輪所有 text', () => {
+  it('多 entry 當輪：只回最後一個帶 text 的 entry（給卡片用的是 wrap-up，不是中間步驟）', () => {
     const file = tempFile(
       [
         U('do it'),
@@ -88,19 +88,26 @@ describe('extractLastAssistantText', () => {
         A('finished, here is the summary'),
       ].join('\n'),
     )
-    expect(extractLastAssistantText(file)).toBe('starting\nfinished, here is the summary')
+    expect(extractLastAssistantText(file)).toBe('finished, here is the summary')
+  })
+
+  it('當輪最後是 tool_use（無 wrap-up 文字）→ 退一格找 text，但不跨輪', () => {
+    const file = tempFile(
+      [U('do it'), A('starting'), TOOL('Bash'), TOOL_RESULT(), A('mid step'), TOOL('Read')].join('\n'),
+    )
+    expect(extractLastAssistantText(file)).toBe('mid step')
   })
 
   it('tool_result（type=user 但 content 是 tool_result）不算輪邊界', () => {
     const file = tempFile([U('do it'), A('working'), TOOL_RESULT(), A('result is X')].join('\n'))
-    expect(extractLastAssistantText(file)).toBe('working\nresult is X')
+    expect(extractLastAssistantText(file)).toBe('result is X')
   })
 
   it('sidechain（Task 子代理）的 assistant 不會被當主對話收進來', () => {
     const file = tempFile(
       [U('main task'), A('on it'), A_SIDE('subagent here'), A('done')].join('\n'),
     )
-    expect(extractLastAssistantText(file)).toBe('on it\ndone')
+    expect(extractLastAssistantText(file)).toBe('done')
   })
 
   it('壞行被略過', () => {
