@@ -25,6 +25,19 @@ const TOOL = (name: string): string =>
     type: 'assistant',
     message: { content: [{ type: 'tool_use', name, input: {} }] },
   })
+const THINK = (): string =>
+  JSON.stringify({ type: 'assistant', message: { content: [{ type: 'thinking', thinking: '...' }] } })
+const TOOL_RESULT = (): string =>
+  JSON.stringify({
+    type: 'user',
+    message: { content: [{ type: 'tool_result', tool_use_id: 'x', content: 'ok' }] },
+  })
+const A_SIDE = (text: string): string =>
+  JSON.stringify({
+    type: 'assistant',
+    isSidechain: true,
+    message: { content: [{ type: 'text', text }] },
+  })
 
 describe('extractLastAssistantText', () => {
   it('檔案不存在 → 空字串', () => {
@@ -45,11 +58,46 @@ describe('extractLastAssistantText', () => {
     expect(extractLastAssistantText(file)).toBe('final words')
   })
 
-  it('最後一筆是 tool_use → 找更前面的文字', () => {
+  it('當輪最後是 tool_use（無 text wrap-up）→ 仍只回該輪的 text', () => {
     const file = tempFile(
       [A('hello'), U('do it'), A('working'), TOOL('Bash'), TOOL('Read')].join('\n'),
     )
+    // 不能回 "hello"（上一輪），只能是當輪的 "working"
     expect(extractLastAssistantText(file)).toBe('working')
+  })
+
+  it('當輪全是 thinking + tool_use（無 text）→ 不跨輪、回空字串', () => {
+    const file = tempFile(
+      [A('previous turn reply'), U('do something'), THINK(), TOOL('Bash')].join('\n'),
+    )
+    // 不應該回 "previous turn reply"（跨輪錯誤）；無 text 就退回空字串讓 caller 用 default
+    expect(extractLastAssistantText(file)).toBe('')
+  })
+
+  it('多個 assistant entry（thinking + text + tool_use）→ 串接該輪所有 text', () => {
+    const file = tempFile(
+      [
+        U('do it'),
+        THINK(),
+        A('starting'),
+        TOOL('Bash'),
+        TOOL_RESULT(),
+        A('finished, here is the summary'),
+      ].join('\n'),
+    )
+    expect(extractLastAssistantText(file)).toBe('starting\nfinished, here is the summary')
+  })
+
+  it('tool_result（type=user 但 content 是 tool_result）不算輪邊界', () => {
+    const file = tempFile([U('do it'), A('working'), TOOL_RESULT(), A('result is X')].join('\n'))
+    expect(extractLastAssistantText(file)).toBe('working\nresult is X')
+  })
+
+  it('sidechain（Task 子代理）的 assistant 不會被當主對話收進來', () => {
+    const file = tempFile(
+      [U('main task'), A('on it'), A_SIDE('subagent here'), A('done')].join('\n'),
+    )
+    expect(extractLastAssistantText(file)).toBe('on it\ndone')
   })
 
   it('壞行被略過', () => {
