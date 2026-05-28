@@ -1,5 +1,6 @@
 import type { AppEvent } from '../core/events'
 import type { StoredMessage } from '../core/message-store'
+import type { WalkBounds } from '../core/walk-planner'
 
 declare global {
   interface Window {
@@ -19,6 +20,9 @@ declare global {
       onWalkDirection: (cb: (direction: 'left' | 'right') => void) => void
       getAutoWalk: () => Promise<boolean>
       onAutoWalkChanged: (cb: (enabled: boolean) => void) => void
+      getPrefs: () => Promise<{ autoWalk: boolean; walk: WalkBounds }>
+      setWalkBounds: (bounds: Partial<WalkBounds>) => void
+      onPrefsChanged: (cb: (prefs: { autoWalk: boolean; walk: WalkBounds }) => void) => void
       getMessages: () => Promise<StoredMessage[]>
       markAllRead: () => void
       clearMessages: () => void

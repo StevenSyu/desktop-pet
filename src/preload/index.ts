@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { AppEvent } from '../core/events'
+import type { WalkBounds } from '../core/walk-planner'
 
 contextBridge.exposeInMainWorld('petBridge', {
   onPetEvent: (cb: (event: AppEvent) => void) => {
@@ -29,6 +30,11 @@ contextBridge.exposeInMainWorld('petBridge', {
   getAutoWalk: () => ipcRenderer.invoke('get-auto-walk') as Promise<boolean>,
   onAutoWalkChanged: (cb: (enabled: boolean) => void) => {
     ipcRenderer.on('auto-walk-changed', (_e, enabled: boolean) => cb(enabled))
+  },
+  getPrefs: () => ipcRenderer.invoke('get-prefs') as Promise<{ autoWalk: boolean; walk: WalkBounds }>,
+  setWalkBounds: (bounds: Partial<WalkBounds>) => ipcRenderer.send('set-walk-bounds', bounds),
+  onPrefsChanged: (cb: (prefs: { autoWalk: boolean; walk: WalkBounds }) => void) => {
+    ipcRenderer.on('prefs-changed', (_e, prefs) => cb(prefs))
   },
   getMessages: () => ipcRenderer.invoke('get-messages'),
   markAllRead: () => ipcRenderer.send('mark-all-read'),

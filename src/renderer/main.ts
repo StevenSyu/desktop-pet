@@ -3,7 +3,7 @@
 import { SPRITE_FORMAT } from '../core/sprite-format'
 import { PetController } from '../core/pet-fsm'
 import { DEFAULT_SKIN_ID } from '../core/skins'
-import { pickWalk } from '../core/walk-planner'
+import { pickWalk, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
 import type { AppEvent, NotifyType } from '../core/events'
 import maySheet from '../../resources/pets/may/spritesheet.webp'
 import marukoSheet from '../../resources/pets/maruko/spritesheet.webp'
@@ -92,13 +92,23 @@ function renderCard(): void {
 let currentAnim: string | null = null
 let walking = false
 let autoWalkEnabled = true
-let nextWalkAt = pickWalk(Math.random, performance.now()).nextWalkAt
+let walkBounds: WalkBounds = { ...DEFAULT_WALK_BOUNDS }
+let nextWalkAt = pickWalk(Math.random, performance.now(), walkBounds).nextWalkAt
 
-window.petBridge.getAutoWalk().then((v) => { autoWalkEnabled = v })
+window.petBridge.getPrefs().then((p) => {
+  autoWalkEnabled = p.autoWalk
+  walkBounds = p.walk
+  nextWalkAt = pickWalk(Math.random, performance.now(), walkBounds).nextWalkAt
+})
 window.petBridge.onAutoWalkChanged((enabled) => {
   autoWalkEnabled = enabled
   if (!enabled && walking) window.petBridge.walkCancel()
-  if (enabled) nextWalkAt = pickWalk(Math.random, performance.now()).nextWalkAt
+  if (enabled) nextWalkAt = pickWalk(Math.random, performance.now(), walkBounds).nextWalkAt
+})
+window.petBridge.onPrefsChanged((p) => {
+  autoWalkEnabled = p.autoWalk
+  walkBounds = p.walk
+  nextWalkAt = pickWalk(Math.random, performance.now(), walkBounds).nextWalkAt
 })
 
 function setAnim(name: string): void {
@@ -118,7 +128,7 @@ function tick(): void {
   }
   // 僅 idle 且未在走動、未被暫停、自動走動開啟時觸發走動
   if (autoWalkEnabled && !walking && view.animation === 'idle' && !document.hidden && now >= nextWalkAt) {
-    const w = pickWalk(Math.random, now)
+    const w = pickWalk(Math.random, now, walkBounds)
     nextWalkAt = w.nextWalkAt // 即便走不動，也排下次
     walking = true
     setAnim(w.direction === 'right' ? 'running-right' : 'running-left')
@@ -128,7 +138,7 @@ function tick(): void {
 
 window.petBridge?.onWalkEnded?.(() => {
   walking = false
-  nextWalkAt = pickWalk(Math.random, performance.now()).nextWalkAt
+  nextWalkAt = pickWalk(Math.random, performance.now(), walkBounds).nextWalkAt
 })
 
 // main 端方向反轉（撞牆 → 改向對面）時同步 CSS anim
@@ -149,7 +159,7 @@ document.addEventListener('visibilitychange', () => {
   } else {
     petEl.removeAttribute('data-paused')
     if (!tickTimer) tickTimer = setInterval(tick, 100)
-    nextWalkAt = pickWalk(Math.random, performance.now()).nextWalkAt
+    nextWalkAt = pickWalk(Math.random, performance.now(), walkBounds).nextWalkAt
   }
 })
 

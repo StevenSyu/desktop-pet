@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { createPetWindow } from './window'
 import { createCenterWindow } from './center-window'
+import { createSettingsWindow } from './settings-window'
 import { findFreePort, generateToken, writeEndpointFile } from './endpoint'
 import { startIngestServer } from './ingest'
 import { MessageStore } from '../core/message-store'
@@ -10,6 +11,7 @@ import type { AppEvent } from '../core/events'
 const store = new MessageStore()
 let petWindow: BrowserWindow | null = null
 let centerWindow: BrowserWindow | null = null
+let settingsWindow: BrowserWindow | null = null
 
 function broadcastUnread(): void {
   if (petWindow && !petWindow.isDestroyed()) petWindow.webContents.send('unread-count', store.unreadCount())
@@ -66,6 +68,16 @@ app.whenReady().then(async () => {
   ipcMain.handle('get-messages', () => store.list())
 
   bus.on('open-center', openCenter)
+  bus.on('open-settings', () => {
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.focus()
+      return
+    }
+    settingsWindow = createSettingsWindow()
+    settingsWindow.on('closed', () => {
+      settingsWindow = null
+    })
+  })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) petWindow = createPetWindow()

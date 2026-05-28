@@ -23,6 +23,7 @@ export default defineConfig({
         input: {
           index: 'src/renderer/index.html',
           center: 'src/renderer/center.html',
+          settings: 'src/renderer/settings.html',
         },
       },
     },

@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { SKINS } from '../core/skins'
 import { bus } from './bus'
 import { clampToValidPosition, defaultPosition, type DisplayInfo } from '../core/window-position'
-import { clampWalkToWorkArea } from '../core/walk-planner'
+import { clampWalkToWorkArea, sanitizeWalkBounds, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
 import { loadWindowState, saveWindowState } from './window-state'
 import { loadPrefs, savePrefs, type Prefs } from './prefs'
 
@@ -12,7 +12,7 @@ const PET_HEIGHT = 300
 const MARGIN = 24
 let handlersRegistered = false
 let petWinRef: BrowserWindow | null = null
-let prefs: Prefs = { autoWalk: true }
+let prefs: Prefs = { autoWalk: true, walk: { ...DEFAULT_WALK_BOUNDS } }
 
 export function createPetWindow(): BrowserWindow {
   const primary = screen.getPrimaryDisplay()
@@ -80,6 +80,7 @@ export function createPetWindow(): BrowserWindow {
             if (!prefs.autoWalk) endWalk(true)
           },
         },
+        { label: '進階設定…', click: () => bus.emit('open-settings') },
         { type: 'separator' },
         { label: '通知中心', click: () => bus.emit('open-center') },
         { type: 'separator' },
@@ -193,6 +194,15 @@ export function createPetWindow(): BrowserWindow {
     ipcMain.on('walk-cancel', () => endWalk(true))
 
     ipcMain.handle('get-auto-walk', () => prefs.autoWalk)
+    ipcMain.handle('get-prefs', () => prefs)
+    ipcMain.on('set-walk-bounds', (_e, partial: Partial<WalkBounds>) => {
+      const next = sanitizeWalkBounds({ ...prefs.walk, ...partial })
+      prefs = { ...prefs, walk: next }
+      savePrefs(app.getPath('userData'), prefs)
+      if (petWinRef && !petWinRef.isDestroyed()) {
+        petWinRef.webContents.send('prefs-changed', prefs)
+      }
+    })
 
     // ===== display-removed：失效時吸附回 primary =====
     screen.on('display-removed', () => {

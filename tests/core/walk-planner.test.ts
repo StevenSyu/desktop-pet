@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { pickWalk, clampWalkToWorkArea } from '../../src/core/walk-planner'
+import {
+  pickWalk,
+  clampWalkToWorkArea,
+  sanitizeWalkBounds,
+  DEFAULT_WALK_BOUNDS,
+  type WalkBounds,
+} from '../../src/core/walk-planner'
 
 function seededRng(seq: number[]): () => number {
   let i = 0
@@ -27,6 +33,40 @@ describe('pickWalk', () => {
     expect(w.duration).toBeLessThanOrEqual(3000)
     expect(w.nextWalkAt).toBeGreaterThanOrEqual(89_900)
     expect(w.nextWalkAt).toBeLessThanOrEqual(90_000)
+  })
+})
+
+describe('pickWalk 自訂 bounds', () => {
+  it('用自訂 bounds 完全覆寫預設範圍', () => {
+    const bounds: WalkBounds = {
+      intervalMinMs: 5_000,
+      intervalMaxMs: 6_000,
+      distanceMinPx: 10,
+      distanceMaxPx: 20,
+      durationMinMs: 500,
+      durationMaxMs: 800,
+    }
+    const rng = seededRng([0, 0, 0, 0])
+    const w = pickWalk(rng, 0, bounds)
+    expect(w.distance).toBe(10)
+    expect(w.duration).toBe(500)
+    expect(w.nextWalkAt).toBe(5_000)
+  })
+})
+
+describe('sanitizeWalkBounds', () => {
+  it('空物件 → 全用預設', () => {
+    expect(sanitizeWalkBounds({})).toEqual(DEFAULT_WALK_BOUNDS)
+  })
+  it('字串/null/負數 → 對應欄位回預設', () => {
+    expect(sanitizeWalkBounds({ intervalMinMs: -1, distanceMaxPx: 'x' as unknown as number })).toEqual(
+      DEFAULT_WALK_BOUNDS,
+    )
+  })
+  it('min > max 自動互換', () => {
+    const out = sanitizeWalkBounds({ intervalMinMs: 90_000, intervalMaxMs: 30_000 })
+    expect(out.intervalMinMs).toBe(30_000)
+    expect(out.intervalMaxMs).toBe(90_000)
   })
 })
 

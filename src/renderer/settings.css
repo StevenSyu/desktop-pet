@@ -1,0 +1,86 @@
+html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+body {
+  font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif;
+  color: #2a2622;
+}
+
+.panel {
+  margin: 8px;
+  padding: 16px 18px 14px;
+  background: #fffdf8;
+  border-radius: 14px;
+  box-shadow: 0 14px 36px rgba(46, 33, 18, .24);
+  user-select: none;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.title { font-weight: 800; font-size: 15px; letter-spacing: .04em; }
+.x {
+  border: 0; background: transparent; cursor: pointer;
+  color: #8a8175; font-size: 18px; line-height: 1; padding: 4px 6px; border-radius: 6px;
+}
+.x:hover { background: rgba(0,0,0,.06); color: #2a2622; }
+
+.group {
+  border-top: 1px solid rgba(46, 33, 18, .1);
+  padding: 10px 0 4px;
+}
+.group:first-of-type { border-top: 0; }
+.g-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  color: #ad9f8c;
+  margin-bottom: 6px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.row label {
+  width: 56px;
+  font-size: 13px;
+  color: #5a4f44;
+}
+.row input {
+  width: 100px;
+  padding: 5px 8px;
+  border: 1px solid rgba(46, 33, 18, .18);
+  border-radius: 7px;
+  background: #fff;
+  font: 600 13px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  color: #2a2622;
+  outline: none;
+}
+.row input:focus { border-color: #5b6ee0; box-shadow: 0 0 0 3px rgba(91,110,224,.18); }
+.row .unit { font-size: 12px; color: #ad9f8c; }
+
+footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+button.primary, button.ghost {
+  border: 0; padding: 7px 14px; border-radius: 8px;
+  font: 700 13px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  cursor: pointer;
+}
+button.primary { background: #2e9e6b; color: #fff; }
+button.primary:hover { background: #257f56; }
+button.ghost { background: transparent; color: #5a4f44; }
+button.ghost:hover { background: rgba(0,0,0,.05); }
+
+.hint {
+  margin-top: 8px; font-size: 11.5px; color: #ad9f8c; min-height: 14px; text-align: right;
+}
+.hint.ok { color: #2e9e6b; }
+.hint.err { color: #d6453d; }
