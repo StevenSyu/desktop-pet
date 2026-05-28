@@ -58,6 +58,7 @@ function renderCard(): void {
   card.dataset.type = e.type // CSS 依此上狀態色
   card.title = '點一下關閉'
   card.addEventListener('click', () => {
+    window.petBridge?.markRead?.(e.id)
     currentEvent = null
     renderCard()
   })
@@ -112,4 +113,15 @@ bindHover()
 document.addEventListener('contextmenu', (e) => {
   e.preventDefault()
   window.petBridge?.showContextMenu?.()
+})
+
+// 未讀徽章：訂閱 main 推送的未讀數
+const badgeEl = document.querySelector<HTMLDivElement>('#badge')!
+window.petBridge?.onUnreadCount?.((n) => {
+  if (n > 0) {
+    badgeEl.textContent = n > 99 ? '99+' : String(n)
+    badgeEl.hidden = false
+  } else {
+    badgeEl.hidden = true
+  }
 })

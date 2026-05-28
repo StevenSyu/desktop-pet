@@ -7,6 +7,8 @@ declare global {
       setInteractive: (interactive: boolean) => void
       showContextMenu: () => void
       onSetSkin: (cb: (id: string) => void) => void
+      onUnreadCount: (cb: (n: number) => void) => void
+      markRead: (id: string) => void
     }
   }
 }

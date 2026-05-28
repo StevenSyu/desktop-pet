@@ -10,4 +10,8 @@ contextBridge.exposeInMainWorld('petBridge', {
   onSetSkin: (cb: (id: string) => void) => {
     ipcRenderer.on('set-skin', (_e, id: string) => cb(id))
   },
+  onUnreadCount: (cb: (n: number) => void) => {
+    ipcRenderer.on('unread-count', (_e, n: number) => cb(n))
+  },
+  markRead: (id: string) => ipcRenderer.send('mark-read', id),
 })
