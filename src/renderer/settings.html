@@ -8,9 +8,20 @@
   <body>
     <div class="panel">
       <header>
-        <div class="title">進階設定</div>
+        <div class="title">進階設定 · 走動參數</div>
         <button id="close" class="x" aria-label="關閉">×</button>
       </header>
+
+      <section class="group">
+        <div class="g-title">走動間隔</div>
+        <div class="g-desc">每隔多久 may 會自動走一次。</div>
+        <div class="row">
+          <label>最短</label><input id="iMin" type="number" min="0" step="1" /><span class="unit">秒</span>
+        </div>
+        <div class="row">
+          <label>最長</label><input id="iMax" type="number" min="0" step="1" /><span class="unit">秒</span>
+        </div>
+      </section>
 
       <section class="group">
         <div class="g-title">走動秒數</div>

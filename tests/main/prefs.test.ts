@@ -31,7 +31,7 @@ describe('loadPrefs', () => {
     expect(p.autoWalk).toBe(true)
     expect(p.walk.durationMinMs).toBe(800)
   })
-  it('舊版欄位（distance/interval）會被忽略，duration 仍生效', () => {
+  it('舊版 distance 欄位被忽略，interval/duration 仍生效', () => {
     const d = tempDir()
     writeFileSync(
       join(d, 'prefs.json'),
@@ -49,14 +49,22 @@ describe('loadPrefs', () => {
     )
     const p = loadPrefs(d)
     expect(p.autoWalk).toBe(false)
-    expect(p.walk).toEqual({ durationMinMs: 1000, durationMaxMs: 4000 })
+    expect(p.walk).toEqual({
+      intervalMinMs: 5_000,
+      intervalMaxMs: 6_000,
+      durationMinMs: 1000,
+      durationMaxMs: 4000,
+    })
   })
 })
 
 describe('savePrefs', () => {
   it('寫入後可讀回相同值', () => {
     const d = tempDir()
-    const prefs = { autoWalk: false, walk: { durationMinMs: 1000, durationMaxMs: 4000 } }
+    const prefs = {
+      autoWalk: false,
+      walk: { intervalMinMs: 10_000, intervalMaxMs: 30_000, durationMinMs: 1000, durationMaxMs: 4000 },
+    }
     savePrefs(d, prefs)
     expect(existsSync(join(d, 'prefs.json'))).toBe(true)
     expect(JSON.parse(readFileSync(join(d, 'prefs.json'), 'utf8'))).toEqual(prefs)

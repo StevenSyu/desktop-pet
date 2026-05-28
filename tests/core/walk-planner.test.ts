@@ -14,7 +14,7 @@ function seededRng(seq: number[]): () => number {
 }
 
 describe('pickWalk', () => {
-  it('rng=0 → direction=left、duration 取下界、distance=duration*speed、interval 取下界', () => {
+  it('rng=0 → direction=left、duration/interval 取下界、distance=duration*speed', () => {
     const rng = seededRng([0, 0, 0])
     const w = pickWalk(rng, 10_000)
     expect(w.direction).toBe('left')
@@ -23,7 +23,7 @@ describe('pickWalk', () => {
     expect(w.nextWalkAt).toBe(10_000 + 30_000)
   })
 
-  it('rng=0.999 → direction=right、duration 接近上界、interval 接近上界', () => {
+  it('rng=0.999 → direction=right、duration/interval 接近上界', () => {
     const rng = seededRng([0.999, 0.999, 0.999])
     const w = pickWalk(rng, 0)
     expect(w.direction).toBe('right')
@@ -35,14 +35,25 @@ describe('pickWalk', () => {
   })
 
   it('distance 永遠 >= 1（即使 duration=0）', () => {
-    const w = pickWalk(seededRng([0, 0, 0]), 0, { durationMinMs: 0, durationMaxMs: 0 })
+    const w = pickWalk(seededRng([0, 0, 0]), 0, {
+      intervalMinMs: 0,
+      intervalMaxMs: 0,
+      durationMinMs: 0,
+      durationMaxMs: 0,
+    })
     expect(w.distance).toBeGreaterThanOrEqual(1)
   })
 
-  it('用自訂 duration bounds 覆寫預設', () => {
-    const bounds: WalkBounds = { durationMinMs: 500, durationMaxMs: 600 }
+  it('用自訂 bounds 完全覆寫預設範圍', () => {
+    const bounds: WalkBounds = {
+      intervalMinMs: 5_000,
+      intervalMaxMs: 6_000,
+      durationMinMs: 500,
+      durationMaxMs: 600,
+    }
     const w = pickWalk(seededRng([0, 0, 0]), 0, bounds)
     expect(w.duration).toBe(500)
+    expect(w.nextWalkAt).toBe(5_000)
   })
 })
 
@@ -51,13 +62,14 @@ describe('sanitizeWalkBounds', () => {
     expect(sanitizeWalkBounds({})).toEqual(DEFAULT_WALK_BOUNDS)
   })
   it('字串/負數 → 對應欄位回預設', () => {
-    expect(sanitizeWalkBounds({ durationMinMs: -1, durationMaxMs: 'x' as unknown as number })).toEqual(
+    expect(sanitizeWalkBounds({ intervalMinMs: -1, durationMaxMs: 'x' as unknown as number })).toEqual(
       DEFAULT_WALK_BOUNDS,
     )
   })
   it('min > max 自動互換', () => {
-    const out = sanitizeWalkBounds({ durationMinMs: 5000, durationMaxMs: 1000 })
-    expect(out).toEqual({ durationMinMs: 1000, durationMaxMs: 5000 })
+    const out = sanitizeWalkBounds({ intervalMinMs: 90_000, intervalMaxMs: 30_000 })
+    expect(out.intervalMinMs).toBe(30_000)
+    expect(out.intervalMaxMs).toBe(90_000)
   })
 })
 

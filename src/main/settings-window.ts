@@ -2,7 +2,7 @@ import { BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
 
 const W = 340
-const H = 260
+const H = 400
 
 export function createSettingsWindow(): BrowserWindow {
   const primary = screen.getPrimaryDisplay()

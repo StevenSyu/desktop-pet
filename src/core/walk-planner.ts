@@ -9,23 +9,22 @@ export interface Walk {
 
 export interface WorkArea { x: number; y: number; width: number; height: number }
 
-// 走動秒數是使用者唯一可調的參數；距離以固定速率（px/秒）從 duration 換算。
+// 使用者可調：走動間隔 + 走動秒數；走動距離由秒數固定速率換算，不開放。
 export interface WalkBounds {
+  intervalMinMs: number
+  intervalMaxMs: number
   durationMinMs: number
   durationMaxMs: number
 }
 
 export const DEFAULT_WALK_BOUNDS: WalkBounds = {
+  intervalMinMs: 30_000,
+  intervalMaxMs: 90_000,
   durationMinMs: 1500,
   durationMaxMs: 3000,
 }
 
-// 走動間隔不開放使用者調整：固定 spec 預設範圍。
-const INTERVAL_MIN_MS = 30_000
-const INTERVAL_MAX_MS = 90_000
-
-// 走動速率（px/ms）：以原 spec 中段（distance 130px / duration 2250ms ≈ 0.058）為基準
-// 取整數方便心算；duration 越長走得越遠。
+// 走動速率（px/ms）：原 spec 中段（130px / 2250ms ≈ 0.058）取整，duration 越長走得越遠。
 export const WALK_SPEED_PX_PER_MS = 0.08
 
 export function pickWalk(
@@ -38,7 +37,9 @@ export function pickWalk(
     bounds.durationMinMs + rng() * (bounds.durationMaxMs - bounds.durationMinMs),
   )
   const distance = Math.max(1, Math.round(duration * WALK_SPEED_PX_PER_MS))
-  const interval = Math.round(INTERVAL_MIN_MS + rng() * (INTERVAL_MAX_MS - INTERVAL_MIN_MS))
+  const interval = Math.round(
+    bounds.intervalMinMs + rng() * (bounds.intervalMaxMs - bounds.intervalMinMs),
+  )
   return { direction, distance, duration, nextWalkAt: now + interval }
 }
 
@@ -60,13 +61,15 @@ export function clampWalkToWorkArea(
   }
 }
 
-// 夾住 duration 範圍與彼此互換（min 必 <= max；所有值都 >= 0）。
 export function sanitizeWalkBounds(b: Partial<WalkBounds>): WalkBounds {
   const d = DEFAULT_WALK_BOUNDS
   const v = (x: unknown, fallback: number): number =>
     typeof x === 'number' && Number.isFinite(x) && x >= 0 ? x : fallback
+  let intervalMinMs = v(b.intervalMinMs, d.intervalMinMs)
+  let intervalMaxMs = v(b.intervalMaxMs, d.intervalMaxMs)
+  if (intervalMinMs > intervalMaxMs) [intervalMinMs, intervalMaxMs] = [intervalMaxMs, intervalMinMs]
   let durationMinMs = v(b.durationMinMs, d.durationMinMs)
   let durationMaxMs = v(b.durationMaxMs, d.durationMaxMs)
   if (durationMinMs > durationMaxMs) [durationMinMs, durationMaxMs] = [durationMaxMs, durationMinMs]
-  return { durationMinMs, durationMaxMs }
+  return { intervalMinMs, intervalMaxMs, durationMinMs, durationMaxMs }
 }
