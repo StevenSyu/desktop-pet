@@ -1,22 +1,29 @@
-import { app, BrowserWindow, screen, ipcMain, Menu } from 'electron'
+import { app, BrowserWindow, screen, ipcMain, Menu, dialog } from 'electron'
 import { join } from 'node:path'
 import { SKINS } from '../core/skins'
 import { bus } from './bus'
+import { clampToValidPosition, defaultPosition, type DisplayInfo } from '../core/window-position'
+import { loadWindowState, saveWindowState } from './window-state'
 
 const PET_WIDTH = 280
 const PET_HEIGHT = 300
 const MARGIN = 24
 let handlersRegistered = false
+let petWinRef: BrowserWindow | null = null
 
 export function createPetWindow(): BrowserWindow {
   const primary = screen.getPrimaryDisplay()
-  const { x, y, width, height } = primary.workArea
+  const displays: DisplayInfo[] = screen.getAllDisplays().map((d) => ({ id: d.id, workArea: d.workArea }))
+  const primaryInfo: DisplayInfo = { id: primary.id, workArea: primary.workArea }
+  const saved = loadWindowState(app.getPath('userData'))
+  const winSize = { width: PET_WIDTH, height: PET_HEIGHT }
+  const { x: initX, y: initY } = clampToValidPosition(saved, displays, primaryInfo, winSize, MARGIN)
 
   const win = new BrowserWindow({
     width: PET_WIDTH,
     height: PET_HEIGHT,
-    x: x + width - PET_WIDTH - MARGIN,
-    y: y + height - PET_HEIGHT - MARGIN,
+    x: initX,
+    y: initY,
     frame: false,
     transparent: true,
     resizable: false,
@@ -28,7 +35,7 @@ export function createPetWindow(): BrowserWindow {
     },
   })
 
-  win.setAlwaysOnTop(true, 'screen-saver')
+  win.setAlwaysOnTop(true, 'floating')
   // 顯示在所有虛擬桌面 / Spaces（含全螢幕 App 的 Space）
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
 
@@ -38,6 +45,10 @@ export function createPetWindow(): BrowserWindow {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
   win.setIgnoreMouseEvents(true, { forward: true })
+  petWinRef = win
+  win.on('closed', () => {
+    if (petWinRef === win) petWinRef = null
+  })
   if (!handlersRegistered) {
     handlersRegistered = true
     ipcMain.on('set-interactive', (_event, interactive: boolean) => {
@@ -55,9 +66,78 @@ export function createPetWindow(): BrowserWindow {
         { type: 'separator' },
         { label: '通知中心', click: () => bus.emit('open-center') },
         { type: 'separator' },
-        { label: '關閉小幫手', click: () => app.quit() },
+        {
+          label: '關閉小幫手',
+          click: async () => {
+            if (!petWinRef || petWinRef.isDestroyed()) {
+              app.quit()
+              return
+            }
+            const { response } = await dialog.showMessageBox(petWinRef, {
+              type: 'question',
+              buttons: ['取消', '關閉'],
+              defaultId: 0,
+              cancelId: 0,
+              title: '關閉 may？',
+              message: '關閉 may？',
+              detail: '關閉後 Claude Code hook 仍會觸發，但 may 不會顯示。',
+            })
+            if (response === 1) app.quit()
+          },
+        },
       ])
       menu.popup({ window: win })
+    })
+
+    // ===== 拖動 =====
+    let dragStartScreen: { x: number; y: number } | null = null
+    let dragStartWin: { x: number; y: number } | null = null
+
+    ipcMain.on('drag-start', (_event, sx: number, sy: number) => {
+      if (!petWinRef || petWinRef.isDestroyed()) return
+      const [wx, wy] = petWinRef.getPosition()
+      dragStartScreen = { x: sx, y: sy }
+      dragStartWin = { x: wx, y: wy }
+    })
+    ipcMain.on('drag-move', (_event, sx: number, sy: number) => {
+      if (!petWinRef || petWinRef.isDestroyed()) return
+      if (!dragStartScreen || !dragStartWin) return
+      const nx = dragStartWin.x + (sx - dragStartScreen.x)
+      const ny = dragStartWin.y + (sy - dragStartScreen.y)
+      petWinRef.setPosition(Math.round(nx), Math.round(ny))
+    })
+    ipcMain.on('drag-end', () => {
+      dragStartScreen = null
+      dragStartWin = null
+      if (!petWinRef || petWinRef.isDestroyed()) return
+      const [x, y] = petWinRef.getPosition()
+      const d = screen.getDisplayMatching(petWinRef.getBounds())
+      saveWindowState(app.getPath('userData'), { displayId: d.id, x, y })
+    })
+
+    // ===== display-removed：失效時吸附回 primary =====
+    screen.on('display-removed', () => {
+      if (!petWinRef || petWinRef.isDestroyed()) return
+      const bounds = petWinRef.getBounds()
+      const displays = screen.getAllDisplays()
+      const containing = displays.find((d) => {
+        const wa = d.workArea
+        return (
+          bounds.x >= wa.x &&
+          bounds.y >= wa.y &&
+          bounds.x + bounds.width <= wa.x + wa.width &&
+          bounds.y + bounds.height <= wa.y + wa.height
+        )
+      })
+      if (!containing) {
+        const primary = screen.getPrimaryDisplay()
+        const pos = defaultPosition(
+          { id: primary.id, workArea: primary.workArea },
+          { width: PET_WIDTH, height: PET_HEIGHT },
+          MARGIN,
+        )
+        petWinRef.setPosition(pos.x, pos.y)
+      }
     })
   }
   return win

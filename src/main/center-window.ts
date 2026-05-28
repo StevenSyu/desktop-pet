@@ -26,7 +26,7 @@ export function createCenterWindow(): BrowserWindow {
     },
   })
 
-  win.setAlwaysOnTop(true, 'screen-saver')
+  win.setAlwaysOnTop(true, 'floating')
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
 
   if (process.env.ELECTRON_RENDERER_URL) {
