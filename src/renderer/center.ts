@@ -2,6 +2,7 @@
 import type { StoredMessage } from '../core/message-store'
 import type { NotifyType } from '../core/events'
 import { relativeTime, timeGroup, type TimeGroup } from '../core/time-format'
+import { stripMarkdown } from '../core/markdown-strip'
 
 const LABEL: Record<NotifyType, string> = {
   done: '完成',
@@ -67,7 +68,7 @@ function buildItem(m: StoredMessage, now: number): HTMLDivElement {
   if (m.body) {
     const body = document.createElement('div')
     body.className = 'body'
-    body.textContent = m.body
+    body.textContent = stripMarkdown(m.body)
     main.appendChild(body)
 
     const expand = document.createElement('div')

@@ -6,6 +6,7 @@ import { DEFAULT_SKIN_ID } from '../core/skins'
 import { pickWalk, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
 import { resolveAnimation, type AnimationContext } from '../core/anim-resolver'
 import { classifyClick, DEFAULT_DOUBLE_CLICK_MS } from '../core/click-dispatcher'
+import { stripMarkdown } from '../core/markdown-strip'
 import type { AppEvent, NotifyType } from '../core/events'
 import maySheet from '../../resources/pets/may/spritesheet.webp'
 import marukoSheet from '../../resources/pets/maruko/spritesheet.webp'
@@ -111,7 +112,7 @@ function renderCard(): void {
   if (e.body) {
     const body = document.createElement('div')
     body.className = 'card-body'
-    body.textContent = e.body
+    body.textContent = stripMarkdown(e.body)
     card.appendChild(body)
   }
 
