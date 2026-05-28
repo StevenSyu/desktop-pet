@@ -96,7 +96,11 @@ header {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.item .body.expanded { -webkit-line-clamp: unset; }
+.item .body.expanded {
+  -webkit-line-clamp: unset;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .item .src { font-size: 10px; color: #ad9f8c; margin-top: 2px; }
 .item .meta {
   display: flex;
