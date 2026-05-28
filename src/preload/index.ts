@@ -17,6 +17,12 @@ contextBridge.exposeInMainWorld('petBridge', {
   dragStart: (sx: number, sy: number) => ipcRenderer.send('drag-start', sx, sy),
   dragMove: (sx: number, sy: number) => ipcRenderer.send('drag-move', sx, sy),
   dragEnd: () => ipcRenderer.send('drag-end'),
+  walkStart: (req: { direction: 'left' | 'right'; distance: number; duration: number }) =>
+    ipcRenderer.send('walk-start', req),
+  walkCancel: () => ipcRenderer.send('walk-cancel'),
+  onWalkEnded: (cb: () => void) => {
+    ipcRenderer.on('walk-ended', () => cb())
+  },
   getMessages: () => ipcRenderer.invoke('get-messages'),
   markAllRead: () => ipcRenderer.send('mark-all-read'),
   clearMessages: () => ipcRenderer.send('clear-messages'),

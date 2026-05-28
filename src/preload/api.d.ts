@@ -13,6 +13,9 @@ declare global {
       dragStart: (sx: number, sy: number) => void
       dragMove: (sx: number, sy: number) => void
       dragEnd: () => void
+      walkStart: (req: { direction: 'left' | 'right'; distance: number; duration: number }) => void
+      walkCancel: () => void
+      onWalkEnded: (cb: () => void) => void
       getMessages: () => Promise<StoredMessage[]>
       markAllRead: () => void
       clearMessages: () => void
