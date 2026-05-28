@@ -10,6 +10,9 @@ declare global {
       onSetSkin: (cb: (id: string) => void) => void
       onUnreadCount: (cb: (n: number) => void) => void
       markRead: (id: string) => void
+      dragStart: (sx: number, sy: number) => void
+      dragMove: (sx: number, sy: number) => void
+      dragEnd: () => void
       getMessages: () => Promise<StoredMessage[]>
       markAllRead: () => void
       clearMessages: () => void

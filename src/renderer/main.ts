@@ -109,6 +109,59 @@ function bindHover(): void {
 
 bindHover()
 
+// 拖動寵物：自寫 pointer 處理（不用 -webkit-app-region: drag，避免破壞右鍵選單與 hover）
+const DRAG_THRESHOLD = 3 // px：超過才算拖動，否則視為點擊（保留給未來互動）
+let dragState: { startSx: number; startSy: number; moved: boolean } | null = null
+let pendingDragMove: { sx: number; sy: number } | null = null
+let dragMoveRaf = 0
+
+function flushDragMove(): void {
+  dragMoveRaf = 0
+  if (pendingDragMove) {
+    window.petBridge.dragMove(pendingDragMove.sx, pendingDragMove.sy)
+    pendingDragMove = null
+  }
+}
+
+petEl.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return // 只接左鍵；右鍵留給 contextmenu
+  dragState = { startSx: e.screenX, startSy: e.screenY, moved: false }
+  petEl.setPointerCapture(e.pointerId)
+  window.petBridge.dragStart(e.screenX, e.screenY)
+})
+
+petEl.addEventListener('pointermove', (e) => {
+  if (!dragState) return
+  if (!dragState.moved) {
+    const dx = Math.abs(e.screenX - dragState.startSx)
+    const dy = Math.abs(e.screenY - dragState.startSy)
+    if (dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) return
+    dragState.moved = true
+  }
+  pendingDragMove = { sx: e.screenX, sy: e.screenY }
+  if (!dragMoveRaf) dragMoveRaf = requestAnimationFrame(flushDragMove)
+})
+
+function endDrag(e: PointerEvent): void {
+  if (!dragState) return
+  try {
+    petEl.releasePointerCapture(e.pointerId)
+  } catch {
+    /* 已釋放 */
+  }
+  if (dragState.moved) {
+    // 確保最後一次位置已送出
+    if (dragMoveRaf) {
+      cancelAnimationFrame(dragMoveRaf)
+      flushDragMove()
+    }
+    window.petBridge.dragEnd()
+  }
+  dragState = null
+}
+petEl.addEventListener('pointerup', endDrag)
+petEl.addEventListener('pointercancel', endDrag)
+
 // 右鍵叫出原生選單（結束 may／未來通知中心）
 document.addEventListener('contextmenu', (e) => {
   e.preventDefault()

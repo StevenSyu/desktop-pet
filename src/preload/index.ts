@@ -14,6 +14,9 @@ contextBridge.exposeInMainWorld('petBridge', {
     ipcRenderer.on('unread-count', (_e, n: number) => cb(n))
   },
   markRead: (id: string) => ipcRenderer.send('mark-read', id),
+  dragStart: (sx: number, sy: number) => ipcRenderer.send('drag-start', sx, sy),
+  dragMove: (sx: number, sy: number) => ipcRenderer.send('drag-move', sx, sy),
+  dragEnd: () => ipcRenderer.send('drag-end'),
   getMessages: () => ipcRenderer.invoke('get-messages'),
   markAllRead: () => ipcRenderer.send('mark-all-read'),
   clearMessages: () => ipcRenderer.send('clear-messages'),
