@@ -75,6 +75,13 @@ window.petBridge?.onPetEvent?.((event: AppEvent) => {
   renderCard()
   startReplay(event)
   refreshBadge()
+  // 反應事件優先級高於本地互動，清掉避免 sprite 互蓋
+  userAnim = null
+  if (pendingClickTimer) {
+    clearTimeout(pendingClickTimer)
+    pendingClickTimer = null
+    lastClickAt = null
+  }
 })
 
 function renderCard(): void {
