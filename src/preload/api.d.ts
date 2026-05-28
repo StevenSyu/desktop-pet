@@ -5,6 +5,8 @@ declare global {
     petBridge: {
       onPetEvent: (cb: (event: AppEvent) => void) => void
       setInteractive: (interactive: boolean) => void
+      showContextMenu: () => void
+      onSetSkin: (cb: (id: string) => void) => void
     }
   }
 }

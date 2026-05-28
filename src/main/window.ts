@@ -1,10 +1,11 @@
-import { BrowserWindow, screen, ipcMain } from 'electron'
+import { app, BrowserWindow, screen, ipcMain, Menu } from 'electron'
 import { join } from 'node:path'
+import { SKINS } from '../core/skins'
 
 const PET_WIDTH = 280
 const PET_HEIGHT = 300
 const MARGIN = 24
-let interactiveHandlerRegistered = false
+let handlersRegistered = false
 
 export function createPetWindow(): BrowserWindow {
   const primary = screen.getPrimaryDisplay()
@@ -36,10 +37,26 @@ export function createPetWindow(): BrowserWindow {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
   win.setIgnoreMouseEvents(true, { forward: true })
-  if (!interactiveHandlerRegistered) {
-    interactiveHandlerRegistered = true
+  if (!handlersRegistered) {
+    handlersRegistered = true
     ipcMain.on('set-interactive', (_event, interactive: boolean) => {
       win.setIgnoreMouseEvents(!interactive, { forward: true })
+    })
+    ipcMain.on('show-context-menu', () => {
+      const menu = Menu.buildFromTemplate([
+        {
+          label: '更換造型',
+          submenu: SKINS.map((s) => ({
+            label: s.name,
+            click: () => win.webContents.send('set-skin', s.id),
+          })),
+        },
+        { type: 'separator' },
+        { label: '通知中心（即將推出）', enabled: false }, // 未來：訊息佇列
+        { type: 'separator' },
+        { label: '關閉小幫手', click: () => app.quit() },
+      ])
+      menu.popup({ window: win })
     })
   }
   return win

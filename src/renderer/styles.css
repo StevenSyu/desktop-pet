@@ -24,6 +24,7 @@ html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
   font-family: sans-serif;
   max-width: 210px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+  cursor: pointer;
 }
 .card-title { font-weight: 700; font-size: 14px; }
 .card-body { font-size: 13px; opacity: .8; margin-top: 3px; line-height: 1.35; }

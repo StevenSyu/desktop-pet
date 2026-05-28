@@ -2,9 +2,17 @@
 
 import { SPRITE_FORMAT, frameRect, type AnimationName } from '../core/sprite-format'
 import { PetController } from '../core/pet-fsm'
-import { NotificationQueue } from '../core/notification-queue'
+import { DEFAULT_SKIN_ID } from '../core/skins'
 import type { AppEvent, NotifyType } from '../core/events'
-import sheetUrl from '../../resources/pets/may/spritesheet.webp'
+import maySheet from '../../resources/pets/may/spritesheet.webp'
+import marukoSheet from '../../resources/pets/maruko/spritesheet.webp'
+import penguinSheet from '../../resources/pets/oil-king-penguin/spritesheet.webp'
+
+const SHEET_URL: Record<string, string> = {
+  'may': maySheet,
+  'maruko': marukoSheet,
+  'oil-king-penguin': penguinSheet,
+}
 
 const DISPLAY_SCALE = 0.7
 const ICON: Record<NotifyType, string> = {
@@ -15,41 +23,55 @@ const petEl = document.querySelector<HTMLDivElement>('#pet')!
 const cardsEl = document.querySelector<HTMLDivElement>('#cards')!
 petEl.style.width = `${SPRITE_FORMAT.frameWidth * DISPLAY_SCALE}px`
 petEl.style.height = `${SPRITE_FORMAT.frameHeight * DISPLAY_SCALE}px`
-petEl.style.backgroundImage = `url(${sheetUrl})`
 petEl.style.backgroundSize = `${SPRITE_FORMAT.sheetWidth * DISPLAY_SCALE}px ${SPRITE_FORMAT.sheetHeight * DISPLAY_SCALE}px`
 
+function setSkin(id: string): void {
+  petEl.style.backgroundImage = `url(${SHEET_URL[id] ?? SHEET_URL[DEFAULT_SKIN_ID]})`
+}
+setSkin(DEFAULT_SKIN_ID)
+
+// 右鍵選單選擇造型 → 切換背景圖（所有造型共用同精靈格式，只換圖）
+window.petBridge?.onSetSkin?.((id) => setSkin(id))
+
 const pet = new PetController()
-// 佇列時鐘與事件 timestamp 一致用 performance.now()，否則卡片會被誤判過期
-const queue = new NotificationQueue({ now: () => performance.now() })
+
+// 目前顯示的訊息：持久顯示、不自動消失。新訊息會替換，使用者點一下卡片才關閉。
+let currentEvent: AppEvent | null = null
 
 // optional-chaining 防護：即使 preload 載入失敗，idle 動畫迴圈仍會啟動
 window.petBridge?.onPetEvent?.((event: AppEvent) => {
   pet.onEvent(event, performance.now())
-  queue.push({ ...event, timestamp: performance.now() })
+  currentEvent = event
+  renderCard()
 })
 
-function renderCards(): void {
-  const active = queue.active()
-  cardsEl.replaceChildren(
-    ...active.map((e) => {
-      // 用 textContent 安全建構，title/body 來自 POST，屬不可信內容。
-      const card = document.createElement('div')
-      card.className = 'card'
+function renderCard(): void {
+  if (!currentEvent) {
+    cardsEl.replaceChildren()
+    return
+  }
+  const e = currentEvent
+  // 用 textContent 安全建構，title/body 來自 POST，屬不可信內容。
+  const card = document.createElement('div')
+  card.className = 'card'
+  card.title = '點一下關閉'
+  card.addEventListener('click', () => {
+    currentEvent = null
+    renderCard()
+  })
 
-      const title = document.createElement('div')
-      title.className = 'card-title'
-      title.textContent = `${ICON[e.type]} ${e.title || e.source.name || e.source.kind}`
-      card.appendChild(title)
+  const title = document.createElement('div')
+  title.className = 'card-title'
+  title.textContent = `${ICON[e.type]} ${e.title || e.source.name || e.source.kind}`
+  card.appendChild(title)
 
-      if (e.body) {
-        const body = document.createElement('div')
-        body.className = 'card-body'
-        body.textContent = e.body
-        card.appendChild(body)
-      }
-      return card
-    }),
-  )
+  if (e.body) {
+    const body = document.createElement('div')
+    body.className = 'card-body'
+    body.textContent = e.body
+    card.appendChild(body)
+  }
+  cardsEl.replaceChildren(card)
 }
 
 function render(now: number): void {
@@ -59,7 +81,6 @@ function render(now: number): void {
   const frameIndex = Math.floor((now / 1000) * anim.fps) % anim.frames
   const rect = frameRect(anim.row, frameIndex)
   petEl.style.backgroundPosition = `-${rect.x * DISPLAY_SCALE}px -${rect.y * DISPLAY_SCALE}px`
-  renderCards()
   requestAnimationFrame(render)
 }
 requestAnimationFrame(render)
@@ -75,3 +96,9 @@ function bindHover(): void {
 }
 
 bindHover()
+
+// 右鍵叫出原生選單（結束 may／未來通知中心）
+document.addEventListener('contextmenu', (e) => {
+  e.preventDefault()
+  window.petBridge?.showContextMenu?.()
+})
