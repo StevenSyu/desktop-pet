@@ -12,3 +12,7 @@ export const SKINS: SkinInfo[] = [
 ]
 
 export const DEFAULT_SKIN_ID = 'may'
+
+export function isValidSkinId(id: unknown): boolean {
+  return typeof id === 'string' && SKINS.some((s) => s.id === id)
+}

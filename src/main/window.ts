@@ -1,6 +1,6 @@
 import { app, BrowserWindow, screen, ipcMain, Menu, dialog } from 'electron'
 import { join } from 'node:path'
-import { SKINS } from '../core/skins'
+import { SKINS, isValidSkinId, DEFAULT_SKIN_ID } from '../core/skins'
 import { bus } from './bus'
 import { clampToValidPosition, defaultPosition, type DisplayInfo } from '../core/window-position'
 import { clampWalkToWorkArea, sanitizeWalkBounds, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
@@ -12,7 +12,11 @@ const PET_HEIGHT = 300
 const MARGIN = 24
 let handlersRegistered = false
 let petWinRef: BrowserWindow | null = null
-let prefs: Prefs = { autoWalk: true, walk: { ...DEFAULT_WALK_BOUNDS } }
+let prefs: Prefs = {
+  autoWalk: true,
+  walk: { ...DEFAULT_WALK_BOUNDS },
+  skin: DEFAULT_SKIN_ID,
+}
 
 export function createPetWindow(): BrowserWindow {
   const primary = screen.getPrimaryDisplay()
@@ -48,6 +52,10 @@ export function createPetWindow(): BrowserWindow {
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
+  win.webContents.once('did-finish-load', () => {
+    // 把上次選的 skin 推給 renderer；renderer 啟動時會先用 DEFAULT_SKIN_ID 渲染，這裡覆寫成上次選的
+    win.webContents.send('set-skin', prefs.skin)
+  })
   win.setIgnoreMouseEvents(true, { forward: true })
   petWinRef = win
   win.on('closed', () => {
@@ -64,7 +72,16 @@ export function createPetWindow(): BrowserWindow {
           label: '更換造型',
           submenu: SKINS.map((s) => ({
             label: s.name,
-            click: () => win.webContents.send('set-skin', s.id),
+            type: 'radio' as const,
+            checked: prefs.skin === s.id,
+            click: () => {
+              if (!isValidSkinId(s.id)) return
+              prefs = { ...prefs, skin: s.id }
+              savePrefs(app.getPath('userData'), prefs)
+              if (petWinRef && !petWinRef.isDestroyed()) {
+                petWinRef.webContents.send('set-skin', s.id)
+              }
+            },
           })),
         },
         {

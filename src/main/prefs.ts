@@ -5,27 +5,36 @@ import {
   sanitizeWalkBounds,
   type WalkBounds,
 } from '../core/walk-planner'
+import { DEFAULT_SKIN_ID, isValidSkinId } from '../core/skins'
 
 export interface Prefs {
   autoWalk: boolean
   walk: WalkBounds
+  skin: string
 }
 
 const FILENAME = 'prefs.json'
-const DEFAULTS: Prefs = { autoWalk: true, walk: { ...DEFAULT_WALK_BOUNDS } }
+const DEFAULTS: Prefs = {
+  autoWalk: true,
+  walk: { ...DEFAULT_WALK_BOUNDS },
+  skin: DEFAULT_SKIN_ID,
+}
 
 export function loadPrefs(userDataDir: string): Prefs {
   const path = join(userDataDir, FILENAME)
-  if (!existsSync(path)) return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk } }
+  if (!existsSync(path)) {
+    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk }, skin: DEFAULTS.skin }
+  }
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>
     const walkRaw = (parsed.walk ?? {}) as Record<string, unknown>
     return {
       autoWalk: typeof parsed.autoWalk === 'boolean' ? parsed.autoWalk : DEFAULTS.autoWalk,
       walk: sanitizeWalkBounds(walkRaw as Partial<WalkBounds>),
+      skin: isValidSkinId(parsed.skin) ? (parsed.skin as string) : DEFAULTS.skin,
     }
   } catch {
-    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk } }
+    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk }, skin: DEFAULTS.skin }
   }
 }
 
