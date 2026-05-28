@@ -1,6 +1,7 @@
 import { app, BrowserWindow, screen, ipcMain, Menu } from 'electron'
 import { join } from 'node:path'
 import { SKINS } from '../core/skins'
+import { bus } from './bus'
 
 const PET_WIDTH = 280
 const PET_HEIGHT = 300
@@ -52,7 +53,7 @@ export function createPetWindow(): BrowserWindow {
           })),
         },
         { type: 'separator' },
-        { label: '通知中心（即將推出）', enabled: false }, // 未來：訊息佇列
+        { label: '通知中心', click: () => bus.emit('open-center') },
         { type: 'separator' },
         { label: '關閉小幫手', click: () => app.quit() },
       ])
