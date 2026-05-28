@@ -42,7 +42,7 @@ let currentEvent: AppEvent | null = null
 
 // 卡片仍在時每隔 REPLAY_INTERVAL_MS 重播一次對應動畫，提高遠處發現率。
 // info（→ idle）不重播；視窗不可見也跳過。
-const REPLAY_INTERVAL_MS = 30_000
+const REPLAY_INTERVAL_MS = 5_000
 let replayTimer: ReturnType<typeof setInterval> | null = null
 
 function stopReplay(): void {
