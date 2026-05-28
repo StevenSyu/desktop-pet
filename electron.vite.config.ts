@@ -19,7 +19,12 @@ export default defineConfig({
   renderer: {
     root: 'src/renderer',
     build: {
-      rollupOptions: { input: { index: 'src/renderer/index.html' } },
+      rollupOptions: {
+        input: {
+          index: 'src/renderer/index.html',
+          center: 'src/renderer/center.html',
+        },
+      },
     },
   },
 })

@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
+    <title>通知中心</title>
+    <link rel="stylesheet" href="./center.css" />
+  </head>
+  <body>
+    <header>
+      <div class="title">通知中心 <span id="unread"></span></div>
+      <div class="actions"><button id="mark-all">全部已讀</button><button id="clear">清空</button></div>
+    </header>
+    <div id="chips"></div>
+    <div id="list"></div>
+    <div id="empty" hidden>目前沒有通知</div>
+    <script type="module" src="./center.ts"></script>
+  </body>
+</html>
