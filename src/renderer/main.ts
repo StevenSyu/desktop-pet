@@ -15,8 +15,9 @@ const SHEET_URL: Record<string, string> = {
 }
 
 const DISPLAY_SCALE = 0.7
-const ICON: Record<NotifyType, string> = {
-  done: '✅', attention: '❓', error: '⚠️', review: '🔍', working: '⏳', info: 'ℹ️',
+// 狀態以文字標籤＋色彩（CSS 依 data-type 上色）呈現，不用 emoji
+const LABEL: Record<NotifyType, string> = {
+  done: '完成', attention: '需要注意', error: '錯誤', review: '請檢視', working: '工作中', info: '通知',
 }
 
 const petEl = document.querySelector<HTMLDivElement>('#pet')!
@@ -54,16 +55,17 @@ function renderCard(): void {
   // 用 textContent 安全建構，title/body 來自 POST，屬不可信內容。
   const card = document.createElement('div')
   card.className = 'card'
+  card.dataset.type = e.type // CSS 依此上狀態色
   card.title = '點一下關閉'
   card.addEventListener('click', () => {
     currentEvent = null
     renderCard()
   })
 
-  const title = document.createElement('div')
-  title.className = 'card-title'
-  title.textContent = `${ICON[e.type]} ${e.title || e.source.name || e.source.kind}`
-  card.appendChild(title)
+  const label = document.createElement('div')
+  label.className = 'card-label'
+  label.textContent = LABEL[e.type]
+  card.appendChild(label)
 
   if (e.body) {
     const body = document.createElement('div')
@@ -71,6 +73,15 @@ function renderCard(): void {
     body.textContent = e.body
     card.appendChild(body)
   }
+
+  const sourceText = e.title || e.source.name || e.source.kind
+  if (sourceText) {
+    const source = document.createElement('div')
+    source.className = 'card-source'
+    source.textContent = sourceText
+    card.appendChild(source)
+  }
+
   cardsEl.replaceChildren(card)
 }
 

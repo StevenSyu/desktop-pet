@@ -17,14 +17,46 @@ html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
 }
 
 .card {
-  background: #fff;
-  color: #222;
-  border-radius: 12px;
-  padding: 9px 13px;
-  font-family: sans-serif;
-  max-width: 210px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+  --accent: #8a8175;
+  max-width: 224px;
+  padding: 8px 14px 9px 13px;
+  border-left: 4px solid var(--accent);
+  border-radius: 5px 14px 14px 5px;
+  background: #fffdf8;
+  color: #2a2622;
+  font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif;
+  box-shadow: 0 7px 24px rgba(46, 33, 18, .24);
   cursor: pointer;
+  animation: cardIn .26s cubic-bezier(.2, .9, .3, 1.25) both;
 }
-.card-title { font-weight: 700; font-size: 14px; }
-.card-body { font-size: 13px; opacity: .8; margin-top: 3px; line-height: 1.35; }
+.card[data-type="done"]      { --accent: #2e9e6b; }
+.card[data-type="attention"] { --accent: #e08a2b; }
+.card[data-type="error"]     { --accent: #d6453d; }
+.card[data-type="review"]    { --accent: #5b6ee0; }
+.card[data-type="working"]   { --accent: #2e9e9e; }
+.card[data-type="info"]      { --accent: #8a8175; }
+
+.card-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  color: var(--accent);
+}
+.card-body {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.36;
+  margin-top: 2px;
+  color: #2a2622;
+}
+.card-source {
+  font-size: 10.5px;
+  letter-spacing: .02em;
+  color: #ad9f8c;
+  margin-top: 3px;
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(7px) scale(.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
