@@ -23,6 +23,10 @@ contextBridge.exposeInMainWorld('petBridge', {
   onWalkEnded: (cb: () => void) => {
     ipcRenderer.on('walk-ended', () => cb())
   },
+  getAutoWalk: () => ipcRenderer.invoke('get-auto-walk') as Promise<boolean>,
+  onAutoWalkChanged: (cb: (enabled: boolean) => void) => {
+    ipcRenderer.on('auto-walk-changed', (_e, enabled: boolean) => cb(enabled))
+  },
   getMessages: () => ipcRenderer.invoke('get-messages'),
   markAllRead: () => ipcRenderer.send('mark-all-read'),
   clearMessages: () => ipcRenderer.send('clear-messages'),

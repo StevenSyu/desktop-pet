@@ -5,17 +5,20 @@ import { bus } from './bus'
 import { clampToValidPosition, defaultPosition, type DisplayInfo } from '../core/window-position'
 import { clampWalkToWorkArea } from '../core/walk-planner'
 import { loadWindowState, saveWindowState } from './window-state'
+import { loadPrefs, savePrefs, type Prefs } from './prefs'
 
 const PET_WIDTH = 280
 const PET_HEIGHT = 300
 const MARGIN = 24
 let handlersRegistered = false
 let petWinRef: BrowserWindow | null = null
+let prefs: Prefs = { autoWalk: true }
 
 export function createPetWindow(): BrowserWindow {
   const primary = screen.getPrimaryDisplay()
   const displays: DisplayInfo[] = screen.getAllDisplays().map((d) => ({ id: d.id, workArea: d.workArea }))
   const primaryInfo: DisplayInfo = { id: primary.id, workArea: primary.workArea }
+  prefs = loadPrefs(app.getPath('userData'))
   const saved = loadWindowState(app.getPath('userData'))
   const winSize = { width: PET_WIDTH, height: PET_HEIGHT }
   const { x: initX, y: initY } = clampToValidPosition(saved, displays, primaryInfo, winSize, MARGIN)
@@ -63,6 +66,19 @@ export function createPetWindow(): BrowserWindow {
             label: s.name,
             click: () => win.webContents.send('set-skin', s.id),
           })),
+        },
+        {
+          label: '自動走動',
+          type: 'checkbox',
+          checked: prefs.autoWalk,
+          click: (menuItem) => {
+            prefs = { ...prefs, autoWalk: menuItem.checked }
+            savePrefs(app.getPath('userData'), prefs)
+            if (petWinRef && !petWinRef.isDestroyed()) {
+              petWinRef.webContents.send('auto-walk-changed', prefs.autoWalk)
+            }
+            if (!prefs.autoWalk) endWalk(true)
+          },
         },
         { type: 'separator' },
         { label: '通知中心', click: () => bus.emit('open-center') },
@@ -171,6 +187,8 @@ export function createPetWindow(): BrowserWindow {
       },
     )
     ipcMain.on('walk-cancel', () => endWalk(true))
+
+    ipcMain.handle('get-auto-walk', () => prefs.autoWalk)
 
     // ===== display-removed：失效時吸附回 primary =====
     screen.on('display-removed', () => {

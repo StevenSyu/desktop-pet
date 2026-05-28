@@ -16,6 +16,8 @@ declare global {
       walkStart: (req: { direction: 'left' | 'right'; distance: number; duration: number }) => void
       walkCancel: () => void
       onWalkEnded: (cb: () => void) => void
+      getAutoWalk: () => Promise<boolean>
+      onAutoWalkChanged: (cb: (enabled: boolean) => void) => void
       getMessages: () => Promise<StoredMessage[]>
       markAllRead: () => void
       clearMessages: () => void

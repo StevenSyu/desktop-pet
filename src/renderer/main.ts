@@ -91,7 +91,15 @@ function renderCard(): void {
 // ===== 動畫驅動：setInterval 輪詢 FSM 並切 #pet[data-anim]；影格動畫由 CSS @keyframes 負責 =====
 let currentAnim: string | null = null
 let walking = false
+let autoWalkEnabled = true
 let nextWalkAt = pickWalk(Math.random, performance.now()).nextWalkAt
+
+window.petBridge.getAutoWalk().then((v) => { autoWalkEnabled = v })
+window.petBridge.onAutoWalkChanged((enabled) => {
+  autoWalkEnabled = enabled
+  if (!enabled && walking) window.petBridge.walkCancel()
+  if (enabled) nextWalkAt = pickWalk(Math.random, performance.now()).nextWalkAt
+})
 
 function setAnim(name: string): void {
   if (currentAnim === name) return
@@ -108,8 +116,8 @@ function tick(): void {
   } else {
     setAnim(view.animation)
   }
-  // 僅 idle 且未在走動、未被暫停時觸發走動
-  if (!walking && view.animation === 'idle' && !document.hidden && now >= nextWalkAt) {
+  // 僅 idle 且未在走動、未被暫停、自動走動開啟時觸發走動
+  if (autoWalkEnabled && !walking && view.animation === 'idle' && !document.hidden && now >= nextWalkAt) {
     const w = pickWalk(Math.random, now)
     nextWalkAt = w.nextWalkAt // 即便走不動，也排下次
     walking = true
