@@ -214,7 +214,13 @@ function bindHover(): void {
   const disableInteractive = () => window.petBridge.setInteractive(false)
   const badge = document.querySelector<HTMLDivElement>('#badge')!
 
-  petEl.addEventListener('mouseenter', enableInteractive)
+  petEl.addEventListener('mouseenter', () => {
+    enableInteractive()
+    // 拖動中或 click 反應中不打斷
+    if (!dragState && !userAnim) {
+      userAnim = { name: 'waving', expiresAt: performance.now() + 1000 }
+    }
+  })
   petEl.addEventListener('mouseleave', disableInteractive)
   cardsEl.addEventListener('mouseenter', enableInteractive)
   cardsEl.addEventListener('mouseleave', disableInteractive)
