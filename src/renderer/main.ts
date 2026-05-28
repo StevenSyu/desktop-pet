@@ -267,7 +267,8 @@ function bindHover(): void {
 bindHover()
 
 // 拖動寵物：自寫 pointer 處理（不用 -webkit-app-region: drag，避免破壞右鍵選單與 hover）
-const DRAG_THRESHOLD = 3 // px：超過才算拖動，否則視為點擊（保留給未來互動）
+const DRAG_THRESHOLD = 3 // px：超過才算拖動，否則視為點擊
+const DRAG_DIRECTION_THRESHOLD = 8 // px：累計位移 > 此值才判定方向，避免抖動
 let dragState: { startSx: number; startSy: number; moved: boolean } | null = null
 let pendingDragMove: { sx: number; sy: number } | null = null
 let dragMoveRaf = 0
@@ -294,6 +295,11 @@ petEl.addEventListener('pointermove', (e) => {
     const dy = Math.abs(e.screenY - dragState.startSy)
     if (dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) return
     dragState.moved = true
+  }
+  // 累計位移判方向（向右為正、向左為負）；超過 DIR_THRESHOLD 才更新
+  const cumDx = e.screenX - dragState.startSx
+  if (Math.abs(cumDx) > DRAG_DIRECTION_THRESHOLD) {
+    dragDirection = cumDx > 0 ? 'right' : 'left'
   }
   pendingDragMove = { sx: e.screenX, sy: e.screenY }
   if (!dragMoveRaf) dragMoveRaf = requestAnimationFrame(flushDragMove)
