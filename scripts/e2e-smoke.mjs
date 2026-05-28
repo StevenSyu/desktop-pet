@@ -23,7 +23,7 @@ try {
   const bridge = await win.evaluate(() => typeof window.petBridge)
   const petCount = await win.locator('#pet').count()
   const bg1 = await win.evaluate(() => getComputedStyle(document.querySelector('#pet')).backgroundPosition)
-  await sleep(700)
+  await sleep(1200) // idle 為 0.8s/格，取樣間隔需 > 一格才能保證跨格
   const bg2 = await win.evaluate(() => getComputedStyle(document.querySelector('#pet')).backgroundPosition)
   const animating = bg1 !== bg2
 

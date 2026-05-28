@@ -16,7 +16,7 @@ export const SPRITE_FORMAT = {
   frameHeight: 208,
   animations: {
     // fps 放慢約 1.5×（每影格間隔加長），讓 loop 更清楚、反應持續更久
-    idle: { row: 0, frames: 6, fps: 3, loop: true },
+    idle: { row: 0, frames: 6, fps: 1.25, loop: true }, // 每格 0.8 秒
     'running-right': { row: 1, frames: 8, fps: 5, loop: true },
     'running-left': { row: 2, frames: 8, fps: 5, loop: true },
     waving: { row: 3, frames: 4, fps: 4, loop: false },
