@@ -18,11 +18,14 @@ const BODY = {
  *
  * - type=done 時，會嘗試從 `stdin.transcript_path` 抓 Claude 最後一段純文字回覆
  *   作為 body（卡片 CSS 2 行截斷、通知中心可展開看全文）。抓不到再退回固定字串。
+ * - 可選 `transcriptText` 參數：caller（如 notify.mjs）若已自行用 retry 版抓過
+ *   就直接傳進來，避免重複讀檔；傳 null/undefined 則 fall back 到同步擷取。
  *
  * @param {string} type done|attention|error|review|working|info
  * @param {Record<string, unknown>} stdinJson Claude Code hook 的 stdin JSON
+ * @param {string | null} [transcriptText] 已預先擷取好的當輪文字（可選）
  */
-export function buildHookPayload(type, stdinJson = {}) {
+export function buildHookPayload(type, stdinJson = {}, transcriptText = null) {
   const t = KNOWN.includes(type) ? type : 'info'
   const cwd = typeof stdinJson.cwd === 'string' ? stdinJson.cwd : ''
   const name = cwd ? basename(cwd) : 'claude-code'
@@ -33,9 +36,14 @@ export function buildHookPayload(type, stdinJson = {}) {
 
   let body = BODY[t]
   if (t === 'done') {
-    const text = extractLastAssistantText(
-      typeof stdinJson.transcript_path === 'string' ? stdinJson.transcript_path : undefined,
-    )
+    const text =
+      transcriptText != null
+        ? transcriptText
+        : extractLastAssistantText(
+            typeof stdinJson.transcript_path === 'string'
+              ? stdinJson.transcript_path
+              : undefined,
+          )
     if (text) body = text
   }
 

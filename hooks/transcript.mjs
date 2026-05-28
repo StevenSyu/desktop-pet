@@ -80,6 +80,31 @@ export function extractLastAssistantText(transcriptPath) {
 }
 
 /**
+ * async 版本：第一次抓不到就稍等再試（最多 retries 次）。
+ *
+ * 用途：Claude Code 寫 transcript JSONL 跟觸發 Stop hook 之間存在 flush race
+ * ——hook 可能在最後一筆 assistant entry 落盤前就讀檔。給一個短暫的 retry
+ * 窗口（預設 3 次 × 100ms = 300ms）讓 disk 跟上。
+ *
+ * @param {string | undefined} transcriptPath
+ * @param {{ retries?: number, delayMs?: number }} [opts]
+ * @returns {Promise<string>}
+ */
+export async function extractLastAssistantTextWithRetry(
+  transcriptPath,
+  { retries = 3, delayMs = 100 } = {},
+) {
+  for (let i = 0; i <= retries; i++) {
+    const text = extractLastAssistantText(transcriptPath)
+    if (text) return text
+    if (i < retries) {
+      await new Promise((r) => setTimeout(r, delayMs))
+    }
+  }
+  return ''
+}
+
+/**
  * 判斷一個 type=user 的 entry 是不是「使用者實際打字的訊息」（而非 tool_result）。
  *
  * - content 是 string → 是打字訊息

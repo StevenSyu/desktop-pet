@@ -5,6 +5,7 @@ import { readFileSync, existsSync, appendFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { buildHookPayload } from './payload.mjs'
+import { extractLastAssistantTextWithRetry } from './transcript.mjs'
 
 const type = process.argv[2] ?? 'info'
 const ENDPOINT = join(homedir(), 'Library', 'Application Support', 'desktop-notify', 'endpoint.json')
@@ -51,7 +52,15 @@ async function main() {
     return
   }
   const { port, token } = endpoint
-  const body = buildHookPayload(type, stdinJson)
+
+  // type=done 時 transcript 可能因 fsync race 還沒落盤；以 retry 模式擷取再傳給 builder
+  let transcriptText = null
+  if (type === 'done' && typeof stdinJson.transcript_path === 'string') {
+    const t0 = Date.now()
+    transcriptText = await extractLastAssistantTextWithRetry(stdinJson.transcript_path)
+    trace(`transcript-extract ${Date.now() - t0}ms len=${transcriptText.length}`)
+  }
+  const body = buildHookPayload(type, stdinJson, transcriptText)
 
   try {
     await fetch(`http://127.0.0.1:${port}/notify`, {

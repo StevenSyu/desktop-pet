@@ -1,8 +1,11 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync, appendFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { extractLastAssistantText } from '../../hooks/transcript.mjs'
+import {
+  extractLastAssistantText,
+  extractLastAssistantTextWithRetry,
+} from '../../hooks/transcript.mjs'
 
 const dirs: string[] = []
 function tempFile(content: string): string {
@@ -124,5 +127,33 @@ describe('extractLastAssistantText', () => {
   it('文字前後 trim', () => {
     const file = tempFile(A('  hello  '))
     expect(extractLastAssistantText(file)).toBe('hello')
+  })
+})
+
+describe('extractLastAssistantTextWithRetry', () => {
+  it('一開始就抓得到 → 立刻回，不延遲', async () => {
+    const file = tempFile([U('q'), A('answer')].join('\n'))
+    const t0 = Date.now()
+    const text = await extractLastAssistantTextWithRetry(file, { retries: 3, delayMs: 100 })
+    expect(text).toBe('answer')
+    expect(Date.now() - t0).toBeLessThan(50) // 不應該等
+  })
+
+  it('檔案延遲寫入 → 在第 N 次 retry 時抓到', async () => {
+    const file = tempFile(U('q')) // 一開始只有 user，沒 assistant
+    // 80ms 後追加 assistant 文字（落在第 1 次 retry 視窗內）
+    setTimeout(() => appendFileSync(file, '\n' + A('delayed answer')), 80)
+    const t0 = Date.now()
+    const text = await extractLastAssistantTextWithRetry(file, { retries: 3, delayMs: 100 })
+    const elapsed = Date.now() - t0
+    expect(text).toBe('delayed answer')
+    expect(elapsed).toBeGreaterThanOrEqual(100) // 至少跑過一次 delay
+    expect(elapsed).toBeLessThan(400)
+  })
+
+  it('全程都抓不到 → retries 用完回空', async () => {
+    const file = tempFile([U('q'), '{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"..."}]}}'].join('\n'))
+    const text = await extractLastAssistantTextWithRetry(file, { retries: 2, delayMs: 50 })
+    expect(text).toBe('')
   })
 })
