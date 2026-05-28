@@ -149,7 +149,7 @@ const REACTION_DURATION_MS: Record<string, number> = {
   review: 1750,
 }
 
-function triggerClickReaction(): void {
+function triggerReaction(): void {
   const pick = REACTION_POOL[Math.floor(Math.random() * REACTION_POOL.length)]
   userAnim = { name: pick, expiresAt: performance.now() + REACTION_DURATION_MS[pick] }
 }
@@ -170,7 +170,7 @@ function handleClick(now: number): void {
     pendingClickTimer = setTimeout(() => {
       pendingClickTimer = null
       lastClickAt = null
-      triggerClickReaction()
+      triggerReaction()
     }, DEFAULT_DOUBLE_CLICK_MS)
   }
 }
@@ -259,9 +259,9 @@ function bindHover(): void {
 
   petEl.addEventListener('mouseenter', () => {
     enableInteractive()
-    // 拖動中或 click 反應中不打斷
+    // 拖動中或反應中不打斷；hover 與 click 共用同個隨機反應池
     if (!dragState && !userAnim) {
-      userAnim = { name: 'waving', expiresAt: performance.now() + 1000 }
+      triggerReaction()
     }
   })
   petEl.addEventListener('mouseleave', disableInteractive)
