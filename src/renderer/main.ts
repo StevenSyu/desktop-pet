@@ -355,12 +355,7 @@ let lastUnreadCount = 0
 function refreshBadge(): void {
   const visibleAndUnread = currentEvent ? 1 : 0
   const effective = Math.max(0, lastUnreadCount - visibleAndUnread)
-  if (effective > 0) {
-    badgeEl.textContent = effective > 99 ? '99+' : String(effective)
-    badgeEl.hidden = false
-  } else {
-    badgeEl.hidden = true
-  }
+  badgeEl.hidden = effective === 0
 }
 window.petBridge?.onUnreadCount?.((n) => {
   lastUnreadCount = n

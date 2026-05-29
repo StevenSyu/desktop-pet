@@ -93,22 +93,16 @@ html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
 /* 寵物右上角的未讀數徽章 */
 #badge {
   position: absolute;
-  right: 6px;
-  bottom: 158px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
+  right: 10px;
+  bottom: 164px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
   background: #d6453d;
-  color: #fff;
-  font: 700 11px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, .35);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, .35);
   cursor: pointer;
   transition: transform .12s ease;
 }
-#badge:hover { transform: scale(1.08); }
-#badge:active { transform: scale(.95); }
+#badge:hover { transform: scale(1.25); }
+#badge:active { transform: scale(.9); }
 #badge[hidden] { display: none; }
