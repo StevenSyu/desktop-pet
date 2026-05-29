@@ -3,6 +3,7 @@ import type { StoredMessage } from '../core/message-store'
 import type { NotifyType } from '../core/events'
 import { relativeTime, timeGroup, type TimeGroup } from '../core/time-format'
 import { stripMarkdown } from '../core/markdown-strip'
+import { renderMarkdown } from '../core/markdown-render'
 
 const LABEL: Record<NotifyType, string> = {
   done: '完成',
@@ -28,6 +29,9 @@ const GROUP_LABEL: Record<TimeGroup, string> = {
 
 let all: StoredMessage[] = []
 let filter: 'all' | NotifyType = 'all'
+let detailId: string | null = null
+let savedScrollTop = 0
+let flashId: string | null = null
 
 const listEl = document.querySelector<HTMLDivElement>('#list')!
 const emptyEl = document.querySelector<HTMLDivElement>('#empty')!
@@ -62,7 +66,9 @@ function buildItem(m: StoredMessage, now: number): HTMLDivElement {
   item.className = `item ${m.read ? 'read' : 'unread'}`
   item.dataset.type = m.type
   item.addEventListener('click', () => {
-    if (!m.read) window.petBridge.markRead(m.id) // main 會回推更新
+    savedScrollTop = listEl.scrollTop
+    detailId = m.id
+    render()
   })
 
   const main = document.createElement('div')
@@ -124,6 +130,16 @@ function buildItem(m: StoredMessage, now: number): HTMLDivElement {
 }
 
 function render(): void {
+  const msg = detailId ? all.find((m) => m.id === detailId) : null
+  if (detailId && !msg) detailId = null // 該則已被清空/淘汰 → fallback 回列表
+  if (msg) {
+    renderDetail(msg)
+    return
+  }
+  renderList()
+}
+
+function renderList(): void {
   renderChips()
   const now = Date.now()
   const items = filter === 'all' ? all : all.filter((m) => m.type === filter)
@@ -143,15 +159,85 @@ function render(): void {
       gh.textContent = GROUP_LABEL[g]
       listEl.appendChild(gh)
     }
-    listEl.appendChild(buildItem(m, now))
+    const el = buildItem(m, now)
+    if (m.id === flashId) el.classList.add('flash')
+    listEl.appendChild(el)
   }
+  listEl.scrollTop = savedScrollTop
+  flashId = null
+}
+
+function renderDetail(m: StoredMessage): void {
+  if (!m.read) window.petBridge.markRead(m.id) // 進詳情才標已讀（未讀才送，避免重複 broadcast）
+  chipsEl.replaceChildren() // 詳情時清掉 chips（回列表時 renderChips 會重建）
+  emptyEl.hidden = true
+
+  const wrap = document.createElement('div')
+  wrap.className = 'detail'
+  wrap.dataset.type = m.type
+
+  const back = document.createElement('button')
+  back.className = 'back'
+  back.textContent = '← 返回'
+  back.addEventListener('click', () => {
+    flashId = m.id
+    detailId = null
+    render()
+  })
+  wrap.appendChild(back)
+
+  const label = document.createElement('div')
+  label.className = 'detail-label'
+  label.textContent = LABEL[m.type]
+  wrap.appendChild(label)
+
+  if (m.body) {
+    const body = document.createElement('div')
+    body.className = 'detail-body'
+    // 安全：renderMarkdown escape-first + 無屬性標籤白名單（見 markdown-render 測試）
+    body.innerHTML = renderMarkdown(m.body)
+    wrap.appendChild(body)
+  }
+
+  const meta = document.createElement('div')
+  meta.className = 'detail-meta'
+  const src = m.title || m.source.name || m.source.kind
+  const rows: [string, string][] = [
+    ['來源', src],
+    ['session', m.sessionId],
+    ['時間', new Date(m.timestamp).toLocaleString()],
+    ['收到', new Date(m.receivedAt).toLocaleString()],
+  ]
+  for (const [k, v] of rows) {
+    const row = document.createElement('div')
+    row.className = 'detail-row'
+    const key = document.createElement('span')
+    key.className = 'k'
+    key.textContent = k
+    const val = document.createElement('span')
+    val.className = 'v'
+    val.textContent = v
+    row.appendChild(key)
+    row.appendChild(val)
+    meta.appendChild(row)
+  }
+  wrap.appendChild(meta)
+
+  listEl.replaceChildren(wrap)
 }
 
 document.querySelector('#mark-all')!.addEventListener('click', () => window.petBridge.markAllRead())
 document.querySelector('#clear')!.addEventListener('click', () => window.petBridge.clearMessages())
 document.querySelector('#close')!.addEventListener('click', () => window.close())
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') window.close()
+  if (e.key !== 'Escape') return
+  if (detailId) {
+    flashId = detailId
+    detailId = null
+    render()
+  } else {
+    window.close()
+  }
 })
 
 window.petBridge.onMessagesUpdated((msgs) => {
@@ -159,8 +245,19 @@ window.petBridge.onMessagesUpdated((msgs) => {
   render()
 })
 
+function consumePendingDetail(): void {
+  window.petBridge.getPendingDetail().then(({ id }) => {
+    if (id) {
+      detailId = id
+      render()
+    }
+  })
+}
+
 // 初次載入：主動拉一次（did-finish-load 後 main 也會推一次）
 window.petBridge.getMessages().then((msgs) => {
   all = msgs
   render()
+  consumePendingDetail() // 新開窗：載入後取 pending detail
 })
+window.petBridge.onOpenDetail(consumePendingDetail) // 已開窗：被 main 觸發重查
