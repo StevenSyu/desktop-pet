@@ -1,54 +1,37 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge } from 'electron'
 import type { AppEvent } from '../core/events'
+import type { StoredMessage } from '../core/message-store'
 import type { WalkBounds } from '../core/walk-planner'
+import type { Prefs } from '../main/prefs'
+import { sendCommand, invokeQuery, subscribePush } from '../ipc/preload-helpers'
 
 contextBridge.exposeInMainWorld('petBridge', {
-  onPetEvent: (cb: (event: AppEvent) => void) => {
-    ipcRenderer.on('pet-event', (_e, event: AppEvent) => cb(event))
-  },
-  setInteractive: (interactive: boolean) => ipcRenderer.send('set-interactive', interactive),
-  showContextMenu: () => ipcRenderer.send('show-context-menu'),
-  openCenter: () => ipcRenderer.send('open-center'),
-  onSetSkin: (cb: (id: string) => void) => {
-    ipcRenderer.on('set-skin', (_e, id: string) => cb(id))
-  },
-  onUnreadCount: (cb: (n: number) => void) => {
-    ipcRenderer.on('unread-count', (_e, n: number) => cb(n))
-  },
-  markRead: (id: string) => ipcRenderer.send('mark-read', id),
-  dragStart: (sx: number, sy: number) => ipcRenderer.send('drag-start', sx, sy),
-  dragMove: (sx: number, sy: number) => ipcRenderer.send('drag-move', sx, sy),
-  dragEnd: () => ipcRenderer.send('drag-end'),
+  onPetEvent: (cb: (event: AppEvent) => void) => subscribePush('pet-event', cb),
+  setInteractive: (interactive: boolean) => sendCommand('set-interactive', interactive),
+  showContextMenu: () => sendCommand('show-context-menu'),
+  openCenter: () => sendCommand('open-center'),
+  onSetSkin: (cb: (id: string) => void) => subscribePush('set-skin', cb),
+  onUnreadCount: (cb: (n: number) => void) => subscribePush('unread-count', cb),
+  markRead: (id: string) => sendCommand('mark-read', id),
+  dragStart: (sx: number, sy: number) => sendCommand('drag-start', { sx, sy }),
+  dragMove: (sx: number, sy: number) => sendCommand('drag-move', { sx, sy }),
+  dragEnd: () => sendCommand('drag-end'),
   walkStart: (req: { direction: 'left' | 'right'; distance: number; duration: number }) =>
-    ipcRenderer.send('walk-start', req),
-  walkCancel: () => ipcRenderer.send('walk-cancel'),
-  onWalkEnded: (cb: () => void) => {
-    ipcRenderer.on('walk-ended', () => cb())
-  },
-  onWalkDirection: (cb: (direction: 'left' | 'right') => void) => {
-    ipcRenderer.on('walk-direction', (_e, direction: 'left' | 'right') => cb(direction))
-  },
-  getAutoWalk: () => ipcRenderer.invoke('get-auto-walk') as Promise<boolean>,
-  onAutoWalkChanged: (cb: (enabled: boolean) => void) => {
-    ipcRenderer.on('auto-walk-changed', (_e, enabled: boolean) => cb(enabled))
-  },
-  getPrefs: () => ipcRenderer.invoke('get-prefs') as Promise<{ autoWalk: boolean; walk: WalkBounds }>,
-  setWalkBounds: (bounds: Partial<WalkBounds>) => ipcRenderer.send('set-walk-bounds', bounds),
-  onPrefsChanged: (cb: (prefs: { autoWalk: boolean; walk: WalkBounds }) => void) => {
-    ipcRenderer.on('prefs-changed', (_e, prefs) => cb(prefs))
-  },
-  setDnd: (enabled: boolean) => ipcRenderer.send('set-dnd', enabled),
-  getDnd: () => ipcRenderer.invoke('get-dnd') as Promise<boolean>,
-  onDndOn: (cb: () => void) => {
-    ipcRenderer.on('dnd-on', () => cb())
-  },
-  onDndChanged: (cb: (enabled: boolean) => void) => {
-    ipcRenderer.on('dnd-changed', (_e, enabled: boolean) => cb(enabled))
-  },
-  getMessages: () => ipcRenderer.invoke('get-messages'),
-  markAllRead: () => ipcRenderer.send('mark-all-read'),
-  clearMessages: () => ipcRenderer.send('clear-messages'),
-  onMessagesUpdated: (cb: (msgs: unknown[]) => void) => {
-    ipcRenderer.on('messages-updated', (_e, msgs) => cb(msgs))
-  },
+    sendCommand('walk-start', req),
+  walkCancel: () => sendCommand('walk-cancel'),
+  onWalkEnded: (cb: () => void) => subscribePush('walk-ended', cb),
+  onWalkDirection: (cb: (direction: 'left' | 'right') => void) => subscribePush('walk-direction', cb),
+  getAutoWalk: () => invokeQuery('get-auto-walk'),
+  onAutoWalkChanged: (cb: (enabled: boolean) => void) => subscribePush('auto-walk-changed', cb),
+  getPrefs: () => invokeQuery('get-prefs'),
+  setWalkBounds: (bounds: Partial<WalkBounds>) => sendCommand('set-walk-bounds', bounds),
+  onPrefsChanged: (cb: (prefs: Prefs) => void) => subscribePush('prefs-changed', cb),
+  setDnd: (enabled: boolean) => sendCommand('set-dnd', enabled),
+  getDnd: () => invokeQuery('get-dnd'),
+  onDndOn: (cb: () => void) => subscribePush('dnd-on', cb),
+  onDndChanged: (cb: (enabled: boolean) => void) => subscribePush('dnd-changed', cb),
+  getMessages: () => invokeQuery('get-messages'),
+  markAllRead: () => sendCommand('mark-all-read'),
+  clearMessages: () => sendCommand('clear-messages'),
+  onMessagesUpdated: (cb: (msgs: StoredMessage[]) => void) => subscribePush('messages-updated', cb),
 })

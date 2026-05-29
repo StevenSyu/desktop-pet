@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, ipcMain, Menu, dialog } from 'electron'
+import { app, BrowserWindow, screen, Menu, dialog } from 'electron'
 import { join } from 'node:path'
 import { SKINS, isValidSkinId, DEFAULT_SKIN_ID } from '../core/skins'
 import { bus } from './bus'
@@ -6,6 +6,7 @@ import { clampToValidPosition, defaultPosition, type DisplayInfo } from '../core
 import { clampWalkToWorkArea, sanitizeWalkBounds, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
 import { loadWindowState, saveWindowState } from './window-state'
 import { loadPrefs, savePrefs, type Prefs } from './prefs'
+import { handleCommand, handleQuery, pushTo } from '../ipc/main-helpers'
 
 const PET_WIDTH = 280
 const PET_HEIGHT = 300
@@ -55,7 +56,7 @@ export function createPetWindow(): BrowserWindow {
   }
   win.webContents.once('did-finish-load', () => {
     // 把上次選的 skin 推給 renderer；renderer 啟動時會先用 DEFAULT_SKIN_ID 渲染，這裡覆寫成上次選的
-    win.webContents.send('set-skin', prefs.skin)
+    pushTo(win, 'set-skin', prefs.skin)
   })
   win.setIgnoreMouseEvents(true, { forward: true })
   petWinRef = win
@@ -64,10 +65,10 @@ export function createPetWindow(): BrowserWindow {
   })
   if (!handlersRegistered) {
     handlersRegistered = true
-    ipcMain.on('set-interactive', (_event, interactive: boolean) => {
+    handleCommand('set-interactive', (interactive) => {
       win.setIgnoreMouseEvents(!interactive, { forward: true })
     })
-    ipcMain.on('show-context-menu', () => {
+    handleCommand('show-context-menu', () => {
       const menu = Menu.buildFromTemplate([
         {
           label: '更換造型',
@@ -79,9 +80,7 @@ export function createPetWindow(): BrowserWindow {
               if (!isValidSkinId(s.id)) return
               prefs = { ...prefs, skin: s.id }
               savePrefs(app.getPath('userData'), prefs)
-              if (petWinRef && !petWinRef.isDestroyed()) {
-                petWinRef.webContents.send('set-skin', s.id)
-              }
+              pushTo(petWinRef, 'set-skin', s.id)
             },
           })),
         },
@@ -92,9 +91,7 @@ export function createPetWindow(): BrowserWindow {
           click: (menuItem) => {
             prefs = { ...prefs, autoWalk: menuItem.checked }
             savePrefs(app.getPath('userData'), prefs)
-            if (petWinRef && !petWinRef.isDestroyed()) {
-              petWinRef.webContents.send('auto-walk-changed', prefs.autoWalk)
-            }
+            pushTo(petWinRef, 'auto-walk-changed', prefs.autoWalk)
             if (!prefs.autoWalk) endWalk(true)
           },
         },
@@ -137,21 +134,21 @@ export function createPetWindow(): BrowserWindow {
     let dragStartScreen: { x: number; y: number } | null = null
     let dragStartWin: { x: number; y: number } | null = null
 
-    ipcMain.on('drag-start', (_event, sx: number, sy: number) => {
+    handleCommand('drag-start', ({ sx, sy }) => {
       if (!petWinRef || petWinRef.isDestroyed()) return
       endWalk(true) // 拖動時取消任何走動
       const [wx, wy] = petWinRef.getPosition()
       dragStartScreen = { x: sx, y: sy }
       dragStartWin = { x: wx, y: wy }
     })
-    ipcMain.on('drag-move', (_event, sx: number, sy: number) => {
+    handleCommand('drag-move', ({ sx, sy }) => {
       if (!petWinRef || petWinRef.isDestroyed()) return
       if (!dragStartScreen || !dragStartWin) return
       const nx = dragStartWin.x + (sx - dragStartScreen.x)
       const ny = dragStartWin.y + (sy - dragStartScreen.y)
       petWinRef.setPosition(Math.round(nx), Math.round(ny))
     })
-    ipcMain.on('drag-end', () => {
+    handleCommand('drag-end', () => {
       dragStartScreen = null
       dragStartWin = null
       if (!petWinRef || petWinRef.isDestroyed()) return
@@ -167,81 +164,73 @@ export function createPetWindow(): BrowserWindow {
         clearTimeout(walkTimer)
         walkTimer = null
       }
-      if (notify && petWinRef && !petWinRef.isDestroyed()) {
-        petWinRef.webContents.send('walk-ended')
-      }
+      if (notify) pushTo(petWinRef, 'walk-ended')
     }
     function endWalk(notify: boolean): void {
       endWalkInner(notify)
     }
 
-    ipcMain.on(
-      'walk-start',
-      (_event, req: { direction: 'left' | 'right'; distance: number; duration: number }) => {
-        if (!petWinRef || petWinRef.isDestroyed()) return
-        endWalk(false)
-        const [startX, startY] = petWinRef.getPosition()
-        const display = screen.getDisplayNearestPoint({ x: startX, y: startY })
-        let direction: 'left' | 'right' = req.direction
-        let available = clampWalkToWorkArea(startX, direction, req.distance, display.workArea, PET_WIDTH)
-        if (available <= 0) {
-          // 該方向到底了，試對向
-          const flipped: 'left' | 'right' = direction === 'right' ? 'left' : 'right'
-          const alt = clampWalkToWorkArea(startX, flipped, req.distance, display.workArea, PET_WIDTH)
-          if (alt > 0) {
-            direction = flipped
-            available = alt
-            petWinRef.webContents.send('walk-direction', direction)
-          } else {
-            petWinRef.webContents.send('walk-ended')
-            return
-          }
+    handleCommand('walk-start', (req) => {
+      if (!petWinRef || petWinRef.isDestroyed()) return
+      endWalk(false)
+      const [startX, startY] = petWinRef.getPosition()
+      const display = screen.getDisplayNearestPoint({ x: startX, y: startY })
+      let direction: 'left' | 'right' = req.direction
+      let available = clampWalkToWorkArea(startX, direction, req.distance, display.workArea, PET_WIDTH)
+      if (available <= 0) {
+        // 該方向到底了，試對向
+        const flipped: 'left' | 'right' = direction === 'right' ? 'left' : 'right'
+        const alt = clampWalkToWorkArea(startX, flipped, req.distance, display.workArea, PET_WIDTH)
+        if (alt > 0) {
+          direction = flipped
+          available = alt
+          pushTo(petWinRef, 'walk-direction', direction)
+        } else {
+          pushTo(petWinRef, 'walk-ended')
+          return
         }
-        const sign: number = direction === 'right' ? 1 : -1
-        const startedAt = Date.now()
-        const step = (): void => {
-          if (!petWinRef || petWinRef.isDestroyed()) {
-            walkTimer = null
-            return
-          }
-          const elapsed = Date.now() - startedAt
-          const t = Math.min(1, elapsed / req.duration)
-          const x = Math.round(startX + sign * available * t)
-          petWinRef.setPosition(x, startY)
-          if (t >= 1) {
-            endWalk(true)
-            return
-          }
-          walkTimer = setTimeout(step, 16)
+      }
+      const sign: number = direction === 'right' ? 1 : -1
+      const startedAt = Date.now()
+      const step = (): void => {
+        if (!petWinRef || petWinRef.isDestroyed()) {
+          walkTimer = null
+          return
         }
-        step()
-      },
-    )
-    ipcMain.on('walk-cancel', () => endWalk(true))
+        const elapsed = Date.now() - startedAt
+        const t = Math.min(1, elapsed / req.duration)
+        const x = Math.round(startX + sign * available * t)
+        petWinRef.setPosition(x, startY)
+        if (t >= 1) {
+          endWalk(true)
+          return
+        }
+        walkTimer = setTimeout(step, 16)
+      }
+      step()
+    })
+    handleCommand('walk-cancel', () => endWalk(true))
 
-    ipcMain.on('open-center', () => bus.emit('open-center'))
-    ipcMain.handle('get-auto-walk', () => prefs.autoWalk)
-    ipcMain.handle('get-prefs', () => prefs)
-    ipcMain.on('set-walk-bounds', (_e, partial: Partial<WalkBounds>) => {
+    handleCommand('open-center', () => bus.emit('open-center'))
+    handleQuery('get-auto-walk', () => prefs.autoWalk)
+    handleQuery('get-prefs', () => prefs)
+    handleCommand('set-walk-bounds', (partial) => {
       const next = sanitizeWalkBounds({ ...prefs.walk, ...partial })
       prefs = { ...prefs, walk: next }
       savePrefs(app.getPath('userData'), prefs)
-      if (petWinRef && !petWinRef.isDestroyed()) {
-        petWinRef.webContents.send('prefs-changed', prefs)
-      }
+      pushTo(petWinRef, 'prefs-changed', prefs)
     })
 
     function applyDnd(enabled: boolean): void {
       prefs = { ...prefs, dnd: enabled }
       savePrefs(app.getPath('userData'), prefs)
       bus.emit('dnd-changed', enabled) // 讓 index.ts 的 onEvent gate 讀到
-      if (!petWinRef || petWinRef.isDestroyed()) return
-      if (enabled) petWinRef.webContents.send('dnd-on') // renderer 清當前 replay 卡片
-      petWinRef.webContents.send('dnd-changed', enabled) // 通知中心顯示「勿擾中」
+      if (enabled) pushTo(petWinRef, 'dnd-on') // renderer 清當前 replay 卡片
+      pushTo(petWinRef, 'dnd-changed', enabled) // 通知中心顯示「勿擾中」
     }
 
-    ipcMain.on('set-dnd', (_e, enabled: boolean) => applyDnd(enabled))
-    ipcMain.handle('get-dnd', () => prefs.dnd)
+    handleCommand('set-dnd', (enabled) => applyDnd(enabled))
+    handleQuery('get-dnd', () => prefs.dnd)
 
     // ===== display-removed：失效時吸附回 primary =====
     screen.on('display-removed', () => {

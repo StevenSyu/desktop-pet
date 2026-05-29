@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { createPetWindow } from './window'
 import { createCenterWindow } from './center-window'
 import { createSettingsWindow } from './settings-window'
@@ -7,6 +7,7 @@ import { startIngestServer } from './ingest'
 import { MessageStore } from '../core/message-store'
 import { bus } from './bus'
 import { loadPrefs } from './prefs'
+import { handleCommand, handleQuery, pushTo } from '../ipc/main-helpers'
 import type { AppEvent } from '../core/events'
 
 const store = new MessageStore()
@@ -16,10 +17,10 @@ let settingsWindow: BrowserWindow | null = null
 let dndEnabled = false
 
 function broadcastUnread(): void {
-  if (petWindow && !petWindow.isDestroyed()) petWindow.webContents.send('unread-count', store.unreadCount())
+  pushTo(petWindow, 'unread-count', store.unreadCount())
 }
 function broadcastMessages(): void {
-  if (centerWindow && !centerWindow.isDestroyed()) centerWindow.webContents.send('messages-updated', store.list())
+  pushTo(centerWindow, 'messages-updated', store.list())
 }
 
 function openCenter(): void {
@@ -54,26 +55,26 @@ app.whenReady().then(async () => {
       broadcastUnread()
       broadcastMessages()
       if (dndEnabled) return // 勿擾模式：不彈卡片、不演反應動畫
-      if (petWindow && !petWindow.isDestroyed()) petWindow.webContents.send('pet-event', event)
+      pushTo(petWindow, 'pet-event', event)
     },
   })
 
-  ipcMain.on('mark-read', (_e, id: string) => {
+  handleCommand('mark-read', (id) => {
     store.markRead(id)
     broadcastUnread()
     broadcastMessages()
   })
-  ipcMain.on('mark-all-read', () => {
+  handleCommand('mark-all-read', () => {
     store.markAllRead()
     broadcastUnread()
     broadcastMessages()
   })
-  ipcMain.on('clear-messages', () => {
+  handleCommand('clear-messages', () => {
     store.clear()
     broadcastUnread()
     broadcastMessages()
   })
-  ipcMain.handle('get-messages', () => store.list())
+  handleQuery('get-messages', () => store.list())
 
   bus.on('open-center', openCenter)
   bus.on('open-settings', () => {
