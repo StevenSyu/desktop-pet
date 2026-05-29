@@ -33,6 +33,14 @@ const listEl = document.querySelector<HTMLDivElement>('#list')!
 const emptyEl = document.querySelector<HTMLDivElement>('#empty')!
 const unreadEl = document.querySelector<HTMLSpanElement>('#unread')!
 const chipsEl = document.querySelector<HTMLDivElement>('#chips')!
+const dndFlagEl = document.querySelector<HTMLSpanElement>('#dnd-flag')!
+
+function setDndFlag(enabled: boolean): void {
+  dndFlagEl.hidden = !enabled
+}
+
+window.petBridge.getDnd().then(setDndFlag)
+window.petBridge.onDndChanged(setDndFlag)
 
 function renderChips(): void {
   chipsEl.replaceChildren(

@@ -132,3 +132,9 @@ header {
   padding: 40px 0;
 }
 #empty[hidden] { display: none; }
+
+#dnd-flag {
+  font-size: 11px;
+  font-weight: 600;
+  color: #ad9f8c;
+}
