@@ -16,6 +16,7 @@ import {
 } from '../core/interaction-reducer'
 import type { AppEvent, NotifyType } from '../core/events'
 import type { CardView } from '../core/card-view'
+import { cardSummary } from '../core/card-summary'
 
 const DISPLAY_SCALE = 0.7
 // 狀態以文字標籤＋色彩（CSS 依 data-type 上色）呈現，不用 emoji
@@ -143,12 +144,14 @@ function buildCardView(e: AppEvent): CardView {
   const sessionTag =
     e.sessionId && e.sessionId !== 'default' ? `#${e.sessionId.slice(0, 6)}` : ''
   const source = [sourceText, sessionTag].filter(Boolean).join(' · ')
+  const s = cardSummary(e.body ? stripMarkdown(e.body) : '')
   return {
     id: e.id,
     type: e.type,
     label: LABEL[e.type],
-    body: e.body ? stripMarkdown(e.body) : '',
+    body: s.text,
     source,
+    hasMore: s.hasMore,
   }
 }
 

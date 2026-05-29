@@ -10,4 +10,6 @@ export interface CardView {
   body: string
   /** 來源 + session 短碼組合字串；無則為空字串。 */
   source: string
+  /** 內文是否被精簡（截斷/多行）→ 卡片顯示「更多」入口。 */
+  hasMore: boolean
 }
