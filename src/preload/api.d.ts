@@ -2,6 +2,7 @@ import type { AppEvent } from '../core/events'
 import type { StoredMessage } from '../core/message-store'
 import type { WalkBounds } from '../core/walk-planner'
 import type { DiscoveredSkin } from '../core/skin-scan'
+import type { CardView } from '../core/card-view'
 
 declare global {
   interface Window {
@@ -36,6 +37,13 @@ declare global {
       markAllRead: () => void
       clearMessages: () => void
       onMessagesUpdated: (cb: (msgs: StoredMessage[]) => void) => void
+      showCard: (view: CardView) => void
+      hideCard: () => void
+      onCardDismissed: (cb: (p: { id: string }) => void) => void
+    }
+    cardBridge: {
+      onCardData: (cb: (view: CardView) => void) => void
+      cardClicked: (id: string) => void
     }
   }
 }

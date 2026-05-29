@@ -3,6 +3,7 @@ import type { AppEvent } from '../core/events'
 import type { StoredMessage } from '../core/message-store'
 import type { WalkBounds } from '../core/walk-planner'
 import type { Prefs } from '../main/prefs'
+import type { CardView } from '../core/card-view'
 import { sendCommand, invokeQuery, subscribePush } from '../ipc/preload-helpers'
 
 contextBridge.exposeInMainWorld('petBridge', {
@@ -37,4 +38,7 @@ contextBridge.exposeInMainWorld('petBridge', {
   markAllRead: () => sendCommand('mark-all-read'),
   clearMessages: () => sendCommand('clear-messages'),
   onMessagesUpdated: (cb: (msgs: StoredMessage[]) => void) => subscribePush('messages-updated', cb),
+  showCard: (view: CardView) => sendCommand('show-card', view),
+  hideCard: () => sendCommand('hide-card'),
+  onCardDismissed: (cb: (p: { id: string }) => void) => subscribePush('card-dismissed', cb),
 })
