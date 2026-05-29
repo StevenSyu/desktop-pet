@@ -36,4 +36,13 @@ describe('cardPosition', () => {
     // x = 1305 + 135 - 264 = 1176；上限 = 1440 - 264 = 1176 → 1176
     expect(cardPosition(pet, card, wa, gap)).toEqual({ x: 1176, y: 440 })
   })
+
+  it('翻到下方會超出底部 → y 夾回工作區', () => {
+    const shortWa: Rect = { x: 0, y: 0, width: 1440, height: 400 }
+    const tall = { width: 264, height: 380 }
+    const pet: Rect = { x: 1136, y: 0, width: 135, height: 146 }
+    // x = 1136+135-264 = 1007（夾入 [0,1176] 仍 1007）
+    // y：上方 = 0-380-8 < 0 → 下方 = 0+146+8 = 154；夾上限 = 400-380 = 20 → 20
+    expect(cardPosition(pet, tall, shortWa, 8)).toEqual({ x: 1007, y: 20 })
+  })
 })

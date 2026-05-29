@@ -24,7 +24,8 @@ export function cardPosition(
   const x = clamp(rawX, workArea.x, workArea.x + workArea.width - card.width)
 
   const aboveY = pet.y - card.height - gap
-  const y = aboveY >= workArea.y ? aboveY : pet.y + pet.height + gap
+  const rawY = aboveY >= workArea.y ? aboveY : pet.y + pet.height + gap
+  const y = clamp(rawY, workArea.y, workArea.y + workArea.height - card.height)
 
   return { x, y }
 }
