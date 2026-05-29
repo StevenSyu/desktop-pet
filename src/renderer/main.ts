@@ -6,8 +6,14 @@ import { DEFAULT_SKIN_ID } from '../core/skins'
 import { pickWalk, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
 import { resolveAnimation, type AnimationContext } from '../core/anim-resolver'
 import { shouldWalkNow } from '../core/walk-decider'
-import { classifyClick, DEFAULT_DOUBLE_CLICK_MS } from '../core/click-dispatcher'
 import { stripMarkdown } from '../core/markdown-strip'
+import {
+  reduce,
+  initialInteractionState,
+  DEFAULT_INTERACTION_CONFIG,
+  type InteractionInput,
+  type InteractionEffect,
+} from '../core/interaction-reducer'
 import type { AppEvent, NotifyType } from '../core/events'
 import maySheet from '../../resources/pets/may/spritesheet.webp'
 import marukoSheet from '../../resources/pets/maruko/spritesheet.webp'
@@ -40,6 +46,49 @@ setSkin(DEFAULT_SKIN_ID)
 window.petBridge?.onSetSkin?.((id) => setSkin(id))
 
 const pet = new PetController()
+
+// ===== 互動狀態機（純函式 reducer）：drag / click / hover / reaction =====
+// adapter 持有狀態、把 DOM/IPC 事件 dispatch 給 reducer，再執行回傳的 effects。
+let interactionState = initialInteractionState()
+let pendingDragMove: { sx: number; sy: number } | null = null
+let dragMoveRaf = 0
+
+function flushDragMove(): void {
+  dragMoveRaf = 0
+  if (pendingDragMove) {
+    window.petBridge.dragMove(pendingDragMove.sx, pendingDragMove.sy)
+    pendingDragMove = null
+  }
+}
+
+function applyEffect(eff: InteractionEffect): void {
+  switch (eff.type) {
+    case 'ipcDragStart':
+      window.petBridge.dragStart(eff.sx, eff.sy)
+      break
+    case 'ipcDragMove':
+      // 以 rAF 合併位置更新，避免每次 pointermove 都打 IPC
+      pendingDragMove = { sx: eff.sx, sy: eff.sy }
+      if (!dragMoveRaf) dragMoveRaf = requestAnimationFrame(flushDragMove)
+      break
+    case 'ipcDragEnd':
+      if (dragMoveRaf) {
+        cancelAnimationFrame(dragMoveRaf)
+        flushDragMove()
+      }
+      window.petBridge.dragEnd()
+      break
+    case 'openCenter':
+      window.petBridge.openCenter()
+      break
+  }
+}
+
+function dispatch(input: InteractionInput, now = performance.now()): void {
+  const r = reduce(interactionState, input, { now, rng: Math.random, config: DEFAULT_INTERACTION_CONFIG })
+  interactionState = r.state
+  for (const eff of r.effects) applyEffect(eff)
+}
 
 // 目前顯示的訊息：持久顯示、不自動消失。新訊息會替換，使用者點一下卡片才關閉。
 let currentEvent: AppEvent | null = null
@@ -77,13 +126,8 @@ window.petBridge?.onPetEvent?.((event: AppEvent) => {
   renderCard()
   startReplay(event)
   refreshBadge()
-  // 反應事件優先級高於本地互動，清掉避免 sprite 互蓋
-  userAnim = null
-  if (pendingClickTimer) {
-    clearTimeout(pendingClickTimer)
-    pendingClickTimer = null
-    lastClickAt = null
-  }
+  // 反應事件優先級高於本地互動 → 通知 reducer 清互動動畫與待觸發點擊
+  dispatch({ kind: 'externalEvent' })
 })
 
 // 勿擾開啟瞬間：清當前卡片與 replay，避免殘留卡片繼續 5 秒抽動畫
@@ -139,51 +183,13 @@ function renderCard(): void {
   cardsEl.replaceChildren(card)
 }
 
-// ===== 動畫驅動：setInterval 輪詢 FSM 並切 #pet[data-anim]；影格動畫由 CSS @keyframes 負責 =====
+// ===== 動畫驅動：setInterval 輪詢 FSM + 互動 reducer，切 #pet[data-anim] =====
 let currentAnim: string | null = null
 let walking = false
 let autoWalkEnabled = true
 let walkBounds: WalkBounds = { ...DEFAULT_WALK_BOUNDS }
 let nextWalkAt = pickWalk(Math.random, performance.now(), walkBounds).nextWalkAt
-// 互動狀態（Spec ④）：由 resolveAnimation 仲裁優先級
 let walkDirection: 'left' | 'right' | null = null
-let userAnim: { name: string; expiresAt: number } | null = null
-let dragDirection: 'left' | 'right' | null = null
-let lastClickAt: number | null = null
-let pendingClickTimer: ReturnType<typeof setTimeout> | null = null
-let justDragged = false
-const REACTION_POOL = ['waving', 'jumping', 'review'] as const
-const REACTION_DURATION_MS: Record<string, number> = {
-  waving: 1000,
-  jumping: 1000,
-  review: 1750,
-}
-
-function triggerReaction(): void {
-  const pick = REACTION_POOL[Math.floor(Math.random() * REACTION_POOL.length)]
-  userAnim = { name: pick, expiresAt: performance.now() + REACTION_DURATION_MS[pick] }
-}
-
-function handleClick(now: number): void {
-  if (justDragged) return
-  const kind = classifyClick(lastClickAt, now)
-  if (kind === 'double') {
-    if (pendingClickTimer) {
-      clearTimeout(pendingClickTimer)
-      pendingClickTimer = null
-    }
-    lastClickAt = null
-    window.petBridge.openCenter()
-  } else {
-    if (pendingClickTimer) clearTimeout(pendingClickTimer)
-    lastClickAt = now
-    pendingClickTimer = setTimeout(() => {
-      pendingClickTimer = null
-      lastClickAt = null
-      triggerReaction()
-    }, DEFAULT_DOUBLE_CLICK_MS)
-  }
-}
 
 window.petBridge.getPrefs().then((p) => {
   autoWalkEnabled = p.autoWalk
@@ -209,16 +215,14 @@ function setAnim(name: string): void {
 
 function tick(): void {
   const now = performance.now()
+  dispatch({ kind: 'tick' }, now) // 過期清 userAnim、單擊等待到期觸發反應
   const view = pet.advance(now)
-
-  // 過期清除 userAnim
-  if (userAnim && now >= userAnim.expiresAt) userAnim = null
 
   const ctx: AnimationContext = {
     fsmAnimation: view.animation,
-    dragMoved: dragState !== null && dragState.moved,
-    dragDirection,
-    userAnim: userAnim?.name ?? null,
+    dragMoved: interactionState.drag?.moved ?? false,
+    dragDirection: interactionState.drag?.direction ?? null,
+    userAnim: interactionState.userAnim?.name ?? null,
     walking,
     walkDirection,
   }
@@ -269,10 +273,7 @@ function bindHover(): void {
 
   petEl.addEventListener('mouseenter', () => {
     enableInteractive()
-    // 拖動中或反應中不打斷；hover 與 click 共用同個隨機反應池
-    if (!dragState && !userAnim) {
-      triggerReaction()
-    }
+    dispatch({ kind: 'hover' }) // 拖動中／反應中 reducer 自會略過
   })
   petEl.addEventListener('mouseleave', disableInteractive)
   cardsEl.addEventListener('mouseenter', enableInteractive)
@@ -283,81 +284,38 @@ function bindHover(): void {
 
 bindHover()
 
-// 拖動寵物：自寫 pointer 處理（不用 -webkit-app-region: drag，避免破壞右鍵選單與 hover）
-const DRAG_THRESHOLD = 3 // px：超過才算拖動，否則視為點擊
-const DRAG_DIRECTION_THRESHOLD = 8 // px：累計位移 > 此值才判定方向，避免抖動
-let dragState: { startSx: number; startSy: number; moved: boolean } | null = null
-let pendingDragMove: { sx: number; sy: number } | null = null
-let dragMoveRaf = 0
-
-function flushDragMove(): void {
-  dragMoveRaf = 0
-  if (pendingDragMove) {
-    window.petBridge.dragMove(pendingDragMove.sx, pendingDragMove.sy)
-    pendingDragMove = null
-  }
-}
-
+// 拖動／點擊：pointer 事件轉成 reducer input；DOM pointer capture 留在 adapter
 petEl.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return // 只接左鍵；右鍵留給 contextmenu
-  dragState = { startSx: e.screenX, startSy: e.screenY, moved: false }
   petEl.setPointerCapture(e.pointerId)
-  window.petBridge.dragStart(e.screenX, e.screenY)
+  dispatch({ kind: 'pointerDown', sx: e.screenX, sy: e.screenY, button: e.button })
 })
 
 petEl.addEventListener('pointermove', (e) => {
-  if (!dragState) return
-  if (!dragState.moved) {
-    const dx = Math.abs(e.screenX - dragState.startSx)
-    const dy = Math.abs(e.screenY - dragState.startSy)
-    if (dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) return
-    dragState.moved = true
-  }
-  // 累計位移判方向（向右為正、向左為負）；超過 DIR_THRESHOLD 才更新
-  const cumDx = e.screenX - dragState.startSx
-  if (Math.abs(cumDx) > DRAG_DIRECTION_THRESHOLD) {
-    dragDirection = cumDx > 0 ? 'right' : 'left'
-  }
-  pendingDragMove = { sx: e.screenX, sy: e.screenY }
-  if (!dragMoveRaf) dragMoveRaf = requestAnimationFrame(flushDragMove)
+  if (!interactionState.drag) return
+  dispatch({ kind: 'pointerMove', sx: e.screenX, sy: e.screenY })
 })
 
 function endDrag(e: PointerEvent): void {
-  if (!dragState) return
+  if (!interactionState.drag) return
   try {
     petEl.releasePointerCapture(e.pointerId)
   } catch {
     /* 已釋放 */
   }
-  if (dragState.moved) {
-    // 確保最後一次位置已送出
-    if (dragMoveRaf) {
-      cancelAnimationFrame(dragMoveRaf)
-      flushDragMove()
-    }
-    window.petBridge.dragEnd()
-    dragDirection = null
-    justDragged = true
-    setTimeout(() => {
-      justDragged = false
-    }, 60)
-  } else {
-    // 沒移動就放開 → click 路徑（dblclick 由 handleClick 自己判定）
-    handleClick(performance.now())
-  }
-  dragState = null
+  dispatch({ kind: e.type === 'pointercancel' ? 'pointerCancel' : 'pointerUp' })
 }
 petEl.addEventListener('pointerup', endDrag)
 petEl.addEventListener('pointercancel', endDrag)
 
-// 右鍵叫出原生選單（結束 may／未來通知中心）
+// 右鍵叫出原生選單（結束 may／通知中心）
 document.addEventListener('contextmenu', (e) => {
   e.preventDefault()
   window.petBridge?.showContextMenu?.()
 })
 
 // 未讀徽章：訂閱 main 推送的未讀數，點擊開啟通知中心
-// 邏輯：總未讀 - 螢幕上正在顯示的卡片（=1）= 徽章顯示的數字；只有 1 則且就是當前卡片時不顯示
+// 邏輯：總未讀 - 螢幕上正在顯示的卡片（=1）= 有效未讀數；為 0 時紅點隱藏
 const badgeEl = document.querySelector<HTMLDivElement>('#badge')!
 badgeEl.addEventListener('click', () => window.petBridge.openCenter())
 let lastUnreadCount = 0
