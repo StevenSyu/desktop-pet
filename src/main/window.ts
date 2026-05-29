@@ -16,6 +16,7 @@ let prefs: Prefs = {
   autoWalk: true,
   walk: { ...DEFAULT_WALK_BOUNDS },
   skin: DEFAULT_SKIN_ID,
+  dnd: false,
 }
 
 export function createPetWindow(): BrowserWindow {

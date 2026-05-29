@@ -20,6 +20,7 @@ const FULL_DEFAULTS = {
   autoWalk: true,
   walk: DEFAULT_WALK_BOUNDS,
   skin: DEFAULT_SKIN_ID,
+  dnd: false,
 }
 
 describe('loadPrefs', () => {
@@ -79,6 +80,19 @@ describe('loadPrefs', () => {
     writeFileSync(join(d, 'prefs.json'), JSON.stringify({ skin: 123 }))
     expect(loadPrefs(d).skin).toBe(DEFAULT_SKIN_ID)
   })
+  it('dnd: 預設 false', () => {
+    expect(loadPrefs(tempDir()).dnd).toBe(false)
+  })
+  it('dnd: true 正確讀回', () => {
+    const d = tempDir()
+    writeFileSync(join(d, 'prefs.json'), JSON.stringify({ dnd: true }))
+    expect(loadPrefs(d).dnd).toBe(true)
+  })
+  it('dnd: 非 boolean → false', () => {
+    const d = tempDir()
+    writeFileSync(join(d, 'prefs.json'), JSON.stringify({ dnd: 'yes' }))
+    expect(loadPrefs(d).dnd).toBe(false)
+  })
 })
 
 describe('savePrefs', () => {
@@ -88,6 +102,7 @@ describe('savePrefs', () => {
       autoWalk: false,
       walk: { intervalMinMs: 10_000, intervalMaxMs: 30_000, durationMinMs: 1000, durationMaxMs: 4000 },
       skin: 'oil-king-penguin',
+      dnd: true,
     }
     savePrefs(d, prefs)
     expect(existsSync(join(d, 'prefs.json'))).toBe(true)

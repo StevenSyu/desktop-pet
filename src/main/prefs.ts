@@ -11,6 +11,7 @@ export interface Prefs {
   autoWalk: boolean
   walk: WalkBounds
   skin: string
+  dnd: boolean
 }
 
 const FILENAME = 'prefs.json'
@@ -18,12 +19,13 @@ const DEFAULTS: Prefs = {
   autoWalk: true,
   walk: { ...DEFAULT_WALK_BOUNDS },
   skin: DEFAULT_SKIN_ID,
+  dnd: false,
 }
 
 export function loadPrefs(userDataDir: string): Prefs {
   const path = join(userDataDir, FILENAME)
   if (!existsSync(path)) {
-    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk }, skin: DEFAULTS.skin }
+    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk }, skin: DEFAULTS.skin, dnd: DEFAULTS.dnd }
   }
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>
@@ -32,9 +34,10 @@ export function loadPrefs(userDataDir: string): Prefs {
       autoWalk: typeof parsed.autoWalk === 'boolean' ? parsed.autoWalk : DEFAULTS.autoWalk,
       walk: sanitizeWalkBounds(walkRaw as Partial<WalkBounds>),
       skin: isValidSkinId(parsed.skin) ? (parsed.skin as string) : DEFAULTS.skin,
+      dnd: typeof parsed.dnd === 'boolean' ? parsed.dnd : DEFAULTS.dnd,
     }
   } catch {
-    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk }, skin: DEFAULTS.skin }
+    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk }, skin: DEFAULTS.skin, dnd: DEFAULTS.dnd }
   }
 }
 
