@@ -15,15 +15,6 @@ import {
   type InteractionEffect,
 } from '../core/interaction-reducer'
 import type { AppEvent, NotifyType } from '../core/events'
-import maySheet from '../../resources/pets/may/spritesheet.webp'
-import marukoSheet from '../../resources/pets/maruko/spritesheet.webp'
-import penguinSheet from '../../resources/pets/oil-king-penguin/spritesheet.webp'
-
-const SHEET_URL: Record<string, string> = {
-  'may': maySheet,
-  'maruko': marukoSheet,
-  'oil-king-penguin': penguinSheet,
-}
 
 const DISPLAY_SCALE = 0.7
 // 狀態以文字標籤＋色彩（CSS 依 data-type 上色）呈現，不用 emoji
@@ -38,7 +29,7 @@ petEl.style.height = `${SPRITE_FORMAT.frameHeight * DISPLAY_SCALE}px`
 petEl.style.backgroundSize = `${SPRITE_FORMAT.sheetWidth * DISPLAY_SCALE}px ${SPRITE_FORMAT.sheetHeight * DISPLAY_SCALE}px`
 
 function setSkin(id: string): void {
-  petEl.style.backgroundImage = `url(${SHEET_URL[id] ?? SHEET_URL[DEFAULT_SKIN_ID]})`
+  petEl.style.backgroundImage = `url(pet://${id}/sheet)`
 }
 setSkin(DEFAULT_SKIN_ID)
 

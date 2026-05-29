@@ -1,7 +1,9 @@
 import { app, BrowserWindow } from 'electron'
-import { createPetWindow } from './window'
+import { createPetWindow, getSkinSheetPath } from './window'
 import { createCenterWindow } from './center-window'
 import { createSettingsWindow } from './settings-window'
+import { createSkinWindow } from './skin-window'
+import { registerPetScheme, registerPetProtocol } from './pet-protocol'
 import { findFreePort, generateToken, writeEndpointFile } from './endpoint'
 import { startIngestServer } from './ingest'
 import { MessageStore } from '../core/message-store'
@@ -10,10 +12,14 @@ import { loadPrefs } from './prefs'
 import { handleCommand, handleQuery, pushTo } from '../ipc/main-helpers'
 import type { AppEvent } from '../core/events'
 
+// pet: scheme 必須在 app ready 前註冊（一次）
+registerPetScheme()
+
 const store = new MessageStore()
 let petWindow: BrowserWindow | null = null
 let centerWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
+let skinWindow: BrowserWindow | null = null
 let dndEnabled = false
 
 function broadcastUnread(): void {
@@ -36,6 +42,7 @@ function openCenter(): void {
 }
 
 app.whenReady().then(async () => {
+  registerPetProtocol(getSkinSheetPath) // 在任何載入 pet: 的視窗前
   petWindow = createPetWindow()
 
   dndEnabled = loadPrefs(app.getPath('userData')).dnd
@@ -85,6 +92,16 @@ app.whenReady().then(async () => {
     settingsWindow = createSettingsWindow()
     settingsWindow.on('closed', () => {
       settingsWindow = null
+    })
+  })
+  bus.on('open-skins', () => {
+    if (skinWindow && !skinWindow.isDestroyed()) {
+      skinWindow.focus()
+      return
+    }
+    skinWindow = createSkinWindow()
+    skinWindow.on('closed', () => {
+      skinWindow = null
     })
   })
 

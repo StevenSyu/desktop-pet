@@ -24,6 +24,8 @@ contextBridge.exposeInMainWorld('petBridge', {
   getAutoWalk: () => invokeQuery('get-auto-walk'),
   onAutoWalkChanged: (cb: (enabled: boolean) => void) => subscribePush('auto-walk-changed', cb),
   getPrefs: () => invokeQuery('get-prefs'),
+  getSkins: () => invokeQuery('get-skins'),
+  selectSkin: (id: string) => invokeQuery('select-skin', id),
   setWalkBounds: (bounds: Partial<WalkBounds>) => sendCommand('set-walk-bounds', bounds),
   onPrefsChanged: (cb: (prefs: Prefs) => void) => subscribePush('prefs-changed', cb),
   setDnd: (enabled: boolean) => sendCommand('set-dnd', enabled),

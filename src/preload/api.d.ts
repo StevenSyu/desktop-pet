@@ -1,6 +1,7 @@
 import type { AppEvent } from '../core/events'
 import type { StoredMessage } from '../core/message-store'
 import type { WalkBounds } from '../core/walk-planner'
+import type { DiscoveredSkin } from '../core/skin-scan'
 
 declare global {
   interface Window {
@@ -22,6 +23,8 @@ declare global {
       getAutoWalk: () => Promise<boolean>
       onAutoWalkChanged: (cb: (enabled: boolean) => void) => void
       getPrefs: () => Promise<{ autoWalk: boolean; walk: WalkBounds }>
+      getSkins: () => Promise<{ skins: DiscoveredSkin[]; requestedId: string; effectiveId: string }>
+      selectSkin: (id: string) => Promise<{ ok: boolean; effectiveId: string }>
       setWalkBounds: (bounds: Partial<WalkBounds>) => void
       onPrefsChanged: (cb: (prefs: { autoWalk: boolean; walk: WalkBounds }) => void) => void
       setDnd: (enabled: boolean) => void

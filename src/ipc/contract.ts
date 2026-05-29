@@ -16,6 +16,7 @@
 import type { AppEvent } from '../core/events'
 import type { StoredMessage } from '../core/message-store'
 import type { WalkBounds } from '../core/walk-planner'
+import type { DiscoveredSkin } from '../core/skin-scan'
 import type { Prefs } from '../main/prefs'
 
 /** renderer → main，單向命令。 */
@@ -41,6 +42,8 @@ export interface Queries {
   'get-prefs': { args: void; result: Prefs }
   'get-dnd': { args: void; result: boolean }
   'get-messages': { args: void; result: StoredMessage[] }
+  'get-skins': { args: void; result: { skins: DiscoveredSkin[]; requestedId: string; effectiveId: string } }
+  'select-skin': { args: string; result: { ok: boolean; effectiveId: string } }
 }
 
 /** main → renderer，單向推播。 */

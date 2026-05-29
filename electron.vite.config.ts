@@ -24,6 +24,7 @@ export default defineConfig({
           index: 'src/renderer/index.html',
           center: 'src/renderer/center.html',
           settings: 'src/renderer/settings.html',
+          skins: 'src/renderer/skins.html',
         },
       },
     },

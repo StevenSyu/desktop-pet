@@ -1,0 +1,52 @@
+html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+body { font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif; color: #2a2622; }
+
+.panel {
+  margin: 8px;
+  background: #fffdf8;
+  border-radius: 14px;
+  box-shadow: 0 14px 36px rgba(46, 33, 18, .24);
+  overflow: hidden;
+}
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; border-bottom: 1px solid rgba(46, 33, 18, .08);
+}
+.title { font-weight: 800; font-size: 15px; letter-spacing: .04em; }
+.title span { font-size: 11px; font-weight: 600; color: #ad9f8c; }
+.actions button {
+  border: 0; background: transparent; color: #8a8175; cursor: pointer;
+  font-size: 15px; padding: 4px 8px; border-radius: 6px;
+}
+.actions button:hover { background: rgba(0,0,0,.06); color: #2a2622; }
+
+.hint { padding: 8px 14px; font-size: 11.5px; color: #d6453d; background: rgba(214,69,61,.06); }
+.hint[hidden] { display: none; }
+
+#list { max-height: 420px; overflow: auto; }
+
+.card {
+  display: flex; gap: 11px; align-items: center;
+  padding: 11px 14px; border-bottom: 1px solid rgba(46, 33, 18, .05);
+}
+.card.current { background: color-mix(in srgb, #2e9e6b 9%, transparent); border-left: 3px solid #2e9e6b; }
+.card.invalid { opacity: .55; }
+
+.thumb {
+  flex: none; border-radius: 8px; background: #e7e2da;
+  display: flex; align-items: center; justify-content: center; font-size: 22px;
+  width: 96px; height: 104px;
+}
+.main { flex: 1; min-width: 0; }
+.name { font-weight: 700; font-size: 14px; }
+.name .using { font-size: 11px; color: #2e9e6b; font-weight: 700; }
+.desc { font-size: 11.5px; color: #7a6e60; line-height: 1.4; margin-top: 2px; }
+.desc.err { color: #d6453d; }
+.meta { font-size: 10px; color: #ad9f8c; margin-top: 3px; }
+
+button.select {
+  flex: none; border: 0; background: #2e9e6b; color: #fff;
+  font: 700 12px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  padding: 6px 12px; border-radius: 7px; cursor: pointer;
+}
+button.select:hover { background: #257f56; }

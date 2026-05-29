@@ -1,6 +1,7 @@
 import { app, BrowserWindow, screen, Menu } from 'electron'
 import { join } from 'node:path'
-import { SKINS, isValidSkinId, DEFAULT_SKIN_ID } from '../core/skins'
+import { DEFAULT_SKIN_ID } from '../core/skins'
+import { scanSkins } from './skin-registry'
 import { bus } from './bus'
 import { clampToValidPosition, defaultPosition, type DisplayInfo } from '../core/window-position'
 import { sanitizeWalkBounds, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
@@ -20,12 +21,20 @@ let prefs: Prefs = {
   skin: DEFAULT_SKIN_ID,
   dnd: false,
 }
+// 最近一次掃描的 id → spritesheet 絕對路徑（供 pet:// protocol handler 取檔）
+let skinSheetPaths = new Map<string, string>()
+
+export function getSkinSheetPath(id: string): string | undefined {
+  return skinSheetPaths.get(id)
+}
 
 export function createPetWindow(): BrowserWindow {
   const primary = screen.getPrimaryDisplay()
   const displays: DisplayInfo[] = screen.getAllDisplays().map((d) => ({ id: d.id, workArea: d.workArea }))
   const primaryInfo: DisplayInfo = { id: primary.id, workArea: primary.workArea }
   prefs = loadPrefs(app.getPath('userData'))
+  // 先掃一次填好 skinSheetPaths，確保 renderer 啟動請求 pet://<id>/sheet 時 protocol 已有對應（避免 race 404）
+  skinSheetPaths = scanSkins(app.getPath('userData'), app.getAppPath()).sheetPaths
   const saved = loadWindowState(app.getPath('userData'))
   const winSize = { width: PET_WIDTH, height: PET_HEIGHT }
   const { x: initX, y: initY } = clampToValidPosition(saved, displays, primaryInfo, winSize, MARGIN)
@@ -56,8 +65,11 @@ export function createPetWindow(): BrowserWindow {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
   win.webContents.once('did-finish-load', () => {
-    // 把上次選的 skin 推給 renderer；renderer 啟動時會先用 DEFAULT_SKIN_ID 渲染，這裡覆寫成上次選的
-    pushTo(win, 'set-skin', prefs.skin)
+    // 掃描決定有效造型；prefs.skin 失效（資料夾刪了）則退回 DEFAULT_SKIN_ID
+    const { sheetPaths } = scanSkins(app.getPath('userData'), app.getAppPath())
+    skinSheetPaths = sheetPaths
+    const effectiveId = sheetPaths.has(prefs.skin) ? prefs.skin : DEFAULT_SKIN_ID
+    pushTo(win, 'set-skin', effectiveId)
   })
   win.setIgnoreMouseEvents(true, { forward: true })
   petWinRef = win
@@ -71,20 +83,7 @@ export function createPetWindow(): BrowserWindow {
     })
     handleCommand('show-context-menu', () => {
       const menu = Menu.buildFromTemplate([
-        {
-          label: '更換造型',
-          submenu: SKINS.map((s) => ({
-            label: s.name,
-            type: 'radio' as const,
-            checked: prefs.skin === s.id,
-            click: () => {
-              if (!isValidSkinId(s.id)) return
-              prefs = { ...prefs, skin: s.id }
-              savePrefs(app.getPath('userData'), prefs)
-              pushTo(petWinRef, 'set-skin', s.id)
-            },
-          })),
-        },
+        { label: '更換造型…', click: () => bus.emit('open-skins') },
         {
           label: '自動走動',
           type: 'checkbox',
@@ -197,6 +196,25 @@ export function createPetWindow(): BrowserWindow {
     handleCommand('open-center', () => bus.emit('open-center'))
     handleQuery('get-auto-walk', () => prefs.autoWalk)
     handleQuery('get-prefs', () => prefs)
+    handleQuery('get-skins', () => {
+      const { skins, sheetPaths } = scanSkins(app.getPath('userData'), app.getAppPath())
+      skinSheetPaths = sheetPaths
+      const requestedId = prefs.skin
+      const effectiveId = sheetPaths.has(requestedId) ? requestedId : DEFAULT_SKIN_ID
+      return { skins, requestedId, effectiveId }
+    })
+    handleQuery('select-skin', (id) => {
+      const { sheetPaths } = scanSkins(app.getPath('userData'), app.getAppPath())
+      skinSheetPaths = sheetPaths
+      if (!sheetPaths.has(id)) {
+        const effectiveId = sheetPaths.has(prefs.skin) ? prefs.skin : DEFAULT_SKIN_ID
+        return { ok: false, effectiveId }
+      }
+      prefs = { ...prefs, skin: id }
+      savePrefs(app.getPath('userData'), prefs)
+      pushTo(petWinRef, 'set-skin', id)
+      return { ok: true, effectiveId: id }
+    })
     handleCommand('set-walk-bounds', (partial) => {
       const next = sanitizeWalkBounds({ ...prefs.walk, ...partial })
       prefs = { ...prefs, walk: next }

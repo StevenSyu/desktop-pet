@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: pet:; style-src 'self' 'unsafe-inline'" />
+    <title>更換造型</title>
+    <link rel="stylesheet" href="./skins.css" />
+  </head>
+  <body>
+    <div class="panel">
+      <header>
+        <div class="title">更換造型 <span id="count"></span></div>
+        <div class="actions">
+          <button id="refresh" title="重新整理">↻</button>
+          <button id="close" aria-label="關閉" title="關閉（Esc）">×</button>
+        </div>
+      </header>
+      <div id="hint" class="hint" hidden></div>
+      <div id="list"></div>
+    </div>
+    <script type="module" src="./skins.ts"></script>
+  </body>
+</html>
