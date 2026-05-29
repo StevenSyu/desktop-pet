@@ -5,6 +5,7 @@ import { PetController } from '../core/pet-fsm'
 import { DEFAULT_SKIN_ID } from '../core/skins'
 import { pickWalk, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
 import { resolveAnimation, type AnimationContext } from '../core/anim-resolver'
+import { shouldWalkNow } from '../core/walk-decider'
 import { classifyClick, DEFAULT_DOUBLE_CLICK_MS } from '../core/click-dispatcher'
 import { stripMarkdown } from '../core/markdown-strip'
 import type { AppEvent, NotifyType } from '../core/events'
@@ -224,7 +225,7 @@ function tick(): void {
   setAnim(resolveAnimation(ctx))
 
   // 自走觸發（idle 且未走動、未隱藏、自動走動開啟、到時間）
-  if (autoWalkEnabled && !walking && view.animation === 'idle' && !document.hidden && now >= nextWalkAt) {
+  if (shouldWalkNow({ autoWalkEnabled, walking, animation: view.animation, hidden: document.hidden, now, nextWalkAt })) {
     const w = pickWalk(Math.random, now, walkBounds)
     nextWalkAt = w.nextWalkAt
     walking = true
