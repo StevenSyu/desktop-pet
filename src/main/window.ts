@@ -3,7 +3,8 @@ import { join } from 'node:path'
 import { SKINS, isValidSkinId, DEFAULT_SKIN_ID } from '../core/skins'
 import { bus } from './bus'
 import { clampToValidPosition, defaultPosition, type DisplayInfo } from '../core/window-position'
-import { clampWalkToWorkArea, sanitizeWalkBounds, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
+import { sanitizeWalkBounds, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
+import { WalkSession } from '../core/walk-session'
 import { loadWindowState, saveWindowState } from './window-state'
 import { loadPrefs, savePrefs, type Prefs } from './prefs'
 import { handleCommand, handleQuery, pushTo } from '../ipc/main-helpers'
@@ -142,17 +143,16 @@ export function createPetWindow(): BrowserWindow {
       saveWindowState(app.getPath('userData'), { displayId: d.id, x, y })
     })
 
-    // ===== walk session：單一 in-flight；setTimeout 鏈式推進避免時鐘漂移 =====
+    // ===== walk session：狀態機在 core/WalkSession（可測），此處只做計時 + IO =====
+    const walkSession = new WalkSession()
     let walkTimer: NodeJS.Timeout | null = null
-    const endWalkInner = (notify: boolean): void => {
+    function endWalk(notify: boolean): void {
       if (walkTimer) {
         clearTimeout(walkTimer)
         walkTimer = null
       }
+      walkSession.cancel()
       if (notify) pushTo(petWinRef, 'walk-ended')
-    }
-    function endWalk(notify: boolean): void {
-      endWalkInner(notify)
     }
 
     handleCommand('walk-start', (req) => {
@@ -160,33 +160,31 @@ export function createPetWindow(): BrowserWindow {
       endWalk(false)
       const [startX, startY] = petWinRef.getPosition()
       const display = screen.getDisplayNearestPoint({ x: startX, y: startY })
-      let direction: 'left' | 'right' = req.direction
-      let available = clampWalkToWorkArea(startX, direction, req.distance, display.workArea, PET_WIDTH)
-      if (available <= 0) {
-        // 該方向到底了，試對向
-        const flipped: 'left' | 'right' = direction === 'right' ? 'left' : 'right'
-        const alt = clampWalkToWorkArea(startX, flipped, req.distance, display.workArea, PET_WIDTH)
-        if (alt > 0) {
-          direction = flipped
-          available = alt
-          pushTo(petWinRef, 'walk-direction', direction)
-        } else {
-          pushTo(petWinRef, 'walk-ended')
-          return
-        }
+      const res = walkSession.start(
+        {
+          startX,
+          requestedDirection: req.direction,
+          distance: req.distance,
+          duration: req.duration,
+          workArea: display.workArea,
+          petWidth: PET_WIDTH,
+        },
+        Date.now(),
+      )
+      if (!res.ok) {
+        pushTo(petWinRef, 'walk-ended')
+        return
       }
-      const sign: number = direction === 'right' ? 1 : -1
-      const startedAt = Date.now()
+      if (res.flippedTo) pushTo(petWinRef, 'walk-direction', res.flippedTo)
       const step = (): void => {
         if (!petWinRef || petWinRef.isDestroyed()) {
-          walkTimer = null
+          endWalk(false)
           return
         }
-        const elapsed = Date.now() - startedAt
-        const t = Math.min(1, elapsed / req.duration)
-        const x = Math.round(startX + sign * available * t)
-        petWinRef.setPosition(x, startY)
-        if (t >= 1) {
+        const frame = walkSession.step(Date.now())
+        if (!frame) return // 已被 cancel
+        petWinRef.setPosition(frame.x, startY)
+        if (frame.done) {
           endWalk(true)
           return
         }
