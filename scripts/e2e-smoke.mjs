@@ -8,6 +8,7 @@ import { homedir } from 'node:os'
 
 const SHOT = '/tmp/deskpet-shot.png'
 const CARD_SHOT = '/tmp/deskpet-card.png'
+const DETAIL_SHOT = '/tmp/deskpet-detail.png'
 const EP = join(homedir(), 'Library/Application Support/desktop-notify/endpoint.json')
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -56,6 +57,47 @@ try {
     logs.push('[warn] endpoint.json 不存在（main 可能沒寫）')
   }
 
+  // ===== 卡片「更多」→ 通知中心詳情面板 + markdown 渲染 =====
+  let detailOk = false
+  if (existsSync(EP)) {
+    const { port, token } = JSON.parse(readFileSync(EP, 'utf8'))
+    await fetch(`http://127.0.0.1:${port}/notify`, {
+      method: 'POST',
+      headers: { 'X-Token': token, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'review',
+        title: 'Claude Code',
+        body: '第一行摘要\n\n- 項目一\n- 項目二\n\n**重點**與 `code`',
+        source: 'smoke',
+      }),
+    })
+    // 等卡片視窗出現「更多」並點擊
+    const d1 = Date.now() + 3000
+    while (Date.now() < d1) {
+      const cw = app.windows().find((p) => p.url().includes('card.html'))
+      if (cw && (await cw.locator('.card-more').count())) {
+        await cw.locator('.card-more').click().catch(() => {})
+        break
+      }
+      await sleep(200)
+    }
+    // 等通知中心詳情出現，且 markdown 正確渲染（粗體 + 清單）
+    const d2 = Date.now() + 3000
+    while (Date.now() < d2) {
+      const ce = app.windows().find((p) => p.url().includes('center.html'))
+      if (ce) {
+        const strong = await ce.locator('.detail .detail-body strong').count().catch(() => 0)
+        const li = await ce.locator('.detail .detail-body li').count().catch(() => 0)
+        if (strong > 0 && li > 0) {
+          detailOk = true
+          await ce.screenshot({ path: DETAIL_SHOT }).catch(() => {})
+          break
+        }
+      }
+      await sleep(200)
+    }
+  }
+
   await win.screenshot({ path: SHOT })
 
   console.log('=== Playwright Electron 煙霧測試 ===')
@@ -64,11 +106,12 @@ try {
   console.log('idle 動畫(bg 變動) :', animating, `(${bg1} -> ${bg2})`)
   console.log('觸發 done 後卡片數 :', cardCount)
   console.log('卡片文字           :', JSON.stringify(cardText))
+  console.log('更多→詳情(markdown):', detailOk)
   console.log('截圖               :', SHOT)
   console.log('--- renderer console / errors ---')
   console.log(logs.join('\n') || '(none)')
 
-  const ok = bridge !== 'undefined' && petCount === 1 && animating && cardCount >= 1
+  const ok = bridge !== 'undefined' && petCount === 1 && animating && cardCount >= 1 && detailOk
   console.log(ok ? 'SMOKE_RESULT: PASS' : 'SMOKE_RESULT: FAIL')
   exitCode = ok ? 0 : 1
 } catch (e) {
