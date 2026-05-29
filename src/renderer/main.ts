@@ -15,6 +15,7 @@ import {
   type InteractionEffect,
 } from '../core/interaction-reducer'
 import type { AppEvent, NotifyType } from '../core/events'
+import type { CardView } from '../core/card-view'
 
 const DISPLAY_SCALE = 0.7
 // 狀態以文字標籤＋色彩（CSS 依 data-type 上色）呈現，不用 emoji
@@ -23,7 +24,6 @@ const LABEL: Record<NotifyType, string> = {
 }
 
 const petEl = document.querySelector<HTMLDivElement>('#pet')!
-const cardsEl = document.querySelector<HTMLDivElement>('#cards')!
 petEl.style.width = `${SPRITE_FORMAT.frameWidth * DISPLAY_SCALE}px`
 petEl.style.height = `${SPRITE_FORMAT.frameHeight * DISPLAY_SCALE}px`
 petEl.style.backgroundSize = `${SPRITE_FORMAT.sheetWidth * DISPLAY_SCALE}px ${SPRITE_FORMAT.sheetHeight * DISPLAY_SCALE}px`
@@ -114,7 +114,7 @@ function startReplay(event: AppEvent): void {
 window.petBridge?.onPetEvent?.((event: AppEvent) => {
   applyEvent(event)
   currentEvent = event
-  renderCard()
+  window.petBridge.showCard(buildCardView(event))
   startReplay(event)
   refreshBadge()
   // 反應事件優先級高於本地互動 → 通知 reducer 清互動動畫與待觸發點擊
@@ -125,53 +125,31 @@ window.petBridge?.onPetEvent?.((event: AppEvent) => {
 window.petBridge?.onDndOn?.(() => {
   currentEvent = null
   stopReplay()
-  renderCard()
+  window.petBridge.hideCard()
   refreshBadge()
 })
 
-function renderCard(): void {
-  if (!currentEvent) {
-    cardsEl.replaceChildren()
-    return
-  }
-  const e = currentEvent
-  // 用 textContent 安全建構，title/body 來自 POST，屬不可信內容。
-  const card = document.createElement('div')
-  card.className = 'card'
-  card.dataset.type = e.type // CSS 依此上狀態色
-  card.title = '點一下關閉'
-  card.addEventListener('click', () => {
-    window.petBridge?.markRead?.(e.id)
-    currentEvent = null
-    stopReplay()
-    renderCard()
-    refreshBadge()
-  })
+// 卡片被點 → main 已關卡片視窗，這裡只清狀態 + 標已讀（id 比對防舊卡片誤清）
+window.petBridge?.onCardDismissed?.(({ id }) => {
+  if (!currentEvent || currentEvent.id !== id) return
+  window.petBridge.markRead(id)
+  currentEvent = null
+  stopReplay()
+  refreshBadge()
+})
 
-  const label = document.createElement('div')
-  label.className = 'card-label'
-  label.textContent = LABEL[e.type]
-  card.appendChild(label)
-
-  if (e.body) {
-    const body = document.createElement('div')
-    body.className = 'card-body'
-    body.textContent = stripMarkdown(e.body)
-    card.appendChild(body)
-  }
-
+function buildCardView(e: AppEvent): CardView {
   const sourceText = e.title || e.source.name || e.source.kind
   const sessionTag =
     e.sessionId && e.sessionId !== 'default' ? `#${e.sessionId.slice(0, 6)}` : ''
-  const display = [sourceText, sessionTag].filter(Boolean).join(' · ')
-  if (display) {
-    const source = document.createElement('div')
-    source.className = 'card-source'
-    source.textContent = display
-    card.appendChild(source)
+  const source = [sourceText, sessionTag].filter(Boolean).join(' · ')
+  return {
+    id: e.id,
+    type: e.type,
+    label: LABEL[e.type],
+    body: e.body ? stripMarkdown(e.body) : '',
+    source,
   }
-
-  cardsEl.replaceChildren(card)
 }
 
 // ===== 動畫驅動：setInterval 輪詢 FSM + 互動 reducer，切 #pet[data-anim] =====
@@ -219,8 +197,11 @@ function tick(): void {
   }
   setAnim(resolveAnimation(ctx))
 
-  // 自走觸發（idle 且未走動、未隱藏、自動走動開啟、到時間）
-  if (shouldWalkNow({ autoWalkEnabled, walking, animation: view.animation, hidden: document.hidden, now, nextWalkAt })) {
+  // 自走觸發（idle 且未走動、未隱藏、自動走動開啟、到時間；有卡片時暫停自走）
+  if (
+    !currentEvent &&
+    shouldWalkNow({ autoWalkEnabled, walking, animation: view.animation, hidden: document.hidden, now, nextWalkAt })
+  ) {
     const w = pickWalk(Math.random, now, walkBounds)
     nextWalkAt = w.nextWalkAt
     walking = true
@@ -264,11 +245,10 @@ function bindHover(): void {
 
   petEl.addEventListener('mouseenter', () => {
     enableInteractive()
+    if (walking) window.petBridge.walkCancel() // 走動中被 hover → 立即停
     dispatch({ kind: 'hover' }) // 拖動中／反應中 reducer 自會略過
   })
   petEl.addEventListener('mouseleave', disableInteractive)
-  cardsEl.addEventListener('mouseenter', enableInteractive)
-  cardsEl.addEventListener('mouseleave', disableInteractive)
   badge.addEventListener('mouseenter', enableInteractive)
   badge.addEventListener('mouseleave', disableInteractive)
 }
