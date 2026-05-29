@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { homedir } from 'node:os'
 
 const SHOT = '/tmp/deskpet-shot.png'
+const CARD_SHOT = '/tmp/deskpet-card.png'
 const EP = join(homedir(), 'Library/Application Support/desktop-notify/endpoint.json')
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -36,9 +37,21 @@ try {
       headers: { 'X-Token': token, 'content-type': 'application/json' },
       body: JSON.stringify({ type: 'done', title: 'Claude Code', body: '任務完成！', source: 'smoke' }),
     })
-    await sleep(800)
-    cardCount = await win.locator('#cards .card').count()
-    cardText = await win.locator('#cards').innerText().catch(() => '')
+    // 卡片現在是獨立視窗（card.html），延遲建立 + 載入，輪詢等它出現並渲染
+    const deadline = Date.now() + 3000
+    while (Date.now() < deadline) {
+      const cw = app.windows().find((p) => p.url().includes('card.html'))
+      if (cw) {
+        const t = await cw.locator('#card').innerText().catch(() => '')
+        if (t && t.includes('任務完成')) {
+          cardText = t
+          cardCount = 1
+          await cw.screenshot({ path: CARD_SHOT }).catch(() => {})
+          break
+        }
+      }
+      await sleep(200)
+    }
   } else {
     logs.push('[warn] endpoint.json 不存在（main 可能沒寫）')
   }
