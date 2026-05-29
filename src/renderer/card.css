@@ -1,0 +1,55 @@
+html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+/* body 留透明邊距讓 box-shadow 不被視窗邊界裁掉 */
+body { padding: 14px; box-sizing: border-box; height: 100vh; }
+
+#card {
+  --accent: #8a8175;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 8px 14px 9px 13px;
+  border-left: 4px solid var(--accent);
+  border-radius: 5px 14px 14px 5px;
+  background: #fffdf8;
+  color: #2a2622;
+  font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif;
+  box-shadow: 0 3px 12px rgba(46, 33, 18, .24);
+  cursor: pointer;
+  overflow: hidden;
+  animation: cardIn .26s cubic-bezier(.2, .9, .3, 1.25) both;
+}
+#card[data-type="done"]      { --accent: #2e9e6b; }
+#card[data-type="attention"] { --accent: #e08a2b; }
+#card[data-type="error"]     { --accent: #d6453d; }
+#card[data-type="review"]    { --accent: #5b6ee0; }
+#card[data-type="working"]   { --accent: #2e9e9e; }
+#card[data-type="info"]      { --accent: #8a8175; }
+
+.card-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  color: var(--accent);
+}
+.card-body {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.36;
+  margin-top: 2px;
+  color: #2a2622;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card-source {
+  font-size: 10.5px;
+  letter-spacing: .02em;
+  color: #ad9f8c;
+  margin-top: 3px;
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(7px) scale(.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}

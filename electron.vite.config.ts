@@ -9,7 +9,7 @@ export default defineConfig({
   preload: {
     build: {
       rollupOptions: {
-        input: { index: 'src/preload/index.ts' },
+        input: { index: 'src/preload/index.ts', card: 'src/preload/card.ts' },
         // 強制 CommonJS + .cjs：sandbox 預設下 preload 必須是 CJS，
         // 否則 electron-vite 在 type:module 會輸出 .mjs 而載入失敗。
         output: { format: 'cjs', entryFileNames: '[name].cjs' },
@@ -25,6 +25,7 @@ export default defineConfig({
           center: 'src/renderer/center.html',
           settings: 'src/renderer/settings.html',
           skins: 'src/renderer/skins.html',
+          card: 'src/renderer/card.html',
         },
       },
     },
