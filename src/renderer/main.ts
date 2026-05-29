@@ -85,6 +85,14 @@ window.petBridge?.onPetEvent?.((event: AppEvent) => {
   }
 })
 
+// 勿擾開啟瞬間：清當前卡片與 replay，避免殘留卡片繼續 5 秒抽動畫
+window.petBridge?.onDndOn?.(() => {
+  currentEvent = null
+  stopReplay()
+  renderCard()
+  refreshBadge()
+})
+
 function renderCard(): void {
   if (!currentEvent) {
     cardsEl.replaceChildren()
