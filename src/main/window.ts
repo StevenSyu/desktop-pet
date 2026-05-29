@@ -98,6 +98,14 @@ export function createPetWindow(): BrowserWindow {
             if (!prefs.autoWalk) endWalk(true)
           },
         },
+        {
+          label: '勿擾模式',
+          type: 'checkbox',
+          checked: prefs.dnd,
+          click: (menuItem) => {
+            applyDnd(menuItem.checked)
+          },
+        },
         { label: '進階設定…', click: () => bus.emit('open-settings') },
         { type: 'separator' },
         { label: '通知中心', click: () => bus.emit('open-center') },
@@ -222,6 +230,18 @@ export function createPetWindow(): BrowserWindow {
         petWinRef.webContents.send('prefs-changed', prefs)
       }
     })
+
+    function applyDnd(enabled: boolean): void {
+      prefs = { ...prefs, dnd: enabled }
+      savePrefs(app.getPath('userData'), prefs)
+      bus.emit('dnd-changed', enabled) // 讓 index.ts 的 onEvent gate 讀到
+      if (!petWinRef || petWinRef.isDestroyed()) return
+      if (enabled) petWinRef.webContents.send('dnd-on') // renderer 清當前 replay 卡片
+      petWinRef.webContents.send('dnd-changed', enabled) // 通知中心顯示「勿擾中」
+    }
+
+    ipcMain.on('set-dnd', (_e, enabled: boolean) => applyDnd(enabled))
+    ipcMain.handle('get-dnd', () => prefs.dnd)
 
     // ===== display-removed：失效時吸附回 primary =====
     screen.on('display-removed', () => {
