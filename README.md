@@ -6,10 +6,10 @@
 
 - 像素風寵物常駐桌面右下角：透明、無邊框、置頂（`floating` 層級——別 App 全螢幕時自動退場）、點擊穿透，**顯示在所有虛擬桌面 / Spaces**。
 - **可拖動定位、自動記憶**：左鍵拖動 may 到任意位置，下次啟動自動回到原處；外接螢幕拔掉等情況座標失效時自動退回主螢幕右下角。
-- **idle 自走動畫**：閒置時隨機往左/右小走動，撞牆會自動反向；任何反應事件、使用者拖動、視窗不可見時立即取消。
+- **idle 自走動畫**：閒置時隨機往左/右小走動，撞牆會自動反向；任何反應事件、使用者拖動、視窗不可見時立即取消。有即時卡片時暫停自走；走動中被 hover 或點擊立即中斷。
 - **動畫核心改為 CSS `@keyframes`**：移除每幀 rAF 計算；視窗不可見時 `animation-play-state: paused` + FSM 輪詢暫停（省電）。
 - 9 種動畫狀態（idle、jumping、waving、failed、review、waiting、running…），**3 隻可切換造型**（may 奶油博美／maruko 丸子貓／oil-king-penguin 厭世石油王），全部共用同精靈格式（1536×1872、8 欄×9 列）。
-- **色彩編碼通知卡片**（左色條＋同色狀態標籤、無 emoji），暖白卡面、SF Rounded 圓體字。**持久顯示直到點關閉或被新訊息替換**。
+- **色彩編碼通知卡片**（左色條＋同色狀態標籤、無 emoji），暖白卡面、SF Rounded 圓體字。**持久顯示直到點關閉或被新訊息替換**。卡片為**獨立浮動小視窗**，浮在寵物上方（上方不足自動翻下方）、跟著寵物拖動移動；寵物視窗本身縮成 sprite 大小，可一路拖到主螢幕最上方貼到選單列。
 - **通知中心**：所有訊息進歷史佇列（容量 50）、已讀/未讀、寵物未讀數徽章（**點一下徽章直接開通知中心**）、狀態 chips 篩選、時間分組（剛剛／今天稍早／更早）、長訊息展開、全部已讀／清空、× 或 Esc 關閉。
 - **Hook Kit**：Claude Code hooks（`Stop`／`Notification`（`permission_prompt`）／`StopFailure`）→ `notify.mjs` 讀 hook stdin →帶 `X-Token` POST 本機 127.0.0.1 HTTP 端點 → 寵物反應＋卡片。介接契約通用，Codex/CI/腳本也能 POST。
 - 本機 only：HTTP 端點僅 bind 127.0.0.1，共用 token 寫入 `0600` 權限的 `endpoint.json`。
@@ -94,9 +94,9 @@ npm run start
 模組：
 
 - **核心庫**（`src/core/`）：`events` 正規化、`sprite-format`、`message-store`、`time-format`、`pet-fsm`、`pet-validation`、`skins`。純 TS、Vitest 單元測試。
-- **main**（`src/main/`）：`window` / `center-window` / `endpoint` / `ingest` / `bus` / `index` 串接。
-- **renderer**：`index.html`（寵物＋即時卡片＋徽章）／`center.html`（通知中心面板）。
-- **preload**（`src/preload/`）：`contextBridge` 暴露 `window.petBridge` API。
+- **main**（`src/main/`）：`window` / `center-window` / `card-window` / `endpoint` / `ingest` / `bus` / `index` 串接。
+- **renderer**：`index.html`（寵物＋徽章）／`card.html`（即時卡片獨立視窗）／`center.html`（通知中心面板）。
+- **preload**（`src/preload/`）：`contextBridge` 暴露 `window.petBridge`（主視窗）與窄版 `window.cardBridge`（卡片視窗）API。
 - **hooks**（`hooks/`）：`payload.mjs` / `notify.mjs` / `print-config.mjs` / `README.md`。
 
 設計與計畫文件在 `docs/superpowers/specs/` 與 `docs/superpowers/plans/`。
@@ -130,7 +130,7 @@ desktop-notify/
 
 ## 狀態與規劃
 
-**已完成**：核心庫、Electron 外殼（透明置頂／點擊穿透／all-spaces）、3 隻可換造型＋造型記憶、色彩編碼即時卡片、Hook Kit（含 Stop 抓 transcript 最後文字、cwd 過濾 retry 防 race）、通知中心（歷史／未讀徽章／篩選／分組／展開）、視窗行為（拖動記憶／floating 層級／多螢幕重吸附）、動畫與效能（idle 走動／撞牆反向／CSS-only sprite／不可見暫停／進階設定）、寵物互動（hover/click/dblclick/drag 方向 sprite 反應）、勿擾模式、造型掃描與選擇 UI（pet:// 動態載圖）。
+**已完成**：核心庫、Electron 外殼（透明置頂／點擊穿透／all-spaces）、3 隻可換造型＋造型記憶、色彩編碼即時卡片、Hook Kit（含 Stop 抓 transcript 最後文字、cwd 過濾 retry 防 race）、通知中心（歷史／未讀徽章／篩選／分組／展開）、視窗行為（拖動記憶／floating 層級／多螢幕重吸附）、動畫與效能（idle 走動／撞牆反向／CSS-only sprite／不可見暫停／進階設定）、寵物互動（hover/click/dblclick/drag 方向 sprite 反應）、勿擾模式、造型掃描與選擇 UI（pet:// 動態載圖）、即時卡片獨立視窗＋寵物縮窗（拖到最上方貼選單列、走動暫停/中斷）。
 
 **規劃中**：
 

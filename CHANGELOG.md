@@ -6,6 +6,8 @@
 
 ### Added
 
+- **即時卡片獨立視窗**（Spec ⑦）：即時卡片從寵物視窗的 DOM 抽成獨立浮動小視窗，浮在寵物上方（上方空間不足自動翻到下方）、右對齊、跟著寵物拖動移動；card renderer 純顯示（窄版 `cardBridge` preload，只 `onCardData`/`cardClicked`，不暴露 walk/prefs/skin）。卡片 IPC 帶事件 id，main 持 `activeCardId`、pet renderer 比對 `currentEvent`，防舊卡片延遲點擊誤標新訊息已讀。新增純函式 `card-position`（上方/下方 flip + 右對齊 + workArea 夾邊，5 測試）。卡片視窗 `showInactive` 不搶焦點、`moveTop` 確保浮在寵物之上、跨 Spaces。
+- **走動暫停與中斷**（Spec ⑦）：有即時卡片時暫停自走；走動中被 hover 或點擊立即中斷走動。
 - **造型掃描與選擇 UI**（Spec ⑥）：掃描 `~/Library/Application Support/desktop-notify/pets/<id>/`，合規造型（pet.json + 1536×1872 spritesheet）自動出現在右鍵「更換造型…」選擇視窗，顯示名稱／描述／來源、縮圖（idle 第一格），可選；無效造型灰掉並標分類原因（缺 json／JSON 格式錯／尺寸不符／路徑不安全／找不到圖）。視窗頂部提示造型資料夾位置 + 「開啟造型資料夾」按鈕。`prefs.skin` 失效時退回 may 並提示。新增純函式 `webp-size`（自寫 WebP header 尺寸解析，只讀檔頭 32 bytes，取代不可靠的 nativeImage）、`skin-scan`（驗證 + 路徑穿越防護），共 15 測試。
 - **桌面寵物 App**：Electron、macOS-first；透明、無邊框、置頂、點擊穿透視窗，釘在桌面右下角；顯示在所有虛擬桌面（Spaces）。
 - **3 隻可切換造型**：may（奶油博美）、maruko（丸子貓）、oil-king-penguin（厭世石油王）；共用 1536×1872、8 欄×9 列共用精靈格式；資料驅動，丟資料夾＋登錄即可換皮。
@@ -34,6 +36,7 @@
 
 ### Changed
 
+- **寵物視窗縮成 sprite 大小**（Spec ⑦）：280×300 → 135×146、`#pet` 齊頂、未讀紅點移到 sprite 右上角；移除視窗內 `#cards` DOM（卡片改獨立視窗）。消除 sprite 上方的卡片預留死空間。
 - **造型載入**（Spec ⑥）：renderer 從 build-time static import 改為執行期 `pet://<id>/sheet` 自訂 protocol；內建與使用者造型統一路徑，新增造型不再需要改 code 重建。右鍵「更換造型」submenu 改為「更換造型…」開選擇視窗。
 - **通知策略**：從「卡片 5 秒自動淡出」改為「單張即時卡片持久顯示，歷史進通知中心」——資訊零遺失。
 - **卡片視覺**：移除 emoji，改為色彩編碼（綠／琥珀／紅／靛藍／青／暖灰）＋同色狀態標籤。
@@ -47,6 +50,7 @@
 
 ### Fixed
 
+- **拖到主螢幕最上方 sprite 貼不到選單列**（#1，Spec ⑦ 收尾）：寵物視窗上方有卡片預留死空間，往上拖時視窗頂端先撞選單列、sprite 無法到頂。卡片獨立成視窗後寵物視窗縮成 sprite 大小、`#pet` 齊頂，sprite 得以貼到 `workArea.y`。
 - **走動 sprite 被 idle 蓋掉**（Spec ③）：FSM 輪詢 setInterval 每 100ms 把 `data-anim` 重設為 'idle'，導致 running-{left,right} 只播一格就被覆蓋；改為走動期間僅當 FSM 回非 idle（反應事件）時才覆寫，左/右動畫得以完整播放。
 - **走到底繼續往同方向撞牆**（Spec ③）：main 端 walk-start 若該方向 `available <= 0` 改試對向，並送 `walk-direction` 事件讓 renderer 即時切 CSS anim 對應方向。
 - **preload 載入失敗導致無動畫／無卡片**：`electron-vite` 在 `type:module` 下將 preload 輸出為 `.mjs`，但 sandbox 預設要 CJS；改強制輸出 `.cjs` 並對應引用。
