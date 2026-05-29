@@ -117,26 +117,31 @@ export function createPetWindow(): BrowserWindow {
     })
 
     // ===== 拖動 =====
-    let dragStartScreen: { x: number; y: number } | null = null
-    let dragStartWin: { x: number; y: number } | null = null
+    // 位置一律由 main 自己讀 screen.getCursorScreenPoint()（全域 DIP，與 getPosition 同座標系、
+    // 不受各螢幕 scaleFactor 影響）計算，不用 renderer 的 e.screenX/screenY（跨不同 scale 螢幕時
+    // 參考基準會變而造成抖動 / flip-flop）。grabOffset = 拖動起點時 游標 - 視窗左上。
+    let dragGrabOffset: { x: number; y: number } | null = null
 
-    handleCommand('drag-start', ({ sx, sy }) => {
+    handleCommand('drag-start', () => {
       if (!petWinRef || petWinRef.isDestroyed()) return
       endWalk(true) // 拖動時取消任何走動
+      const cursor = screen.getCursorScreenPoint()
       const [wx, wy] = petWinRef.getPosition()
-      dragStartScreen = { x: sx, y: sy }
-      dragStartWin = { x: wx, y: wy }
+      dragGrabOffset = { x: cursor.x - wx, y: cursor.y - wy }
     })
-    handleCommand('drag-move', ({ sx, sy }) => {
-      if (!petWinRef || petWinRef.isDestroyed()) return
-      if (!dragStartScreen || !dragStartWin) return
-      const nx = dragStartWin.x + (sx - dragStartScreen.x)
-      const ny = dragStartWin.y + (sy - dragStartScreen.y)
-      petWinRef.setPosition(Math.round(nx), Math.round(ny))
+    handleCommand('drag-move', () => {
+      if (!petWinRef || petWinRef.isDestroyed() || !dragGrabOffset) return
+      const cursor = screen.getCursorScreenPoint()
+      // 視窗自由跟游標（grabOffset 固定）。不夾 workArea——改用 getCursorScreenPoint 後沒有
+      // renderer screenX 的回饋迴圈，macOS 自身的選單列夾值不會造成抖動。
+      // 註：寵物視窗目前比 sprite 大（上方有卡片預留區），故往主螢幕最上方拖時 sprite 無法貼到
+      // 選單列下緣——此限制待「即時卡片獨立視窗」改造後解除。
+      const nx = Math.round(cursor.x - dragGrabOffset.x)
+      const ny = Math.round(cursor.y - dragGrabOffset.y)
+      petWinRef.setPosition(nx, ny)
     })
     handleCommand('drag-end', () => {
-      dragStartScreen = null
-      dragStartWin = null
+      dragGrabOffset = null
       if (!petWinRef || petWinRef.isDestroyed()) return
       const [x, y] = petWinRef.getPosition()
       const d = screen.getDisplayMatching(petWinRef.getBounds())
