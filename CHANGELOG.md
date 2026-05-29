@@ -16,7 +16,6 @@
 - **右鍵選單**：更換造型、通知中心、關閉小幫手。
 - **拖動定位記憶**（Spec ②）：左鍵在寵物上拖動移動視窗（DRAG_THRESHOLD=3px 區分點擊／拖動、rAF 節流），位置寫入 `~/Library/Application Support/desktop-notify/window-state.json`，重啟自動還原；座標若無效（如 displayId 已不存在）自動退回 primary 螢幕右下角。
 - **多螢幕重吸附**（Spec ②）：監聽 `display-removed`，若寵物座標不在任何螢幕 workArea 內，自動移回 primary 右下角。
-- **關閉小幫手確認對話框**（Spec ②）：右鍵選單「關閉小幫手」改為 `dialog.showMessageBox`（預設按鈕「取消」，避免 Enter 誤觸）。
 - **idle 自走動畫**（Spec ③）：閒置時依使用者設定的間隔範圍隨機觸發走動（往左或右），距離由秒數×固定速率（`WALK_SPEED_PX_PER_MS = 0.08`）內部換算；走動會被反應事件、使用者拖動、視窗不可見時立即取消，且走到工作區邊界時自動反向避免撞牆。走動位置不寫入 `window-state.json`，重啟仍回到最後一次手動拖動位置。
 - **右鍵選單「自動走動」開關**（Spec ③）：可一鍵停用走動；關閉時若正在走動會立即停止。狀態存於 `prefs.json`。
 - **右鍵選單「進階設定」面板**（Spec ③）：開設定視窗可調走動間隔（最短/最長秒）與走動秒數（最短/最長秒）；按「儲存」即時生效。

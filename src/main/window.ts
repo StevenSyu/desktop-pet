@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, Menu, dialog } from 'electron'
+import { app, BrowserWindow, screen, Menu } from 'electron'
 import { join } from 'node:path'
 import { SKINS, isValidSkinId, DEFAULT_SKIN_ID } from '../core/skins'
 import { bus } from './bus'
@@ -109,22 +109,7 @@ export function createPetWindow(): BrowserWindow {
         { type: 'separator' },
         {
           label: '關閉小幫手',
-          click: async () => {
-            if (!petWinRef || petWinRef.isDestroyed()) {
-              app.quit()
-              return
-            }
-            const { response } = await dialog.showMessageBox(petWinRef, {
-              type: 'question',
-              buttons: ['取消', '關閉'],
-              defaultId: 0,
-              cancelId: 0,
-              title: '關閉 may？',
-              message: '關閉 may？',
-              detail: '關閉後 Claude Code hook 仍會觸發，但 may 不會顯示。',
-            })
-            if (response === 1) app.quit()
-          },
+          click: () => app.quit(),
         },
       ])
       menu.popup({ window: win })
