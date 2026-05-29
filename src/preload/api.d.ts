@@ -24,6 +24,10 @@ declare global {
       getPrefs: () => Promise<{ autoWalk: boolean; walk: WalkBounds }>
       setWalkBounds: (bounds: Partial<WalkBounds>) => void
       onPrefsChanged: (cb: (prefs: { autoWalk: boolean; walk: WalkBounds }) => void) => void
+      setDnd: (enabled: boolean) => void
+      getDnd: () => Promise<boolean>
+      onDndOn: (cb: () => void) => void
+      onDndChanged: (cb: (enabled: boolean) => void) => void
       getMessages: () => Promise<StoredMessage[]>
       markAllRead: () => void
       clearMessages: () => void

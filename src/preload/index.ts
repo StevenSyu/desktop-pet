@@ -37,6 +37,14 @@ contextBridge.exposeInMainWorld('petBridge', {
   onPrefsChanged: (cb: (prefs: { autoWalk: boolean; walk: WalkBounds }) => void) => {
     ipcRenderer.on('prefs-changed', (_e, prefs) => cb(prefs))
   },
+  setDnd: (enabled: boolean) => ipcRenderer.send('set-dnd', enabled),
+  getDnd: () => ipcRenderer.invoke('get-dnd') as Promise<boolean>,
+  onDndOn: (cb: () => void) => {
+    ipcRenderer.on('dnd-on', () => cb())
+  },
+  onDndChanged: (cb: (enabled: boolean) => void) => {
+    ipcRenderer.on('dnd-changed', (_e, enabled: boolean) => cb(enabled))
+  },
   getMessages: () => ipcRenderer.invoke('get-messages'),
   markAllRead: () => ipcRenderer.send('mark-all-read'),
   clearMessages: () => ipcRenderer.send('clear-messages'),
