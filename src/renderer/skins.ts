@@ -85,6 +85,7 @@ async function render(): Promise<void> {
 }
 
 document.querySelector('#refresh')!.addEventListener('click', () => render())
+document.querySelector('#open-folder')!.addEventListener('click', () => window.petBridge.openPetsFolder())
 document.querySelector('#close')!.addEventListener('click', () => window.close())
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') window.close()

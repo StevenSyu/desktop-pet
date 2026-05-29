@@ -34,6 +34,7 @@ export interface Commands {
   'walk-cancel': void
   'set-walk-bounds': Partial<WalkBounds>
   'set-dnd': boolean
+  'open-pets-folder': void
 }
 
 /** renderer → main，往返查詢。 */

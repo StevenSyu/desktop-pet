@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('petBridge', {
   getPrefs: () => invokeQuery('get-prefs'),
   getSkins: () => invokeQuery('get-skins'),
   selectSkin: (id: string) => invokeQuery('select-skin', id),
+  openPetsFolder: () => sendCommand('open-pets-folder'),
   setWalkBounds: (bounds: Partial<WalkBounds>) => sendCommand('set-walk-bounds', bounds),
   onPrefsChanged: (cb: (prefs: Prefs) => void) => subscribePush('prefs-changed', cb),
   setDnd: (enabled: boolean) => sendCommand('set-dnd', enabled),

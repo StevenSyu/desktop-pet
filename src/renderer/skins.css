@@ -50,3 +50,29 @@ button.select {
   padding: 6px 12px; border-radius: 7px; cursor: pointer;
 }
 button.select:hover { background: #257f56; }
+
+footer {
+  border-top: 1px solid rgba(46, 33, 18, .08);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+footer span { font-size: 11px; color: #8a8175; line-height: 1.5; }
+footer code {
+  background: rgba(46, 33, 18, .06);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10.5px;
+}
+#open-folder {
+  align-self: flex-start;
+  border: 1px solid rgba(46, 33, 18, .18);
+  background: #fff;
+  color: #5a4f44;
+  font: 700 12px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  padding: 6px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+#open-folder:hover { background: rgba(0, 0, 0, .04); }

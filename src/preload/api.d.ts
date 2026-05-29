@@ -25,6 +25,7 @@ declare global {
       getPrefs: () => Promise<{ autoWalk: boolean; walk: WalkBounds }>
       getSkins: () => Promise<{ skins: DiscoveredSkin[]; requestedId: string; effectiveId: string }>
       selectSkin: (id: string) => Promise<{ ok: boolean; effectiveId: string }>
+      openPetsFolder: () => void
       setWalkBounds: (bounds: Partial<WalkBounds>) => void
       onPrefsChanged: (cb: (prefs: { autoWalk: boolean; walk: WalkBounds }) => void) => void
       setDnd: (enabled: boolean) => void

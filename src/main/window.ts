@@ -1,4 +1,5 @@
-import { app, BrowserWindow, screen, Menu } from 'electron'
+import { app, BrowserWindow, screen, Menu, shell } from 'electron'
+import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { DEFAULT_SKIN_ID } from '../core/skins'
 import { scanSkins } from './skin-registry'
@@ -214,6 +215,11 @@ export function createPetWindow(): BrowserWindow {
       savePrefs(app.getPath('userData'), prefs)
       pushTo(petWinRef, 'set-skin', id)
       return { ok: true, effectiveId: id }
+    })
+    handleCommand('open-pets-folder', () => {
+      const dir = join(app.getPath('userData'), 'pets')
+      mkdirSync(dir, { recursive: true }) // 不存在就先建，確保開得起來
+      shell.openPath(dir)
     })
     handleCommand('set-walk-bounds', (partial) => {
       const next = sanitizeWalkBounds({ ...prefs.walk, ...partial })
