@@ -1,6 +1,6 @@
 import { app, BrowserWindow, screen } from 'electron'
 import { createPetWindow, getSkinSheetPath } from './window'
-import { createCenterWindow } from './center-window'
+import { createCenterWindow, CENTER_W, CENTER_H } from './center-window'
 import { createCardWindow, CARD_W, CARD_H, CARD_GAP } from './card-window'
 import { createSettingsWindow } from './settings-window'
 import { createSkinWindow } from './skin-window'
@@ -27,6 +27,7 @@ let cardWindow: BrowserWindow | null = null
 let cardLoaded = false
 let pendingCard: CardView | null = null
 let activeCardId: string | null = null
+let pendingDetailId: string | null = null
 let dndEnabled = false
 
 function broadcastUnread(): void {
@@ -36,12 +37,21 @@ function broadcastMessages(): void {
   pushTo(centerWindow, 'messages-updated', store.list())
 }
 
+function computeCenterPos(): { x: number; y: number } | undefined {
+  if (!petWindow || petWindow.isDestroyed()) return undefined
+  const pet = petWindow.getBounds()
+  const display = screen.getDisplayMatching(pet)
+  return cardPosition(pet, { width: CENTER_W, height: CENTER_H }, display.workArea, 8)
+}
+
 function openCenter(): void {
+  const pos = computeCenterPos()
   if (centerWindow && !centerWindow.isDestroyed()) {
+    if (pos) centerWindow.setPosition(pos.x, pos.y)
     centerWindow.focus()
     return
   }
-  centerWindow = createCenterWindow()
+  centerWindow = createCenterWindow(pos)
   centerWindow.on('closed', () => {
     centerWindow = null
   })
@@ -144,6 +154,20 @@ app.whenReady().then(async () => {
     activeCardId = null
     if (cardWindow && !cardWindow.isDestroyed()) cardWindow.hide()
     pushTo(petWindow, 'card-dismissed', { id })
+  })
+  handleCommand('card-more', ({ id }) => {
+    if (id !== activeCardId) return
+    activeCardId = null
+    if (cardWindow && !cardWindow.isDestroyed()) cardWindow.hide()
+    pushTo(petWindow, 'card-dismissed', { id }) // pet renderer 照常 markRead + 清理
+    pendingDetailId = id
+    openCenter()
+    pushTo(centerWindow, 'open-detail') // 已開窗 → 觸發重查；新開窗靠載入時 query
+  })
+  handleQuery('get-pending-detail', () => {
+    const id = pendingDetailId
+    pendingDetailId = null
+    return { id }
   })
 
   bus.on('pet-moved', repositionCard) // 拖動 / display-removed 重吸附後同步卡片
