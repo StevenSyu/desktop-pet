@@ -1,17 +1,50 @@
-html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+html, body { margin: 0; padding: 0; height: 100%; background: transparent; overflow: hidden; }
 body { font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif; color: #2a2622; }
 
 .panel {
   margin: 8px;
+  height: calc(100% - 16px);
   background: #fffdf8;
   border-radius: 14px;
   box-shadow: 0 14px 36px rgba(46, 33, 18, .24);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 header {
+  flex: none;
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 14px; border-bottom: 1px solid rgba(46, 33, 18, .08);
 }
+
+/* 置頂引導區：說明造型資料夾 + 開啟按鈕 */
+.intro {
+  flex: none;
+  padding: 10px 14px;
+  background: rgba(46, 158, 107, .07);
+  border-bottom: 1px solid rgba(46, 33, 18, .06);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.intro span { font-size: 11.5px; color: #5a4f44; line-height: 1.5; }
+.intro code {
+  background: rgba(46, 33, 18, .07);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10.5px;
+}
+#open-folder {
+  align-self: flex-start;
+  border: 1px solid rgba(46, 33, 18, .18);
+  background: #fff;
+  color: #5a4f44;
+  font: 700 12px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  padding: 6px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+#open-folder:hover { background: rgba(0, 0, 0, .04); }
 .title { font-weight: 800; font-size: 15px; letter-spacing: .04em; }
 .title span { font-size: 11px; font-weight: 600; color: #ad9f8c; }
 .actions button {
@@ -23,7 +56,7 @@ header {
 .hint { padding: 8px 14px; font-size: 11.5px; color: #d6453d; background: rgba(214,69,61,.06); }
 .hint[hidden] { display: none; }
 
-#list { max-height: 420px; overflow: auto; }
+#list { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
 
 .card {
   display: flex; gap: 11px; align-items: center;
@@ -50,29 +83,3 @@ button.select {
   padding: 6px 12px; border-radius: 7px; cursor: pointer;
 }
 button.select:hover { background: #257f56; }
-
-footer {
-  border-top: 1px solid rgba(46, 33, 18, .08);
-  padding: 10px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-footer span { font-size: 11px; color: #8a8175; line-height: 1.5; }
-footer code {
-  background: rgba(46, 33, 18, .06);
-  padding: 1px 5px;
-  border-radius: 4px;
-  font-size: 10.5px;
-}
-#open-folder {
-  align-self: flex-start;
-  border: 1px solid rgba(46, 33, 18, .18);
-  background: #fff;
-  color: #5a4f44;
-  font: 700 12px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
-  padding: 6px 12px;
-  border-radius: 7px;
-  cursor: pointer;
-}
-#open-folder:hover { background: rgba(0, 0, 0, .04); }
