@@ -39,6 +39,7 @@ export interface Commands {
   'show-card': CardView
   'hide-card': void
   'card-clicked': { id: string }
+  'card-more': { id: string }
 }
 
 /** renderer → main，往返查詢。 */
@@ -49,6 +50,7 @@ export interface Queries {
   'get-messages': { args: void; result: StoredMessage[] }
   'get-skins': { args: void; result: { skins: DiscoveredSkin[]; requestedId: string; effectiveId: string } }
   'select-skin': { args: string; result: { ok: boolean; effectiveId: string } }
+  'get-pending-detail': { args: void; result: { id: string | null } }
 }
 
 /** main → renderer，單向推播。 */
@@ -65,4 +67,5 @@ export interface Pushes {
   'messages-updated': StoredMessage[]
   'card-data': CardView
   'card-dismissed': { id: string }
+  'open-detail': void
 }
