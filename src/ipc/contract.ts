@@ -17,6 +17,7 @@ import type { AppEvent } from '../core/events'
 import type { StoredMessage } from '../core/message-store'
 import type { WalkBounds } from '../core/walk-planner'
 import type { DiscoveredSkin } from '../core/skin-scan'
+import type { CardView } from '../core/card-view'
 import type { Prefs } from '../main/prefs'
 
 /** renderer → main，單向命令。 */
@@ -35,6 +36,9 @@ export interface Commands {
   'set-walk-bounds': Partial<WalkBounds>
   'set-dnd': boolean
   'open-pets-folder': void
+  'show-card': CardView
+  'hide-card': void
+  'card-clicked': { id: string }
 }
 
 /** renderer → main，往返查詢。 */
@@ -59,4 +63,6 @@ export interface Pushes {
   'dnd-on': void
   'dnd-changed': boolean
   'messages-updated': StoredMessage[]
+  'card-data': CardView
+  'card-dismissed': { id: string }
 }
