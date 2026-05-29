@@ -41,4 +41,6 @@ contextBridge.exposeInMainWorld('petBridge', {
   showCard: (view: CardView) => sendCommand('show-card', view),
   hideCard: () => sendCommand('hide-card'),
   onCardDismissed: (cb: (p: { id: string }) => void) => subscribePush('card-dismissed', cb),
+  getPendingDetail: () => invokeQuery('get-pending-detail'),
+  onOpenDetail: (cb: () => void) => subscribePush('open-detail', cb),
 })

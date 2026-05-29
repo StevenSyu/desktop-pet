@@ -40,10 +40,13 @@ declare global {
       showCard: (view: CardView) => void
       hideCard: () => void
       onCardDismissed: (cb: (p: { id: string }) => void) => void
+      getPendingDetail: () => Promise<{ id: string | null }>
+      onOpenDetail: (cb: () => void) => void
     }
     cardBridge: {
       onCardData: (cb: (view: CardView) => void) => void
       cardClicked: (id: string) => void
+      cardMore: (id: string) => void
     }
   }
 }

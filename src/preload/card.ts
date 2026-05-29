@@ -8,4 +8,5 @@ contextBridge.exposeInMainWorld('cardBridge', {
   onCardData: (cb: (view: CardView) => void) =>
     ipcRenderer.on('card-data', (_e, view: CardView) => cb(view)),
   cardClicked: (id: string) => ipcRenderer.send('card-clicked', { id }),
+  cardMore: (id: string) => ipcRenderer.send('card-more', { id }),
 })
