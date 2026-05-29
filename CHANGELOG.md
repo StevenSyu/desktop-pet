@@ -22,6 +22,7 @@
 - **右鍵選單「進階設定」面板**（Spec ③）：開設定視窗可調走動間隔（最短/最長秒）與走動秒數（最短/最長秒）；按「儲存」即時生效。
 - **使用者偏好（`prefs.json`）**：寫於 `~/Library/Application Support/desktop-notify/`，sanitize 防呆（min/max 自動互換、無效型別退回預設、忽略未知欄位）。
 - **點寵物未讀徽章直接開通知中心**：徽章 hover 放大、按下回彈微動畫；不必再透過右鍵選單。
+- **勿擾模式**（Spec ⑤）：右鍵選單一鍵切換；開啟時所有訊息照進歷史 / 未讀紅點 / 通知中心，但不彈卡片、不演反應動畫。狀態存 `prefs.json` 跨重啟記得；通知中心 header 顯示「勿擾中」。實作為 main 端 gate（ingest onEvent 在 send pet-event 前用 dnd 旗標擋，經 bus 廣播給 index.ts）。
 - **寵物互動 sprite 反應**（Spec ④）：hover / 單擊隨機反應動畫（waving / jumping / review）；雙擊（< 300ms）直接開通知中心；拖動時 sprite 依累計位移方向（DIR_THRESHOLD=8px）切 `running-left` / `running-right`，剛拖起無方向時為 jumping。動畫優先級由純函式 `resolveAnimation` 仲裁：FSM reaction > drag > userAnim > walking > idle。新增 `src/core/anim-resolver.ts` + `src/core/click-dispatcher.ts` 兩個純函式（14 條測試）。
 - **造型更換記憶**：右鍵選單「更換造型」選的造型寫入 `prefs.json`，重啟自動還原；選單以 radio 顯示當前造型。
 - **Stop hook 抓 transcript 最後文字**：hook 觸發時讀取 transcript JSONL，把 Claude 該輪最後一個 text entry 當卡片 body；retry 機制（initialWait 300ms → emptyRetries 5×200ms → settleWait 400ms）解決 fsync race；turn 邊界以「使用者打字訊息」判定，避免跨輪抓到上一次的內容；sidechain（Task 子代理）排除。
@@ -41,6 +42,7 @@
 - **Skin 路徑統一**：repo 根層的 `may/`、`maruko/`、`oil-king-penguin/` 與 `resources/pets/*/` 重複且都被追蹤，code 只用後者；移除根層三份重複，整個 repo 僅剩 `resources/pets/<id>/` 一處 skin 路徑。
 - **反應動畫尾段**：嘗試過「定格 3 秒」「末兩影格來回」皆被否決，最終採「持續循環 3 秒」自然回 idle。
 - **核心儲存模型**：原 ttl 為主的 `NotificationQueue` 重做為 `MessageStore`（歷史／已讀未讀／容量上限），純函式 + 完整 TDD。
+- **未讀徽章**：從顯示數字（「1」「99+」）改為純紅點——只提示「有未讀」不顯示精確數量，視覺更乾淨。
 
 ### Fixed
 
