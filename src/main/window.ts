@@ -11,8 +11,8 @@ import { loadWindowState, saveWindowState } from './window-state'
 import { loadPrefs, savePrefs, type Prefs } from './prefs'
 import { handleCommand, handleQuery, pushTo } from '../ipc/main-helpers'
 
-const PET_WIDTH = 280
-const PET_HEIGHT = 300
+const PET_WIDTH = 135
+const PET_HEIGHT = 146
 const MARGIN = 24
 let handlersRegistered = false
 let petWinRef: BrowserWindow | null = null
@@ -134,11 +134,10 @@ export function createPetWindow(): BrowserWindow {
       const cursor = screen.getCursorScreenPoint()
       // 視窗自由跟游標（grabOffset 固定）。不夾 workArea——改用 getCursorScreenPoint 後沒有
       // renderer screenX 的回饋迴圈，macOS 自身的選單列夾值不會造成抖動。
-      // 註：寵物視窗目前比 sprite 大（上方有卡片預留區），故往主螢幕最上方拖時 sprite 無法貼到
-      // 選單列下緣——此限制待「即時卡片獨立視窗」改造後解除。
       const nx = Math.round(cursor.x - dragGrabOffset.x)
       const ny = Math.round(cursor.y - dragGrabOffset.y)
       petWinRef.setPosition(nx, ny)
+      bus.emit('pet-moved') // 同步卡片視窗（index.ts 監聽）
     })
     handleCommand('drag-end', () => {
       dragGrabOffset = null
@@ -266,6 +265,7 @@ export function createPetWindow(): BrowserWindow {
           MARGIN,
         )
         petWinRef.setPosition(pos.x, pos.y)
+        bus.emit('pet-moved')
       }
     })
   }
