@@ -13,7 +13,7 @@
 - **通知中心**：所有訊息進歷史佇列（容量 50）、已讀/未讀、寵物未讀數徽章（**點一下徽章直接開通知中心**）、狀態 chips 篩選、時間分組（剛剛／今天稍早／更早）、長訊息展開、全部已讀／清空、× 或 Esc 關閉。
 - **Hook Kit**：Claude Code hooks（`Stop`／`Notification`（`permission_prompt`）／`StopFailure`）→ `notify.mjs` 讀 hook stdin →帶 `X-Token` POST 本機 127.0.0.1 HTTP 端點 → 寵物反應＋卡片。介接契約通用，Codex/CI/腳本也能 POST。
 - 本機 only：HTTP 端點僅 bind 127.0.0.1，共用 token 寫入 `0600` 權限的 `endpoint.json`。
-- 右鍵選單：更換造型、自動走動開關、**勿擾模式**、進階設定（走動間隔／秒數）、通知中心、關閉小幫手。
+- 右鍵選單：**更換造型…（掃描 pets/ 的造型選擇視窗）**、自動走動開關、勿擾模式、進階設定（走動間隔／秒數）、通知中心、關閉小幫手。
 - **勿擾模式**：一鍵切換；開啟時訊息照進歷史 / 未讀紅點 / 通知中心，但不彈卡片、不演反應動畫；通知中心 header 顯示「勿擾中」。
 - **使用者偏好持久化**：`prefs.json`（自動走動開關、走動間隔、走動秒數、上次選的造型、勿擾模式）寫在 `~/Library/Application Support/desktop-notify/`，跨重啟記得。
 - **寵物互動 sprite 反應**：hover / 單擊隨機反應動畫（waving / jumping / review 三選一）；雙擊（< 300ms）直接開通知中心；拖動時 sprite 依累計位移方向（DIR_THRESHOLD=8px）切 `running-left` / `running-right`，剛拖起無方向時為 jumping。動畫優先級由純函式 `resolveAnimation` 仲裁：FSM reaction > drag > userAnim > walking > idle。
@@ -67,12 +67,15 @@ npm run start
 - 列序固定對應動畫：`0 idle` / `1 running-right` / `2 running-left` / `3 waving` / `4 jumping` / `5 failed` / `6 waiting` / `7 running` / `8 review`。
 - 每列由左用前 N 格（影格數見 `src/core/sprite-format.ts`）。
 
-步驟：
+`pet.json` 範例：
 
-1. 把資料夾放到 `resources/pets/<id>/`（內含 `pet.json` 與 `spritesheet.webp`）。
-2. 在 `src/core/skins.ts` 的 `SKINS` 加上 `{ id, name }`。
-3. 在 `src/renderer/main.ts` 加對應 `import` 並登錄到 `SHEET_URL[id]`。
-4. `npm run build` 後就能從右鍵選單「更換造型」切換。
+```json
+{ "id": "my-pet", "displayName": "我的寵物", "description": "說明文字", "spritesheetPath": "spritesheet.webp" }
+```
+
+**使用者新增（免改 code）：** 右鍵選單「更換造型…」開選擇視窗 → 點「開啟造型資料夾」→ 把造型資料夾（資料夾名即 id，須 `^[a-z0-9_-]+$`）放進 `~/Library/Application Support/desktop-notify/pets/<id>/` → 回視窗按 ↻ 重新整理。合規造型即可選用；不符規範的會灰掉並標出原因。
+
+**內建造型：** 放在 `resources/pets/<id>/` 並在 `src/core/skins.ts` 的 `SKINS` 登錄；與使用者造型一樣經 `pet://` protocol 載入，不需 static import。
 
 ## 架構
 
@@ -127,7 +130,7 @@ desktop-notify/
 
 ## 狀態與規劃
 
-**已完成**：核心庫、Electron 外殼（透明置頂／點擊穿透／all-spaces）、3 隻可換造型＋造型記憶、色彩編碼即時卡片、Hook Kit（含 Stop 抓 transcript 最後文字、cwd 過濾 retry 防 race）、通知中心（歷史／未讀徽章／篩選／分組／展開）、視窗行為（拖動記憶／floating 層級／多螢幕重吸附）、動畫與效能（idle 走動／撞牆反向／CSS-only sprite／不可見暫停／進階設定）、寵物互動（hover/click/dblclick/drag 方向 sprite 反應）、勿擾模式。
+**已完成**：核心庫、Electron 外殼（透明置頂／點擊穿透／all-spaces）、3 隻可換造型＋造型記憶、色彩編碼即時卡片、Hook Kit（含 Stop 抓 transcript 最後文字、cwd 過濾 retry 防 race）、通知中心（歷史／未讀徽章／篩選／分組／展開）、視窗行為（拖動記憶／floating 層級／多螢幕重吸附）、動畫與效能（idle 走動／撞牆反向／CSS-only sprite／不可見暫停／進階設定）、寵物互動（hover/click/dblclick/drag 方向 sprite 反應）、勿擾模式、造型掃描與選擇 UI（pet:// 動態載圖）。
 
 **規劃中**：
 

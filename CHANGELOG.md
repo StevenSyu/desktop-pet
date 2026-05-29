@@ -6,6 +6,7 @@
 
 ### Added
 
+- **造型掃描與選擇 UI**（Spec ⑥）：掃描 `~/Library/Application Support/desktop-notify/pets/<id>/`，合規造型（pet.json + 1536×1872 spritesheet）自動出現在右鍵「更換造型…」選擇視窗，顯示名稱／描述／來源、縮圖（idle 第一格），可選；無效造型灰掉並標分類原因（缺 json／JSON 格式錯／尺寸不符／路徑不安全／找不到圖）。視窗頂部提示造型資料夾位置 + 「開啟造型資料夾」按鈕。`prefs.skin` 失效時退回 may 並提示。新增純函式 `webp-size`（自寫 WebP header 尺寸解析，只讀檔頭 32 bytes，取代不可靠的 nativeImage）、`skin-scan`（驗證 + 路徑穿越防護），共 15 測試。
 - **桌面寵物 App**：Electron、macOS-first；透明、無邊框、置頂、點擊穿透視窗，釘在桌面右下角；顯示在所有虛擬桌面（Spaces）。
 - **3 隻可切換造型**：may（奶油博美）、maruko（丸子貓）、oil-king-penguin（厭世石油王）；共用 1536×1872、8 欄×9 列共用精靈格式；資料驅動，丟資料夾＋登錄即可換皮。
 - **9 種動畫狀態**：idle、running-right/left、waving、jumping、failed、waiting、running、review。
@@ -33,6 +34,7 @@
 
 ### Changed
 
+- **造型載入**（Spec ⑥）：renderer 從 build-time static import 改為執行期 `pet://<id>/sheet` 自訂 protocol；內建與使用者造型統一路徑，新增造型不再需要改 code 重建。右鍵「更換造型」submenu 改為「更換造型…」開選擇視窗。
 - **通知策略**：從「卡片 5 秒自動淡出」改為「單張即時卡片持久顯示，歷史進通知中心」——資訊零遺失。
 - **卡片視覺**：移除 emoji，改為色彩編碼（綠／琥珀／紅／靛藍／青／暖灰）＋同色狀態標籤。
 - **idle 動畫節奏**：放慢為每格 0.8 秒（fps 1.25），整體手感更平緩。
