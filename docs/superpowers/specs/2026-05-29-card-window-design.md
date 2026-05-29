@@ -40,16 +40,23 @@
 
 ## 4. 寵物視窗縮小
 
-- `src/main/window.ts`：`PET_WIDTH 280→140`、`PET_HEIGHT 300→156`（sprite 顯示尺寸 134×146 + 徽章紅點溢出餘裕）。
+- `src/main/window.ts`：`PET_WIDTH 280→135`、`PET_HEIGHT 300→146`（= sprite 顯示尺寸 `ceil(192×0.7)=135` × `ceil(208×0.7)=146`）。
 - `src/renderer/index.html`：移除 `#cards`；保留 `#pet`、`#badge`。
-- `src/renderer/styles.css`：`#pet` 仍 `right/bottom` 貼視窗；`#badge` 紅點移到視窗右上角（`top`/`right` 定位），不再依賴卡片區高度（移除 `#cards` 相關樣式）。
+- `src/renderer/styles.css`：
+  - `#pet` 改 **齊頂齊左**（`top:0; left:0`，移除 `right/bottom:8`），讓 sprite 頂端 = 視窗頂端，往上拖時 sprite 能貼到 `workArea.y`（**消除 Codex 指出的 ~2.4px 殘留 offset**）。
+  - `#badge` 紅點疊在視窗**右上角內**（`top`/`right` 小位移），與 sprite 重疊不再依賴卡片區高度；移除 `#cards`／`.card*` 樣式（移到 `card.css`）。
 - 縮小後寵物視窗無上方死空間 → 拖到主螢幕最上方 sprite 貼選單列下緣（收尾 #1）。`clampToValidPosition`（啟動）與 walk 既有邏輯沿用新尺寸（讀 `getSize()`，常數即新值）。
+- **像素驗收**：拖到主螢幕最上方時 `getPosition().y ≈ workArea.y`、sprite 視覺貼選單列下緣。
 
 ## 5. 卡片視窗
 
 ### 5.1 `src/main/card-window.ts`
-- `createCardWindow()`：frameless、transparent、resizable:false、skipTaskbar、alwaysOnTop('floating')、`hasShadow:false`、`focusable:false`（不搶焦點，但仍可點擊——macOS 上 `focusable:false` 視窗仍接收滑鼠點擊）。延遲建立、show/hide 復用（不每次 new）。
+- `createCardWindow()`：frameless、transparent、resizable:false、skipTaskbar、alwaysOnTop('floating')、`hasShadow:false`。延遲建立、show/hide 復用（不每次 new）。
+  - **不搶焦點但可點擊**：用 `showInactive()` 顯示（不 activate App、不搶 key focus），卡片仍接收滑鼠點擊。**不設** `focusable:false`（Codex 指出其僅改可聚焦性、與滑鼠命中無直接保證；`showInactive` 才是「不搶焦點」的正解）。實作驗收點擊有效，失效再評估 native panel。
+  - **z-order**：兩個視窗都 `floating` 同層，z 序無保證。show/重定位後對 card window 呼叫 `moveTop()` 確保浮在寵物之上，並驗收 hover/drag 時不被蓋。
+  - **跨 Spaces**：建立時呼叫一次 `setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })`（與 pet window 一致），避免反覆呼叫造成 macOS process-type 閃爍。
 - 尺寸固定：`CARD_W 240`、`CARD_H 96`（與現有卡片 2 行截斷視覺一致；body 仍 2 行 clamp）。
+- **窄版 preload**：card window 用獨立 `src/preload/card.ts`（→ `card.cjs`），只暴露 `onCardData(cb)` / `cardClicked()`；**不沿用** petBridge（避免卡片視窗拿到 walk/prefs/skin 等不需要的 API）。`electron.vite.config.ts` preload 段新增 card 入口。
 
 ### 5.2 定位（純函式，可測）
 - `src/core/card-position.ts`：
@@ -73,9 +80,11 @@
 - main → card renderer：
   - Push `card-data`（事件資料）
 - card renderer → main：
-  - Command `card-clicked`（void）
+  - Command `card-clicked`（payload `{ id }`）
 - main → pet renderer：
-  - Push `card-dismissed`（void）——pet renderer 收到後 markRead + 清 currentEvent + 送 hide-card + refreshBadge
+  - Push `card-dismissed`（payload `{ id }`）——pet renderer 收到後**僅當 `id === currentEvent?.id`** 才 markRead + 清 currentEvent + refreshBadge（防舊卡片延遲 dismiss 誤標新訊息已讀，Codex must-fix #1）
+
+**事件 id 防呆**：main 持有目前卡片的 `activeCardId`（最後一次 `show-card` 帶的 id）。`card-clicked` 進來時若 `id !== activeCardId` 則忽略（避免覆蓋後舊視窗殘留點擊）；轉送 `card-dismissed({ id })` 給 pet renderer 由其再比對 currentEvent。
 
 卡片資料型別（contract 用）：沿用既有事件顯示欄位，定義
 ```ts
@@ -91,11 +100,11 @@ interface CardView {
 
 ### 5.4 生命週期與定位流程
 - pet renderer 收 `onPetEvent`：照常 applyEvent（sprite 反應）、設 currentEvent、startReplay、refreshBadge、清互動狀態；**改為** `show-card(cardView)`（取代原 renderCard DOM）。
-- main 收 `show-card`：若無 card window 則建立；`card-data` 推資料；依 `cardPosition(petBounds, {CARD_W,CARD_H}, workArea, gap)` setPosition；show。記 `cardVisible=true`。
+- main 收 `show-card(cardView)`：若無 card window 則建立；記 `activeCardId = cardView.id`、`cardVisible=true`；`card-data` 推資料；`repositionCard()`；`showInactive()` + `moveTop()`。
 - pet renderer 收 `onDndOn`：清 currentEvent、stopReplay、refreshBadge、`hide-card`。
-- card 點擊：card renderer `card-clicked` → main 轉 `card-dismissed` 給 pet renderer + hide card window、`cardVisible=false`。pet renderer markRead + 清 currentEvent + refreshBadge。
-- 新事件覆蓋：pet renderer 再次 `show-card` → main 更新 card-data + 重定位。
-- 拖動：main `drag-move` 時若 `cardVisible` → 依新 petBounds 重新 `cardPosition` 並 setPosition 卡片視窗。
+- card 點擊：card renderer `card-clicked({ id })` → main（id 比對 activeCardId）hide card window、`cardVisible=false`、轉 `card-dismissed({ id })` 給 pet renderer。pet renderer 比對 currentEvent 後 markRead + 清 currentEvent + refreshBadge。
+- 新事件覆蓋：pet renderer 再次 `show-card` → main 更新 activeCardId + card-data + repositionCard。
+- **集中重定位 `repositionCard()`（Codex must-fix #2）**：main 端一個 helper——若 `cardVisible` 則讀寵物 `getBounds()` + 該 display workArea，算 `cardPosition` 並 `setPosition` 卡片視窗 + `moveTop()`。**所有會移動寵物的路徑結束後都呼叫它**：`drag-move`、`display-removed` 重吸附、`display-metrics-changed`（解析度/排列變更）。（walk step 不呼叫——有卡片時已暫停自走，見 §6；但 helper 本身對 walk 安全。）
 - 關閉寵物時一併關 card window。
 
 ## 6. 走動暫停與中斷
@@ -107,16 +116,17 @@ interface CardView {
 ## 7. 既有程式調整
 
 **修改**
-- `src/main/window.ts`：PET 尺寸常數；`drag-move` 拖動時若卡片開著重定位卡片視窗（需可查詢 cardVisible / card window ref——由 index.ts 持有，window.ts 經回呼或 bus 通知；見實作計畫）。
-- `src/main/index.ts`：card window 生命週期（lazy 建立、show/hide）、`show-card`/`hide-card`/`card-clicked` handlers、轉送 `card-dismissed`、關窗清理；拖動重定位的協調（main 端集中）。
-- `src/renderer/main.ts`：移除 DOM 卡片渲染，改 `show-card`/`hide-card` IPC；走動 gate 加 `!currentEvent`；`mouseenter` 走動中 `walkCancel`；onPetEvent / onDndOn / 卡片關閉路徑改用 IPC。
+- `src/main/window.ts`：PET 尺寸常數（135×146）；`drag-move`、`display-removed`、`display-metrics-changed` 結束後呼叫集中 `repositionCard()`（cardVisible / card window ref 由 index.ts 持有，window.ts 經回呼或 bus 通知；見實作計畫）。
+- `src/main/index.ts`：card window 生命週期（lazy 建立、showInactive/hide、moveTop）、`activeCardId` 狀態、`show-card`/`hide-card`/`card-clicked` handlers（id 比對）、轉送 `card-dismissed({ id })`、`repositionCard()` 協調、關窗清理。
+- `src/renderer/main.ts`：移除 DOM 卡片渲染，改 `show-card(cardView)`/`hide-card` IPC；走動 gate 加 `!currentEvent`；`mouseenter` 走動中 `walkCancel`；onPetEvent / onDndOn / `onCardDismissed`（比對 currentEvent）改用 IPC。
 - `src/renderer/index.html`：移除 `#cards`。
-- `src/renderer/styles.css`：移除 `#cards`／`.card*` 樣式（移到 card.css）、`#badge` 改右上角定位。
-- `src/ipc/contract.ts` + `preload`：show-card / hide-card / card-clicked / card-data / card-dismissed。
-- `electron.vite.config.ts`：新增 `card: 'src/renderer/card.html'` 入口。
+- `src/renderer/styles.css`：移除 `#cards`／`.card*` 樣式（移到 card.css）、`#pet` 齊頂齊左、`#badge` 改右上角定位。
+- `src/ipc/contract.ts`：show-card(CardView) / hide-card / card-clicked({id}) / card-data(CardView) / card-dismissed({id})；新增 `CardView` 型別。
+- `src/preload/index.ts` + `src/preload/api.d.ts`：pet renderer 端新增 `onCardDismissed`（show-card/hide-card 走既有 sendCommand）。
+- `electron.vite.config.ts`：renderer 段新增 `card: 'src/renderer/card.html'` 入口；preload 段新增 `card: 'src/preload/card.ts'` 入口。
 
 **新增**
-- `src/main/card-window.ts`、`src/core/card-position.ts`、`src/renderer/card.html` / `card.ts` / `card.css`
+- `src/main/card-window.ts`、`src/core/card-position.ts`、`src/renderer/card.html` / `card.ts` / `card.css`、`src/preload/card.ts`（窄版 bridge：`onCardData` / `cardClicked`）
 - 測試：`tests/core/card-position.test.ts`
 
 ## 8. 測試策略
@@ -132,8 +142,13 @@ interface CardView {
 5. 有卡片時 → 寵物不自走。
 6. 走動中 hover → 立即停走動並揮手；走動中點擊 → 立即停。
 7. DND → 不顯示卡片（訊息仍進歷史 + 紅點）。
-8. **拖到主螢幕最上方 → 寵物 sprite 貼到選單列下緣（#1 收尾）**。
-9. e2e：pet:// 與基本鏈路不壞。
+8. **拖到主螢幕最上方 → 寵物 sprite 貼到選單列下緣（#1 收尾）**，像素確認 `getPosition().y ≈ workArea.y`。
+9. 卡片點擊不搶焦點（`showInactive`）、且永遠浮在寵物之上（`moveTop`，hover/drag 時不被蓋）。
+10. 縮窗後 hit-test：sprite / badge / 透明邊界各測 hover / click / drag 仍正常（穿透與互動切換不壞）。
+11. display-removed（拔螢幕）/ 解析度變更時，卡片仍跟寵物對齊不分離。
+12. 舊卡片延遲 dismiss：連發兩則事件後點舊卡 → 不誤標新訊息已讀（id 比對）。
+13. 跨 Spaces / 全螢幕 App：pet 與 card 同時出現。
+14. e2e：pet:// 與基本鏈路不壞。
 
 ## 9. v1 範圍 vs 之後
 
@@ -143,5 +158,5 @@ interface CardView {
 
 ## 10. 檔案清單
 
-**新增**：`src/core/card-position.ts`(+test)、`src/main/card-window.ts`、`src/renderer/card.html`/`card.ts`/`card.css`
+**新增**：`src/core/card-position.ts`(+test)、`src/main/card-window.ts`、`src/renderer/card.html`/`card.ts`/`card.css`、`src/preload/card.ts`
 **修改**：`src/main/window.ts`、`src/main/index.ts`、`src/renderer/main.ts`、`src/renderer/index.html`、`src/renderer/styles.css`、`src/ipc/contract.ts`、`src/preload/index.ts`、`src/preload/api.d.ts`、`electron.vite.config.ts`
