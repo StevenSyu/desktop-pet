@@ -6,12 +6,14 @@ import { findFreePort, generateToken, writeEndpointFile } from './endpoint'
 import { startIngestServer } from './ingest'
 import { MessageStore } from '../core/message-store'
 import { bus } from './bus'
+import { loadPrefs } from './prefs'
 import type { AppEvent } from '../core/events'
 
 const store = new MessageStore()
 let petWindow: BrowserWindow | null = null
 let centerWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
+let dndEnabled = false
 
 function broadcastUnread(): void {
   if (petWindow && !petWindow.isDestroyed()) petWindow.webContents.send('unread-count', store.unreadCount())
@@ -35,6 +37,11 @@ function openCenter(): void {
 app.whenReady().then(async () => {
   petWindow = createPetWindow()
 
+  dndEnabled = loadPrefs(app.getPath('userData')).dnd
+  bus.on('dnd-changed', (enabled: boolean) => {
+    dndEnabled = enabled
+  })
+
   const port = await findFreePort()
   const token = generateToken()
   writeEndpointFile(app.getPath('userData'), { port, token })
@@ -44,9 +51,10 @@ app.whenReady().then(async () => {
     token,
     onEvent: (event: AppEvent) => {
       store.push(event)
-      if (petWindow && !petWindow.isDestroyed()) petWindow.webContents.send('pet-event', event)
       broadcastUnread()
       broadcastMessages()
+      if (dndEnabled) return // 勿擾模式：不彈卡片、不演反應動畫
+      if (petWindow && !petWindow.isDestroyed()) petWindow.webContents.send('pet-event', event)
     },
   })
 
