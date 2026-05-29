@@ -28,6 +28,17 @@ function render(view: CardView): void {
     source.textContent = view.source
     root.appendChild(source)
   }
+
+  if (view.hasMore) {
+    const more = document.createElement('button')
+    more.className = 'card-more'
+    more.textContent = '更多'
+    more.addEventListener('click', (e) => {
+      e.stopPropagation() // 不要觸發卡片本體的關閉
+      if (currentId) window.cardBridge.cardMore(currentId)
+    })
+    root.appendChild(more)
+  }
 }
 
 window.cardBridge.onCardData(render)
