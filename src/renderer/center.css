@@ -192,3 +192,6 @@ header {
   from { background: color-mix(in srgb, var(--accent) 26%, transparent); }
   to { background: transparent; }
 }
+.detail-body table { border-collapse: collapse; margin: 0 0 8px; font-size: 12px; max-width: 100%; }
+.detail-body th, .detail-body td { border: 1px solid #e3dccf; padding: 3px 7px; text-align: left; }
+.detail-body th { background: #efe9df; font-weight: 800; }

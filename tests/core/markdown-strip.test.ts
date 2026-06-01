@@ -68,4 +68,9 @@ describe('stripMarkdown', () => {
   it('頭尾 trim', () => {
     expect(stripMarkdown('   hello   ')).toBe('hello')
   })
+
+  it('表格列整列略過（不進預覽）', () => {
+    const input = '測試結果如下：\n\n| 檔案 | 狀態 |\n| --- | --- |\n| foo.ts | 通過 |\n\n詳見上表。'
+    expect(stripMarkdown(input)).toBe('測試結果如下：\n\n詳見上表。')
+  })
 })

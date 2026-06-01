@@ -24,6 +24,17 @@ export function stripMarkdown(input: string): string {
   // 1. Code fence（多行 ``` ... ```）：保留內容、去 fence；連同 fence 行尾 \n 一起吃掉
   text = text.replace(/```[\w-]*\n?([\s\S]*?)```\n?/g, '$1')
 
+  // 1.5 表格列整列略過（含 | --- | 分隔列）：預覽不顯示表格符號字串
+  text = text
+    .split('\n')
+    .filter((line) => {
+      const t = line.trim()
+      if (t.startsWith('|')) return false // 表格列 / 分隔列
+      if (/^[-:|\s]*\|[-:|\s]*$/.test(t) && t.includes('-')) return false // 無前導 | 的分隔列
+      return true
+    })
+    .join('\n')
+
   // 2. 圖片 ![alt](url) → alt
   text = text.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
 

@@ -14,9 +14,27 @@ function inline(escaped: string): string {
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
 }
 
+// 表格列：trim 後以 | 開頭。分隔列：只由 | : - 空白組成且含 - 與 |（如 | --- | --- |）。
+function isTableRow(line: string): boolean {
+  return line.trim().startsWith('|')
+}
+function isTableSep(line: string): boolean {
+  const t = line.trim()
+  return /^[|\s:-]+$/.test(t) && t.includes('-') && t.includes('|')
+}
+// 切出每格（去頭尾 |、以 | 分隔、trim），每格先 escape 再套 inline。
+function splitCells(line: string): string[] {
+  return line
+    .trim()
+    .replace(/^\||\|$/g, '')
+    .split('|')
+    .map((c) => inline(escapeHtml(c.trim())))
+}
+
 /**
  * 安全 Markdown→HTML。body 是外部不可信內容：先 escape，再套最小語法白名單。
- * 只產生無屬性標籤 <p><br><ul><li><strong><code><pre>；不支援連結/圖片/raw HTML。
+ * 只產生無屬性標籤 <p><br><ul><li><strong><code><pre> 與表格
+ * <table><thead><tbody><tr><th><td>；不支援連結/圖片/raw HTML。
  * 行為基礎 parser，正則皆 bounded，避免 ReDoS。
  */
 export function renderMarkdown(raw: string): string {
@@ -52,6 +70,25 @@ export function renderMarkdown(raw: string): string {
       }
       i++ // 跳過收尾 ```
       html.push('<pre><code>' + escapeHtml(code.join('\n')) + '</code></pre>')
+      continue
+    }
+    // 表格：目前行是表格列，且下一行是分隔列
+    if (isTableRow(line) && i + 1 < lines.length && isTableSep(lines[i + 1])) {
+      flushPara()
+      flushList()
+      const header = splitCells(line)
+      i += 2 // 跳過 header + 分隔列
+      const rows: string[][] = []
+      while (i < lines.length && isTableRow(lines[i]) && !isTableSep(lines[i])) {
+        rows.push(splitCells(lines[i]))
+        i++
+      }
+      const thead = '<thead><tr>' + header.map((c) => '<th>' + c + '</th>').join('') + '</tr></thead>'
+      const tbody =
+        '<tbody>' +
+        rows.map((r) => '<tr>' + r.map((c) => '<td>' + c + '</td>').join('') + '</tr>').join('') +
+        '</tbody>'
+      html.push('<table>' + thead + tbody + '</table>')
       continue
     }
     const m = /^\s*[-*]\s+(.*)$/.exec(line)
