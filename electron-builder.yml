@@ -2,7 +2,7 @@ appId: com.stevensyu.desktop-notify
 productName: desktop-notify
 directories:
   output: release
-  buildResources: build
+  buildResources: assets
 # 打包進 asar 的檔案：electron-vite 的產物（main/preload/renderer）。
 files:
   - out/**
@@ -17,5 +17,6 @@ extraResources:
 mac:
   target: dmg
   category: public.app-category.developer-tools
+  icon: assets/icon.png # 企鵝 idle 第一格合成（electron-builder 自此產 .icns）
   # 個人使用：不做 Apple 簽章 / 公證（ad-hoc）。
   identity: null
