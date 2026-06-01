@@ -19,7 +19,7 @@ import type { WalkBounds } from '../core/walk-planner'
 import type { DiscoveredSkin } from '../core/skin-scan'
 import type { CardView } from '../core/card-view'
 import type { Prefs } from '../main/prefs'
-import type { Channel } from '../core/channel'
+import type { Channel, SourceMatch } from '../core/channel'
 
 /** renderer → main，單向命令。 */
 export interface Commands {
@@ -55,6 +55,7 @@ export interface Queries {
   'select-skin': { args: string; result: { ok: boolean; effectiveId: string } }
   'get-pending-detail': { args: void; result: { id: string | null } }
   'get-channels': { args: void; result: Channel[] }
+  'get-known-sources': { args: void; result: SourceMatch[] }
 }
 
 /** main → renderer，單向推播。 */
@@ -73,4 +74,5 @@ export interface Pushes {
   'card-dismissed': { id: string }
   'open-detail': void
   'channels-updated': Channel[]
+  'known-sources-updated': SourceMatch[]
 }

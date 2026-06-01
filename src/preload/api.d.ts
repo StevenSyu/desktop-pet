@@ -56,6 +56,8 @@ declare global {
       upsertChannel: (ch: Channel) => void
       deleteChannel: (id: string) => void
       onChannelsUpdated: (cb: (channels: Channel[]) => void) => void
+      getKnownSources: () => Promise<import('../core/channel').SourceMatch[]>
+      onKnownSourcesUpdated: (cb: (s: import('../core/channel').SourceMatch[]) => void) => void
       getSkins: () => Promise<{
         skins: import('../core/skin-scan').DiscoveredSkin[]
         requestedId: string

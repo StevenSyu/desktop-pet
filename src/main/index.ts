@@ -7,7 +7,7 @@ import { createSkinWindow } from './skin-window'
 import { createChannelsWindow } from './channels-window'
 import { cardPosition } from '../core/card-position'
 import type { CardView } from '../core/card-view'
-import { needsAutoChannel, type Channel } from '../core/channel'
+import { needsAutoChannel, type Channel, type SourceMatch } from '../core/channel'
 import { DEFAULT_SKIN_ID } from '../core/skins'
 import { registerPetScheme, registerPetProtocol } from './pet-protocol'
 import { findFreePort, generateToken, writeEndpointFile } from './endpoint'
@@ -34,10 +34,12 @@ let activeCardId: string | null = null
 let pendingDetailId: string | null = null
 let dndEnabled = false
 let channels: Channel[] = []
+let knownSources: SourceMatch[] = []
 let defaultSkin = DEFAULT_SKIN_ID // 啟動時快取，供自動建 channel 預設造型（避免每次讀 prefs）
 let channelSeq = 0
-// 自動偵測建立的 channel 數上限：外部 POST 的 source.name 可變 → 防無限長 channel + 寫檔放大
+// 上限：外部 POST 的 source.name 可變 → 防 channel / 來源池無限長 + 寫檔放大
 const MAX_AUTO_CHANNELS = 64
+const MAX_KNOWN_SOURCES = 200
 function nextChannelId(): string {
   channelSeq += 1
   return `ch-${Date.now().toString(36)}-${channelSeq.toString(36)}`
@@ -53,9 +55,11 @@ function broadcastChannels(): void {
   pushTo(centerWindow, 'channels-updated', channels)
   pushTo(channelsWindow, 'channels-updated', channels)
 }
+function broadcastKnownSources() { pushTo(channelsWindow, 'known-sources-updated', knownSources) }
 function persistChannels(): void {
   updatePrefs(app.getPath('userData'), { channels }) // 合併寫入，不覆蓋 window.ts 的欄位
 }
+function persistKnownSources() { updatePrefs(app.getPath('userData'), { knownSources }) }
 
 function computeCenterPos(): { x: number; y: number } | undefined {
   if (!petWindow || petWindow.isDestroyed()) return undefined
@@ -122,6 +126,7 @@ app.whenReady().then(async () => {
   const startupPrefs = loadPrefs(app.getPath('userData'))
   dndEnabled = startupPrefs.dnd
   channels = startupPrefs.channels
+  knownSources = startupPrefs.knownSources
   defaultSkin = startupPrefs.skin
   bus.on('dnd-changed', (enabled: boolean) => {
     dndEnabled = enabled
@@ -161,6 +166,7 @@ app.whenReady().then(async () => {
   })
   handleQuery('get-messages', () => store.list())
   handleQuery('get-channels', () => channels)
+  handleQuery('get-known-sources', () => knownSources)
   handleCommand('channel-upsert', (ch) => {
     // 空 id → 新建（main 指派 id，renderer 不產 id）；否則依 id 覆蓋
     const withId: Channel = ch.id ? ch : { ...ch, id: nextChannelId() }
@@ -252,20 +258,21 @@ app.whenReady().then(async () => {
 })
 
 function autoDetectChannel(source: { kind: string; name?: string }): void {
-  if (channels.length >= MAX_AUTO_CHANNELS) return // 上限：防外部 source 無限長 channel + 寫檔放大
-  if (!needsAutoChannel(source, channels)) return // 純函式判定 (a)+(b)（Task 1）
-  const match: { kind?: string; name?: string } = { kind: source.kind }
-  if (source.name) match.name = source.name
-  channels = [
-    ...channels,
-    {
-      id: nextChannelId(),
-      name: source.name || source.kind,
-      skin: defaultSkin, // 快取值，不每次讀 prefs
-      enabled: false,
-      match,
-    },
-  ]
+  // 收集已知來源池（去重）
+  const key = `${source.kind} ${source.name ?? ''}`
+  if (knownSources.length < MAX_KNOWN_SOURCES && !knownSources.some((s) => `${s.kind ?? ''} ${s.name ?? ''}` === key)) {
+    const sm: SourceMatch = { kind: source.kind }
+    if (source.name) sm.name = source.name
+    knownSources = [...knownSources, sm]
+    persistKnownSources()
+    broadcastKnownSources()
+  }
+  // 自動建 channel（沒有任何既有 channel 命中、且未達上限）
+  if (channels.length >= MAX_AUTO_CHANNELS) return
+  if (!needsAutoChannel(source, channels)) return
+  const member: SourceMatch = { kind: source.kind }
+  if (source.name) member.name = source.name
+  channels = [...channels, { id: nextChannelId(), name: source.name || source.kind, skin: defaultSkin, enabled: false, members: [member] }]
   persistChannels()
   broadcastChannels()
 }

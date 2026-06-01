@@ -1,108 +1,100 @@
 /// <reference path="../preload/api.d.ts" />
 import { render } from 'preact'
 import { signal } from '@preact/signals'
-import type { Channel } from '../core/channel'
+import { matchesSource, type Channel, type SourceMatch } from '../core/channel'
 import type { DiscoveredSkin } from '../core/skin-scan'
 
 const channels = signal<Channel[]>([])
+const knownSources = signal<SourceMatch[]>([])
 const skins = signal<DiscoveredSkin[]>([])
+const selectedId = signal<string | null>(null)
+const draftName = signal('')
 
 window.channelsBridge.getChannels().then((cs) => (channels.value = cs))
 window.channelsBridge.onChannelsUpdated((cs) => (channels.value = cs))
+window.channelsBridge.getKnownSources().then((s) => (knownSources.value = s))
+window.channelsBridge.onKnownSourcesUpdated((s) => (knownSources.value = s))
 window.channelsBridge.getSkins().then((r) => (skins.value = r.skins))
 
-// id 一律由 main 指派：新建送空 id，main 收到空 id 會產生（見 Task 4 channel-upsert）。
-function upsert(ch: Channel): void {
-  window.channelsBridge.upsertChannel(ch)
-}
-const matchOf = (by: string, val: string): Channel['match'] => (by === 'name' ? { name: val } : { kind: val })
+const srcKey = (s: SourceMatch): string => `${s.kind ?? ''} ${s.name ?? ''}`
+const srcLabel = (s: SourceMatch): string => s.name || s.kind || '(unknown)'
+const upsert = (ch: Channel): void => window.channelsBridge.upsertChannel(ch)
 
-// 既有頻道列：欄位變更即存；match 值為空時不送（避免持久化空 match）。
-function Row({ ch }: { ch: Channel }): preact.JSX.Element {
-  const by = ch.match.name != null ? 'name' : 'kind'
-  const val = ch.match.name ?? ch.match.kind ?? ''
-  const setMatch = (nby: string, nval: string): void => {
-    if (nval.trim() === '') return // 空值不持久化（保留上一個有效 match）
-    upsert({ ...ch, match: matchOf(nby, nval) })
-  }
+function addMember(ch: Channel, s: SourceMatch): void {
+  if (ch.members.some((m) => srcKey(m) === srcKey(s))) return
+  upsert({ ...ch, members: [...ch.members, { ...s }] })
+}
+function removeMember(ch: Channel, i: number): void {
+  upsert({ ...ch, members: ch.members.filter((_, idx) => idx !== i) })
+}
+
+function ChannelRow({ ch }: { ch: Channel }): preact.JSX.Element {
+  const sel = selectedId.value === ch.id
+  const stop = (e: Event) => e.stopPropagation()
   return (
-    <div class="row" data-enabled={String(ch.enabled)}>
-      <input class="name" value={ch.name} onInput={(e) => upsert({ ...ch, name: (e.target as HTMLInputElement).value })} />
-      <select class="skin" value={ch.skin} onChange={(e) => upsert({ ...ch, skin: (e.target as HTMLSelectElement).value })}>
-        {skins.value.filter((s) => s.valid).map((s) => (
-          <option value={s.id}>{s.displayName}</option>
-        ))}
+    <div class={'crow' + (sel ? ' sel' : '')} onClick={() => (selectedId.value = ch.id)}>
+      <input class="name" value={ch.name} onClick={stop} onInput={(e) => upsert({ ...ch, name: (e.target as HTMLInputElement).value })} />
+      <select class="skin" onClick={stop} value={ch.skin} onChange={(e) => upsert({ ...ch, skin: (e.target as HTMLSelectElement).value })}>
+        {skins.value.filter((s) => s.valid).map((s) => <option value={s.id}>{s.displayName}</option>)}
       </select>
-      <select class="by" value={by} onChange={(e) => setMatch((e.target as HTMLSelectElement).value, val)}>
-        <option value="name">專案名</option>
-        <option value="kind">類別</option>
-      </select>
-      <input class="val" value={val} onInput={(e) => setMatch(by, (e.target as HTMLInputElement).value)} />
-      <button class={'toggle' + (ch.enabled ? ' on' : '')} onClick={() => upsert({ ...ch, enabled: !ch.enabled })}>
-        {ch.enabled ? '啟用中' : '停用'}
-      </button>
-      <button class="del" onClick={() => window.channelsBridge.deleteChannel(ch.id)}>✕</button>
+      <button class={'toggle' + (ch.enabled ? ' on' : '')} onClick={(e) => { stop(e); upsert({ ...ch, enabled: !ch.enabled }) }}>{ch.enabled ? '啟用中' : '停用'}</button>
+      <button class="del" onClick={(e) => { stop(e); window.channelsBridge.deleteChannel(ch.id); if (sel) selectedId.value = null }}>✕</button>
     </div>
   )
 }
 
-// 手動新增草稿：純本地 signal，不送空 match；按「建立」且 val 非空才送 upsert（id 空字串→main 指派）。
-const draft = signal<{ name: string; skin: string; by: string; val: string } | null>(null)
-function openDraft(): void {
-  draft.value = { name: '新頻道', skin: skins.value.find((s) => s.valid)?.id ?? '', by: 'name', val: '' }
-}
-function commitDraft(): void {
-  const d = draft.value
-  if (!d || d.val.trim() === '') return
-  upsert({ id: '', name: d.name, skin: d.skin, enabled: false, match: matchOf(d.by, d.val) })
-  draft.value = null
-}
-
-function DraftRow(): preact.JSX.Element | null {
-  const d = draft.value
-  if (!d) return null
-  const set = (patch: Partial<typeof d>) => (draft.value = { ...d, ...patch })
+function MemberEditor({ ch }: { ch: Channel }): preact.JSX.Element {
+  const pool = knownSources.value.filter((s) => !matchesSourceAny(ch, s))
   return (
-    <div class="row draft">
-      <input class="name" value={d.name} onInput={(e) => set({ name: (e.target as HTMLInputElement).value })} />
-      <select class="skin" value={d.skin} onChange={(e) => set({ skin: (e.target as HTMLSelectElement).value })}>
-        {skins.value.filter((s) => s.valid).map((s) => (
-          <option value={s.id}>{s.displayName}</option>
-        ))}
-      </select>
-      <select class="by" value={d.by} onChange={(e) => set({ by: (e.target as HTMLSelectElement).value })}>
-        <option value="name">專案名</option>
-        <option value="kind">類別</option>
-      </select>
-      <input class="val" value={d.val} placeholder="比對值" onInput={(e) => set({ val: (e.target as HTMLInputElement).value })} />
-      <button class="toggle on" disabled={d.val.trim() === ''} onClick={commitDraft}>建立</button>
-      <button class="del" onClick={() => (draft.value = null)}>✕</button>
+    <div class="editor">
+      <div class="col">
+        <div class="col-h">已知來源</div>
+        <div class="zone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const i = e.dataTransfer?.getData('member-index'); if (i) removeMember(ch, Number(i)) }}>
+          {pool.map((s) => (
+            <div class="src" draggable onDragStart={(e) => e.dataTransfer?.setData('src-key', srcKey(s))} onClick={() => addMember(ch, s)} title="點擊或拖到右邊加入">
+              {srcLabel(s)}<span class="add">＋</span>
+            </div>
+          ))}
+          {pool.length === 0 && <div class="ph">（無可加入來源）</div>}
+        </div>
+      </div>
+      <div class="col">
+        <div class="col-h">「{ch.name}」成員</div>
+        <div class="zone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const key = e.dataTransfer?.getData('src-key'); const s = knownSources.value.find((x) => srcKey(x) === key); if (s) addMember(ch, s) }}>
+          {ch.members.map((m, i) => (
+            <div class="src member" draggable onDragStart={(e) => e.dataTransfer?.setData('member-index', String(i))}>
+              {srcLabel(m)}{m.name == null ? ' (整類)' : ''}<span class="rm" onClick={() => removeMember(ch, i)}>✕</span>
+            </div>
+          ))}
+          {ch.members.length === 0 && <div class="ph">（拖來源進來）</div>}
+        </div>
+      </div>
     </div>
   )
+}
+
+function matchesSourceAny(ch: Channel, s: SourceMatch): boolean {
+  return ch.members.some((m) => matchesSource(m, { kind: s.kind ?? '', name: s.name }))
 }
 
 function App(): preact.JSX.Element {
+  const sel = channels.value.find((c) => c.id === selectedId.value)
   return (
     <div class="panel">
-      <header>
-        <div class="title">頻道</div>
-        <button class="close" onClick={() => window.close()}>×</button>
-      </header>
-      <div class="hint">啟用某頻道 → 通知中心多一個分頁（B 階段會長自己的寵物）。自動偵測到的新來源會以「停用」加入。</div>
+      <header><div class="title">頻道</div><button class="close" onClick={() => window.close()}>×</button></header>
+      <div class="hint">把「已知來源」拖或點進某頻道＝該頻道含它（可跨專案合併）。啟用→通知中心多一分頁。</div>
       <div class="list">
-        {channels.value.map((ch) => (
-          <Row ch={ch} key={ch.id} />
-        ))}
-        {channels.value.length === 0 && !draft.value && <div class="empty">尚無頻道（發一則通知即會自動偵測）</div>}
-        <DraftRow />
+        {channels.value.map((ch) => <ChannelRow ch={ch} key={ch.id} />)}
+        {channels.value.length === 0 && <div class="ph">尚無頻道（發一則通知即自動偵測）</div>}
       </div>
-      <button class="add" disabled={draft.value !== null} onClick={openDraft}>＋ 手動新增</button>
+      <div class="addbar">
+        <input value={draftName.value} placeholder="新頻道名稱" onInput={(e) => (draftName.value = (e.target as HTMLInputElement).value)} />
+        <button disabled={draftName.value.trim() === ''} onClick={() => { upsert({ id: '', name: draftName.value.trim(), skin: skins.value.find((s) => s.valid)?.id ?? '', enabled: false, members: [] }); draftName.value = '' }}>＋ 新增頻道</button>
+      </div>
+      {sel ? <MemberEditor ch={sel} /> : <div class="ph editor-empty">選一個頻道編輯成員</div>}
     </div>
   )
 }
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') window.close()
-})
-
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') window.close() })
 render(<App />, document.querySelector('#app')!)

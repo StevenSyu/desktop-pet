@@ -22,6 +22,7 @@ let prefs: Prefs = {
   skin: DEFAULT_SKIN_ID,
   dnd: false,
   channels: [],
+  knownSources: [],
 }
 // 最近一次掃描的 id → spritesheet 絕對路徑（供 pet:// protocol handler 取檔）
 let skinSheetPaths = new Map<string, string>()

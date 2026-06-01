@@ -1,94 +1,137 @@
 import { describe, it, expect } from 'vitest'
 import {
   matchesSource,
+  channelMatches,
   matchingChannels,
   needsAutoChannel,
   filterByChannel,
   unreadByChannel,
   sanitizeChannels,
+  sanitizeSources,
   type Channel,
+  type SourceMatch,
 } from '../../src/core/channel'
 
-const ch = (id: string, match: Channel['match'], enabled = true): Channel => ({
-  id, name: id, skin: 'may', enabled, match,
+const ch = (id: string, members: SourceMatch[], enabled = true): Channel => ({
+  id,
+  name: id,
+  skin: 'may',
+  enabled,
+  members,
 })
 const msg = (kind: string, name: string | undefined, read: boolean) => ({
-  source: { kind, name }, read,
+  source: { kind, name },
+  read,
 })
 
 describe('matchesSource', () => {
-  it('kind 命中', () => expect(matchesSource({ kind: 'claude-code' }, { kind: 'claude-code', name: 'x' })).toBe(true))
-  it('name 命中', () => expect(matchesSource({ name: 'desktop-notify' }, { kind: 'claude-code', name: 'desktop-notify' })).toBe(true))
-  it('兩者皆要、其一不符 → false', () => expect(matchesSource({ kind: 'claude-code', name: 'a' }, { kind: 'claude-code', name: 'b' })).toBe(false))
-  it('空 matcher → false', () => expect(matchesSource({}, { kind: 'x', name: 'y' })).toBe(false))
-  it('match.name 指定但 source.name 缺 → false', () => expect(matchesSource({ name: 'a' }, { kind: 'x' })).toBe(false))
+  it('kind 精確比對', () => {
+    expect(matchesSource({ kind: 'claude-code' }, { kind: 'claude-code', name: 'x' })).toBe(true)
+    expect(matchesSource({ kind: 'claude-code' }, { kind: 'attendance', name: 'x' })).toBe(false)
+  })
+  it('name 精確比對', () => {
+    expect(matchesSource({ name: 'desktop-notify' }, { kind: 'claude-code', name: 'desktop-notify' })).toBe(true)
+    expect(matchesSource({ name: 'desktop-notify' }, { kind: 'claude-code', name: 'other' })).toBe(false)
+  })
+  it('null 欄位萬用，指定欄位仍需相等', () => {
+    expect(matchesSource({ kind: 'claude-code' }, { kind: 'claude-code', name: 'desktop-notify' })).toBe(true)
+    expect(matchesSource({ name: 'desktop-notify' }, { kind: 'other', name: 'desktop-notify' })).toBe(true)
+    expect(matchesSource({ kind: 'claude-code', name: 'desktop-notify' }, { kind: 'claude-code', name: 'other' })).toBe(false)
+  })
+  it('兩欄皆 null 回 false', () => {
+    expect(matchesSource({}, { kind: 'x', name: 'y' })).toBe(false)
+  })
 })
 
-describe('matchingChannels（只回 enabled、可多屬）', () => {
+describe('channelMatches', () => {
+  it('多 member OR 邏輯', () => {
+    const channel = ch('c1', [{ kind: 'claude-code', name: 'desktop-notify' }, { kind: 'attendance' }])
+    expect(channelMatches(channel, { kind: 'claude-code', name: 'desktop-notify' })).toBe(true)
+    expect(channelMatches(channel, { kind: 'attendance', name: '打卡' })).toBe(true)
+    expect(channelMatches(channel, { kind: 'curl', name: 'desktop-notify' })).toBe(false)
+  })
+})
+
+describe('matchingChannels', () => {
   const channels = [
-    ch('c1', { kind: 'claude-code' }),
-    ch('c2', { name: 'desktop-notify' }),
-    ch('c3', { kind: 'attendance' }, false), // 停用
+    ch('c1', [{ kind: 'claude-code' }]),
+    ch('c2', [{ name: 'desktop-notify' }]),
+    ch('c3', [{ kind: 'claude-code', name: 'desktop-notify' }], false),
   ]
-  it('重疊 → 回多個', () => {
+  it('啟用過濾、多 channel 可同時命中', () => {
     expect(matchingChannels({ kind: 'claude-code', name: 'desktop-notify' }, channels).sort()).toEqual(['c1', 'c2'])
   })
-  it('停用不回', () => {
-    expect(matchingChannels({ kind: 'attendance', name: '打卡' }, channels)).toEqual([])
+})
+
+describe('needsAutoChannel', () => {
+  it('無任何 channel 命中才 true', () => {
+    expect(needsAutoChannel({ kind: 'claude-code', name: 'desktop-notify' }, [])).toBe(true)
   })
-  it('無命中 → 空', () => {
-    expect(matchingChannels({ kind: 'curl', name: 'z' }, channels)).toEqual([])
+  it('停用 channel 命中也算，不需自動建', () => {
+    expect(needsAutoChannel({ kind: 'claude-code', name: 'desktop-notify' }, [
+      ch('disabled', [{ kind: 'claude-code' }], false),
+    ])).toBe(false)
   })
 })
 
 describe('filterByChannel', () => {
-  const channels = [ch('c1', { kind: 'claude-code' })]
+  const channels = [ch('c1', [{ kind: 'claude-code' }]), ch('c2', [{ kind: 'attendance' }])]
   const msgs = [msg('claude-code', 'a', false), msg('attendance', '打卡', true)]
-  it("'all' → 全部", () => expect(filterByChannel(msgs, 'all', channels)).toHaveLength(2))
-  it('group → 命中者', () => expect(filterByChannel(msgs, 'c1', channels)).toHaveLength(1))
-  it('找不到 channel → 空', () => expect(filterByChannel(msgs, 'nope', channels)).toEqual([]))
+  it("'all' 全回", () => {
+    expect(filterByChannel(msgs, 'all', channels)).toEqual(msgs)
+  })
+  it('命中/未命中', () => {
+    expect(filterByChannel(msgs, 'c1', channels)).toEqual([msgs[0]])
+    expect(filterByChannel(msgs, 'c2', channels)).toEqual([msgs[1]])
+  })
+  it('channelId 不存在回 []', () => {
+    expect(filterByChannel(msgs, 'nope', channels)).toEqual([])
+  })
 })
 
 describe('unreadByChannel', () => {
-  it('all 總未讀 + 各 enabled group 未讀', () => {
-    const channels = [ch('c1', { kind: 'claude-code' }), ch('c2', { kind: 'attendance' }, false)]
-    const msgs = [msg('claude-code', 'a', false), msg('claude-code', 'b', true), msg('attendance', 'x', false)]
-    expect(unreadByChannel(msgs, channels)).toEqual({ all: 2, c1: 1 }) // c2 停用不列
-  })
-})
-
-describe('needsAutoChannel（自動建去重）', () => {
-  it('停用的廣域 kind channel 不算捕捉 → 仍需為各 source 建', () => {
-    const channels = [ch('broad', { kind: 'claude-code' }, false)]
-    expect(needsAutoChannel({ kind: 'claude-code', name: 'projX' }, channels)).toBe(true)
-  })
-  it('啟用的廣域 kind channel 已捕捉 → 不需建', () => {
-    const channels = [ch('broad', { kind: 'claude-code' }, true)]
-    expect(needsAutoChannel({ kind: 'claude-code', name: 'projX' }, channels)).toBe(false)
-  })
-  it('已有完全相同 {kind,name} → 不需建（去重）', () => {
-    const channels = [ch('x', { kind: 'claude-code', name: 'projX' }, false)]
-    expect(needsAutoChannel({ kind: 'claude-code', name: 'projX' }, channels)).toBe(false)
-  })
-  it('source 無 name：以 {kind} 去重', () => {
-    expect(needsAutoChannel({ kind: 'attendance' }, [ch('a', { kind: 'attendance' }, false)])).toBe(false)
-    expect(needsAutoChannel({ kind: 'attendance' }, [])).toBe(true)
+  it("'all' 計未讀、各 channel 未讀計數", () => {
+    const channels = [
+      ch('c1', [{ kind: 'claude-code' }]),
+      ch('c2', [{ name: 'desktop-notify' }]),
+      ch('c3', [{ kind: 'attendance' }], false),
+    ]
+    const msgs = [
+      msg('claude-code', 'desktop-notify', false),
+      msg('claude-code', 'other', true),
+      msg('attendance', '打卡', false),
+    ]
+    expect(unreadByChannel(msgs, channels)).toEqual({ all: 2, c1: 1, c2: 1 })
   })
 })
 
 describe('sanitizeChannels', () => {
-  it('丟棄壞欄位 / match 至少一欄；非字串 skin → 空字串', () => {
+  it('members 空丟棄、非字串 skin 變空字串、正常建立', () => {
     const raw = [
-      { id: 'c1', name: 'A', skin: 'may', enabled: true, match: { kind: 'claude-code' } },
-      { id: 'c2', name: 'B', match: {} }, // match 空 → 丟
-      { name: 'no-id', match: { kind: 'x' } }, // 無 id → 丟
-      { id: 'c3', name: 'C', skin: 123, enabled: 'yes', match: { name: 'p' } }, // skin 非字串→''、enabled 非 bool→false
+      { id: 'c1', name: 'A', skin: 'may', enabled: true, members: [{ kind: 'claude-code' }] },
+      { id: 'c2', name: 'B', skin: 'may', enabled: true, members: [] },
+      { id: 'c3', name: 'C', skin: 123, enabled: 'yes', members: [{ name: 'desktop-notify' }] },
+      { id: 'c4', name: 'D', skin: 'may', enabled: true, members: [{ kind: '', name: '' }] },
       'garbage',
     ]
     expect(sanitizeChannels(raw)).toEqual([
-      { id: 'c1', name: 'A', skin: 'may', enabled: true, match: { kind: 'claude-code' } },
-      { id: 'c3', name: 'C', skin: '', enabled: false, match: { name: 'p' } },
+      { id: 'c1', name: 'A', skin: 'may', enabled: true, members: [{ kind: 'claude-code' }] },
+      { id: 'c3', name: 'C', skin: '', enabled: false, members: [{ name: 'desktop-notify' }] },
     ])
   })
-  it('非陣列 → []', () => expect(sanitizeChannels(null)).toEqual([]))
+})
+
+describe('sanitizeSources', () => {
+  it('非陣列回 []', () => {
+    expect(sanitizeSources(null)).toEqual([])
+  })
+  it('壞項跳過、兩欄皆空跳過', () => {
+    expect(sanitizeSources([
+      { kind: 'claude-code' },
+      { name: 'desktop-notify' },
+      { kind: '', name: '' },
+      null,
+      'bad',
+    ])).toEqual([{ kind: 'claude-code' }, { name: 'desktop-notify' }])
+  })
 })

@@ -22,6 +22,7 @@ const FULL_DEFAULTS = {
   skin: DEFAULT_SKIN_ID,
   dnd: false,
   channels: [],
+  knownSources: [],
 }
 
 describe('loadPrefs', () => {
@@ -105,6 +106,7 @@ describe('savePrefs', () => {
       skin: 'oil-king-penguin',
       dnd: true,
       channels: [],
+      knownSources: [],
     }
     savePrefs(d, prefs)
     expect(existsSync(join(d, 'prefs.json'))).toBe(true)

@@ -6,7 +6,7 @@ import {
   type WalkBounds,
 } from '../core/walk-planner'
 import { DEFAULT_SKIN_ID, isValidSkinId } from '../core/skins'
-import { sanitizeChannels, type Channel } from '../core/channel'
+import { type SourceMatch, sanitizeSources, sanitizeChannels, type Channel } from '../core/channel'
 
 export interface Prefs {
   autoWalk: boolean
@@ -14,6 +14,7 @@ export interface Prefs {
   skin: string
   dnd: boolean
   channels: Channel[]
+  knownSources: SourceMatch[]
 }
 
 const FILENAME = 'prefs.json'
@@ -23,12 +24,13 @@ const DEFAULTS: Prefs = {
   skin: DEFAULT_SKIN_ID,
   dnd: false,
   channels: [],
+  knownSources: [],
 }
 
 export function loadPrefs(userDataDir: string): Prefs {
   const path = join(userDataDir, FILENAME)
   if (!existsSync(path)) {
-    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk }, skin: DEFAULTS.skin, dnd: DEFAULTS.dnd, channels: [] }
+    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk }, skin: DEFAULTS.skin, dnd: DEFAULTS.dnd, channels: [], knownSources: [] }
   }
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>
@@ -39,9 +41,10 @@ export function loadPrefs(userDataDir: string): Prefs {
       skin: isValidSkinId(parsed.skin) ? (parsed.skin as string) : DEFAULTS.skin,
       dnd: typeof parsed.dnd === 'boolean' ? parsed.dnd : DEFAULTS.dnd,
       channels: sanitizeChannels(parsed.channels),
+      knownSources: sanitizeSources(parsed.knownSources),
     }
   } catch {
-    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk }, skin: DEFAULTS.skin, dnd: DEFAULTS.dnd, channels: [] }
+    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk }, skin: DEFAULTS.skin, dnd: DEFAULTS.dnd, channels: [], knownSources: [] }
   }
 }
 
