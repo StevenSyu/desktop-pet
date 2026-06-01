@@ -71,10 +71,16 @@ export function normalizePayload(raw: NotifyPayload, deps: NormalizeDeps = {}): 
     ? (raw.type as NotifyType)
     : 'info'
 
-  const source: NotifySource =
+  const rawSource =
     typeof raw.source === 'string'
       ? { kind: raw.source }
       : raw.source ?? { kind: 'unknown' }
+  // 夾長度：source 來自外部 POST，且會進 channel match + 持久化，避免超長字串放大
+  const cap = (s: string, n = 200): string => (s.length > n ? s.slice(0, n) : s)
+  const source: NotifySource = {
+    kind: cap(typeof rawSource.kind === 'string' && rawSource.kind ? rawSource.kind : 'unknown'),
+    ...(typeof rawSource.name === 'string' && rawSource.name ? { name: cap(rawSource.name) } : {}),
+  }
 
   return {
     id: raw.id ?? uuid(),

@@ -8,6 +8,7 @@ import { createChannelsWindow } from './channels-window'
 import { cardPosition } from '../core/card-position'
 import type { CardView } from '../core/card-view'
 import { needsAutoChannel, type Channel } from '../core/channel'
+import { DEFAULT_SKIN_ID } from '../core/skins'
 import { registerPetScheme, registerPetProtocol } from './pet-protocol'
 import { findFreePort, generateToken, writeEndpointFile } from './endpoint'
 import { startIngestServer } from './ingest'
@@ -33,7 +34,10 @@ let activeCardId: string | null = null
 let pendingDetailId: string | null = null
 let dndEnabled = false
 let channels: Channel[] = []
+let defaultSkin = DEFAULT_SKIN_ID // 啟動時快取，供自動建 channel 預設造型（避免每次讀 prefs）
 let channelSeq = 0
+// 自動偵測建立的 channel 數上限：外部 POST 的 source.name 可變 → 防無限長 channel + 寫檔放大
+const MAX_AUTO_CHANNELS = 64
 function nextChannelId(): string {
   channelSeq += 1
   return `ch-${Date.now().toString(36)}-${channelSeq.toString(36)}`
@@ -115,8 +119,10 @@ app.whenReady().then(async () => {
     if (cardWindow && !cardWindow.isDestroyed()) cardWindow.close()
   })
 
-  dndEnabled = loadPrefs(app.getPath('userData')).dnd
-  channels = loadPrefs(app.getPath('userData')).channels
+  const startupPrefs = loadPrefs(app.getPath('userData'))
+  dndEnabled = startupPrefs.dnd
+  channels = startupPrefs.channels
+  defaultSkin = startupPrefs.skin
   bus.on('dnd-changed', (enabled: boolean) => {
     dndEnabled = enabled
   })
@@ -246,6 +252,7 @@ app.whenReady().then(async () => {
 })
 
 function autoDetectChannel(source: { kind: string; name?: string }): void {
+  if (channels.length >= MAX_AUTO_CHANNELS) return // 上限：防外部 source 無限長 channel + 寫檔放大
   if (!needsAutoChannel(source, channels)) return // 純函式判定 (a)+(b)（Task 1）
   const match: { kind?: string; name?: string } = { kind: source.kind }
   if (source.name) match.name = source.name
@@ -254,7 +261,7 @@ function autoDetectChannel(source: { kind: string; name?: string }): void {
     {
       id: nextChannelId(),
       name: source.name || source.kind,
-      skin: loadPrefs(app.getPath('userData')).skin,
+      skin: defaultSkin, // 快取值，不每次讀 prefs
       enabled: false,
       match,
     },

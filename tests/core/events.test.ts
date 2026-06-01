@@ -41,6 +41,13 @@ describe('normalizePayload', () => {
     expect(e.source).toEqual({ kind: 'claude-code' })
   })
 
+  it('caps over-long source.kind / source.name to 200 chars', () => {
+    const long = 'x'.repeat(500)
+    const e = normalizePayload({ type: 'info', source: { kind: long, name: long } }, deps)
+    expect(e.source.kind.length).toBe(200)
+    expect(e.source.name?.length).toBe(200)
+  })
+
   it('preserves an object source and explicit fields', () => {
     const e = normalizePayload(
       { type: 'attention', source: { kind: 'codex', name: 'my-proj' }, sessionId: 's1', priority: 99, ttlMs: 1234 },
