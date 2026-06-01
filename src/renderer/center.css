@@ -195,3 +195,15 @@ header {
 .detail-body table { border-collapse: collapse; margin: 0 0 8px; font-size: 12px; max-width: 100%; }
 .detail-body th, .detail-body td { border: 1px solid #e3dccf; padding: 3px 7px; text-align: left; }
 .detail-body th { background: #efe9df; font-weight: 800; }
+
+#channel-tabs { display: flex; gap: 6px; padding: 6px 14px 0; flex-wrap: wrap; }
+.ctab {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 11px 11px 0 0;
+  cursor: pointer;
+  color: #5a5247;
+  background: #efe9df;
+}
+.ctab.active { background: #2a2622; color: #fff; }

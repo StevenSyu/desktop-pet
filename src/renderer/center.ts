@@ -4,6 +4,7 @@ import type { NotifyType } from '../core/events'
 import { relativeTime, timeGroup, type TimeGroup } from '../core/time-format'
 import { stripMarkdown } from '../core/markdown-strip'
 import { renderMarkdown } from '../core/markdown-render'
+import { filterByChannel, unreadByChannel, type Channel } from '../core/channel'
 
 const LABEL: Record<NotifyType, string> = {
   done: '完成',
@@ -29,6 +30,8 @@ const GROUP_LABEL: Record<TimeGroup, string> = {
 
 let all: StoredMessage[] = []
 let filter: 'all' | NotifyType = 'all'
+let channels: Channel[] = []
+let channelTab = 'all'
 let detailId: string | null = null
 let savedScrollTop = 0
 let flashId: string | null = null
@@ -36,6 +39,7 @@ let flashId: string | null = null
 const listEl = document.querySelector<HTMLDivElement>('#list')!
 const emptyEl = document.querySelector<HTMLDivElement>('#empty')!
 const unreadEl = document.querySelector<HTMLSpanElement>('#unread')!
+const tabsEl = document.querySelector<HTMLDivElement>('#channel-tabs')!
 const chipsEl = document.querySelector<HTMLDivElement>('#chips')!
 const dndFlagEl = document.querySelector<HTMLSpanElement>('#dnd-flag')!
 
@@ -54,6 +58,29 @@ function renderChips(): void {
       el.textContent = c.name
       el.addEventListener('click', () => {
         filter = c.id
+        render()
+      })
+      return el
+    }),
+  )
+}
+
+function renderTabs(): void {
+  const counts = unreadByChannel(all, channels)
+  const tabs: { id: string; name: string }[] = [
+    { id: 'all', name: '全部' },
+    ...channels.filter((c) => c.enabled).map((c) => ({ id: c.id, name: c.name })),
+  ]
+  // 目前分頁若指向已停用/刪除的 channel → 退回 all
+  if (channelTab !== 'all' && !tabs.some((t) => t.id === channelTab)) channelTab = 'all'
+  tabsEl.replaceChildren(
+    ...tabs.map((t) => {
+      const el = document.createElement('span')
+      const n = counts[t.id] ?? 0
+      el.className = 'ctab' + (channelTab === t.id ? ' active' : '')
+      el.textContent = n > 0 ? `${t.name} (${n})` : t.name
+      el.addEventListener('click', () => {
+        channelTab = t.id
         render()
       })
       return el
@@ -140,9 +167,11 @@ function render(): void {
 }
 
 function renderList(): void {
+  renderTabs()
   renderChips()
   const now = Date.now()
-  const items = filter === 'all' ? all : all.filter((m) => m.type === filter)
+  const byChannel = filterByChannel(all, channelTab, channels)
+  const items = filter === 'all' ? byChannel : byChannel.filter((m) => m.type === filter)
   const unread = all.filter((m) => !m.read).length
   unreadEl.textContent = unread > 0 ? `${unread} 則未讀` : ''
 
@@ -169,6 +198,7 @@ function renderList(): void {
 
 function renderDetail(m: StoredMessage): void {
   if (!m.read) window.petBridge.markRead(m.id) // 進詳情才標已讀（未讀才送，避免重複 broadcast）
+  tabsEl.replaceChildren()
   chipsEl.replaceChildren() // 詳情時清掉 chips（回列表時 renderChips 會重建）
   emptyEl.hidden = true
 
@@ -261,3 +291,11 @@ window.petBridge.getMessages().then((msgs) => {
   consumePendingDetail() // 新開窗：載入後取 pending detail
 })
 window.petBridge.onOpenDetail(consumePendingDetail) // 已開窗：被 main 觸發重查
+window.petBridge.getChannels().then((cs) => {
+  channels = cs
+  render()
+})
+window.petBridge.onChannelsUpdated((cs) => {
+  channels = cs
+  render()
+})
