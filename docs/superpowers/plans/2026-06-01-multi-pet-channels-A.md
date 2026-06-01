@@ -1066,3 +1066,15 @@ Expected: DevTools console **無 CSP 違規**（Preact/signals 無 eval）。若
 - channel：`channel-upsert(Channel)` / `channel-delete({id})` / `get-channels(→Channel[])` / `channels-updated(Channel[])`：Task 3 定義；Task 4 handlers、Task 6/8 preload、Task 9 UI 一致。
 - 純函式簽名 `matchingChannels(source,channels)`、`filterByChannel(messages,channelId,channels)`、`unreadByChannel(messages,channels)`、`sanitizeChannels(raw)`：Task 1 定義；Task 4(main)/6(center) 使用一致。
 - `channelsBridge`（Task 8）與 `petBridge.getChannels/onChannelsUpdated`（Task 3）分屬頻道視窗 / 中心，channel 名共用、payload 一致。
+
+---
+
+## 實作修訂（vs 原計畫；以 spec 為最終依據）
+
+實作過程依使用者回饋把模型從「單一 match 規則」改為「**group + 成員清單**」，本計畫上方部分程式碼（`match: SourceMatch`、單規則管理 UI）已被取代。最終實作（見 `2026-06-01-multi-pet-channels-A-design.md` 修訂後 spec）：
+
+- **`Channel.match: SourceMatch` → `Channel.members: SourceMatch[]`**（OR）；`channelMatches = members.some(matchesSource)`。`matchingChannels/filterByChannel/unreadByChannel/needsAutoChannel/sanitizeChannels` 皆改用 members。支援**跨專案合併**（多來源同一頻道）。
+- **已知來源池** `prefs.knownSources: SourceMatch[]`（含 `MAX_KNOWN_SOURCES=200` 上限）+ `get-known-sources` / `known-sources-updated`。自動建頻道 `members:[{kind,name}]`、`MAX_AUTO_CHANNELS=64`。
+- **頻道管理 UI**：上半頻道清單（卡片化、箭頭、成員數、選取色條）+ 頂部**鎖定「全部」列**（`allEnabled` + `get/set-all-enabled` / `all-enabled-updated`，供 B 關「全部」寵物）；下半**左右兩欄**成員編輯（拖拽＋點擊加入/移除）。
+- **安全**：`normalizePayload` 夾 `source.kind/name` 200 字；prefs 寫入一律走 `updatePrefs` 合併（避免 window.ts/index.ts 互相覆蓋）。
+- 其餘（core 純函式 TDD、center 分頁、Preact 隔離在 channels、A 不長寵物）與計畫一致。

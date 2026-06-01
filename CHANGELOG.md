@@ -6,6 +6,7 @@
 
 ### Added
 
+- **通知頻道 / 群組（多寵物 子專案 A）**：把通知依事件 `source`（kind/name）分成**可重疊的「頻道（group）」**。新增獨立「頻道管理」視窗（**Preact + @preact/signals**，僅此視窗用框架）：**左右兩欄**把「已知來源」拖拽或點擊加入頻道成員（**跨專案可合併到同一頻道**）、自動偵測新來源建「停用」頻道（成員預設含自己）、啟用/停用、刪除、改名、換造型；頂部**鎖定的「全部」頻道**（不可編輯、含開關，供未來多寵物關閉「全部」那隻）。通知中心加**頻道分頁**（全部 + 各啟用頻道、各自未讀、編輯即時回溯分類）。core 純函式 `channel`（matchesSource / channelMatches / matchingChannels / needsAutoChannel / filterByChannel / unreadByChannel / sanitize）。右鍵選單加「頻道…」。**A 不長新寵物**（每頻道一隻寵物為子專案 B）。
 - **macOS 打包（electron-builder → .dmg）**：`npm run dist` 產出 Apple Silicon `.dmg`，可拖進「應用程式」雙擊啟動。內建造型以 `extraResources` 放到 `.app/Contents/Resources/resources/pets`（asar 外），`src/main/window.ts` 的 `builtinRoot()` 在 `app.isPackaged` 時改用 `process.resourcesPath`，使 `pet://` 在打包後仍讀得到內建 spritesheet。未做 Apple 簽章/公證（個人用，ad-hoc 簽章本機可直接開）。
 - **點卡片看全文 + 通知中心詳情面板**（Spec ⑧）：即時卡片內文改為精簡首段（`cardSummary` 換行/句號切分）；**點卡片本體 → 關卡片 + 開通知中心並直接進該則單則詳情面板**，卡片右上角 ✕ 則只關閉（依使用回饋從「點卡片關閉」改為此互動）。詳情面板以安全 Markdown 渲染完整內文（`renderMarkdown`：escape-first + 無屬性標籤白名單，支援粗體/行內與區塊程式碼/清單/**表格 `<table>`**；不支援連結/圖片/raw HTML）+ 完整 metadata（來源/完整 sessionId/絕對時間 + 收到時間）。列表↔詳情兩態、Esc 兩段式（詳情→列表→關窗）、詳情該則被清空自動 fallback 回列表、返回列表還原捲動位置 + highlight。卡片/列表預覽（`stripMarkdown`）整列略過表格，不再出現 `|`／`---` 符號。新增純函式 `card-summary`、`markdown-render`（含 XSS/ReDoS 測試）。
 - **即時卡片獨立視窗**（Spec ⑦）：即時卡片從寵物視窗的 DOM 抽成獨立浮動小視窗，浮在寵物上方（上方空間不足自動翻到下方）、右對齊、跟著寵物拖動移動；card renderer 純顯示（窄版 `cardBridge` preload，只 `onCardData`/`cardClicked`，不暴露 walk/prefs/skin）。卡片 IPC 帶事件 id，main 持 `activeCardId`、pet renderer 比對 `currentEvent`，防舊卡片延遲點擊誤標新訊息已讀。新增純函式 `card-position`（上方/下方 flip + 右對齊 + workArea 夾邊，5 測試）。卡片視窗 `showInactive` 不搶焦點、`moveTop` 確保浮在寵物之上、跨 Spaces。
@@ -38,6 +39,7 @@
 
 ### Changed
 
+- **prefs 持久化合併寫入**（多寵物 A）：新增 `updatePrefs(dir, partial)`（讀最新→合併→寫），`window.ts` 與 `index.ts` 兩個寫入者各只更新自己欄位，避免互相覆蓋；`prefs` 新增 `channels` / `knownSources` / `allEnabled`（皆向後相容、含上限防外部來源放大）。
 - **通知中心開在寵物所在螢幕那側**（Spec ⑧）：不再固定主螢幕角落；改用 `cardPosition`（依 `getDisplayMatching(寵物bounds)`、右對齊、上方不足翻下方、y 夾入工作區）定位，多螢幕下中心會出現在寵物當前所在螢幕。
 - **寵物視窗縮成 sprite 大小**（Spec ⑦）：280×300 → 135×146、`#pet` 齊頂、未讀紅點移到 sprite 右上角；移除視窗內 `#cards` DOM（卡片改獨立視窗）。消除 sprite 上方的卡片預留死空間。
 - **造型載入**（Spec ⑥）：renderer 從 build-time static import 改為執行期 `pet://<id>/sheet` 自訂 protocol；內建與使用者造型統一路徑，新增造型不再需要改 code 重建。右鍵「更換造型」submenu 改為「更換造型…」開選擇視窗。
