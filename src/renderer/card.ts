@@ -29,21 +29,23 @@ function render(view: CardView): void {
     root.appendChild(source)
   }
 
-  if (view.hasMore) {
-    const more = document.createElement('button')
-    more.className = 'card-more'
-    more.textContent = '更多'
-    more.addEventListener('click', (e) => {
-      e.stopPropagation() // 不要觸發卡片本體的關閉
-      if (currentId) window.cardBridge.cardMore(currentId)
-    })
-    root.appendChild(more)
-  }
+  // 右上角關閉鈕：點它只關閉（stopPropagation 不觸發開詳情）
+  const close = document.createElement('button')
+  close.className = 'card-close'
+  close.textContent = '×'
+  close.title = '關閉'
+  close.setAttribute('aria-label', '關閉')
+  close.addEventListener('click', (e) => {
+    e.stopPropagation()
+    if (currentId) window.cardBridge.cardClicked(currentId)
+  })
+  root.appendChild(close)
 }
 
 window.cardBridge.onCardData(render)
 
-root.title = '點一下關閉'
+// 點卡片本體（除關閉鈕外任意處）→ 開通知中心詳情看完整內容
+root.title = '點開看完整內容'
 root.addEventListener('click', () => {
-  if (currentId) window.cardBridge.cardClicked(currentId)
+  if (currentId) window.cardBridge.cardMore(currentId)
 })

@@ -57,7 +57,7 @@ try {
     logs.push('[warn] endpoint.json 不存在（main 可能沒寫）')
   }
 
-  // ===== 卡片「更多」→ 通知中心詳情面板 + markdown 渲染 =====
+  // ===== 點卡片本體 → 通知中心詳情面板 + markdown 渲染 =====
   let detailOk = false
   if (existsSync(EP)) {
     const { port, token } = JSON.parse(readFileSync(EP, 'utf8'))
@@ -71,13 +71,16 @@ try {
         source: 'smoke',
       }),
     })
-    // 等卡片視窗出現「更多」並點擊
+    // 等卡片更新到這則（首段「第一行摘要」）後點卡片本體（非關閉鈕）
     const d1 = Date.now() + 3000
     while (Date.now() < d1) {
       const cw = app.windows().find((p) => p.url().includes('card.html'))
-      if (cw && (await cw.locator('.card-more').count())) {
-        await cw.locator('.card-more').click().catch(() => {})
-        break
+      if (cw) {
+        const t = await cw.locator('#card').innerText().catch(() => '')
+        if (t.includes('第一行摘要')) {
+          await cw.locator('#card').click().catch(() => {})
+          break
+        }
       }
       await sleep(200)
     }
