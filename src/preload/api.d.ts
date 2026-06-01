@@ -3,6 +3,7 @@ import type { StoredMessage } from '../core/message-store'
 import type { WalkBounds } from '../core/walk-planner'
 import type { DiscoveredSkin } from '../core/skin-scan'
 import type { CardView } from '../core/card-view'
+import type { Channel } from '../core/channel'
 
 declare global {
   interface Window {
@@ -42,6 +43,8 @@ declare global {
       onCardDismissed: (cb: (p: { id: string }) => void) => void
       getPendingDetail: () => Promise<{ id: string | null }>
       onOpenDetail: (cb: () => void) => void
+      getChannels: () => Promise<Channel[]>
+      onChannelsUpdated: (cb: (channels: Channel[]) => void) => void
     }
     cardBridge: {
       onCardData: (cb: (view: CardView) => void) => void

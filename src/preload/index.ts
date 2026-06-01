@@ -4,6 +4,7 @@ import type { StoredMessage } from '../core/message-store'
 import type { WalkBounds } from '../core/walk-planner'
 import type { Prefs } from '../main/prefs'
 import type { CardView } from '../core/card-view'
+import type { Channel } from '../core/channel'
 import { sendCommand, invokeQuery, subscribePush } from '../ipc/preload-helpers'
 
 contextBridge.exposeInMainWorld('petBridge', {
@@ -43,4 +44,6 @@ contextBridge.exposeInMainWorld('petBridge', {
   onCardDismissed: (cb: (p: { id: string }) => void) => subscribePush('card-dismissed', cb),
   getPendingDetail: () => invokeQuery('get-pending-detail'),
   onOpenDetail: (cb: () => void) => subscribePush('open-detail', cb),
+  getChannels: () => invokeQuery('get-channels'),
+  onChannelsUpdated: (cb: (channels: Channel[]) => void) => subscribePush('channels-updated', cb),
 })

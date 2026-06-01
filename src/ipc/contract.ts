@@ -19,6 +19,7 @@ import type { WalkBounds } from '../core/walk-planner'
 import type { DiscoveredSkin } from '../core/skin-scan'
 import type { CardView } from '../core/card-view'
 import type { Prefs } from '../main/prefs'
+import type { Channel } from '../core/channel'
 
 /** renderer → main，單向命令。 */
 export interface Commands {
@@ -40,6 +41,8 @@ export interface Commands {
   'hide-card': void
   'card-clicked': { id: string }
   'card-more': { id: string }
+  'channel-upsert': Channel
+  'channel-delete': { id: string }
 }
 
 /** renderer → main，往返查詢。 */
@@ -51,6 +54,7 @@ export interface Queries {
   'get-skins': { args: void; result: { skins: DiscoveredSkin[]; requestedId: string; effectiveId: string } }
   'select-skin': { args: string; result: { ok: boolean; effectiveId: string } }
   'get-pending-detail': { args: void; result: { id: string | null } }
+  'get-channels': { args: void; result: Channel[] }
 }
 
 /** main → renderer，單向推播。 */
@@ -68,4 +72,5 @@ export interface Pushes {
   'card-data': CardView
   'card-dismissed': { id: string }
   'open-detail': void
+  'channels-updated': Channel[]
 }
