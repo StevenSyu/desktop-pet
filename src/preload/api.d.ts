@@ -51,6 +51,17 @@ declare global {
       cardClicked: (id: string) => void
       cardMore: (id: string) => void
     }
+    channelsBridge: {
+      getChannels: () => Promise<Channel[]>
+      upsertChannel: (ch: Channel) => void
+      deleteChannel: (id: string) => void
+      onChannelsUpdated: (cb: (channels: Channel[]) => void) => void
+      getSkins: () => Promise<{
+        skins: import('../core/skin-scan').DiscoveredSkin[]
+        requestedId: string
+        effectiveId: string
+      }>
+    }
   }
 }
 export {}
