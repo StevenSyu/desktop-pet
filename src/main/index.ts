@@ -31,6 +31,7 @@ let cardLoaded = false
 let pendingCard: CardView | null = null
 let activeCardId: string | null = null
 let pendingDetailId: string | null = null
+let pendingChannelTab: string | null = null
 let dndEnabled = false
 let allEnabled = true
 let channels: Channel[] = []
@@ -100,11 +101,13 @@ function computeCenterPos(): { x: number; y: number } | undefined {
   return cardPosition(pet, { width: CENTER_W, height: CENTER_H }, display.workArea, 8)
 }
 
-function openCenter(): void {
+function openCenter(channelTab?: string): void {
+  if (channelTab) pendingChannelTab = channelTab
   const pos = computeCenterPos()
   if (centerWindow && !centerWindow.isDestroyed()) {
     if (pos) centerWindow.setPosition(pos.x, pos.y)
     centerWindow.focus()
+    pushTo(centerWindow, 'open-channel-tab')
     return
   }
   centerWindow = createCenterWindow(pos)
@@ -112,6 +115,7 @@ function openCenter(): void {
     centerWindow = null
   })
   centerWindow.webContents.once('did-finish-load', () => broadcastMessages())
+  pushTo(centerWindow, 'open-channel-tab')
 }
 
 function ensureCardWindow(): BrowserWindow {
@@ -260,11 +264,16 @@ app.whenReady().then(async () => {
     pendingDetailId = null
     return { id }
   })
+  handleQuery('get-pending-channel-tab', () => {
+    const t = pendingChannelTab
+    pendingChannelTab = null
+    return t
+  })
 
   bus.on('pet-moved', repositionCard) // 拖動 / display-removed 重吸附後同步卡片
   screen.on('display-metrics-changed', repositionCard) // 解析度 / 排列變更
 
-  bus.on('open-center', openCenter)
+  bus.on('open-center', (channelId?: string) => openCenter(channelId))
   bus.on('open-settings', () => {
     if (settingsWindow && !settingsWindow.isDestroyed()) {
       settingsWindow.focus()

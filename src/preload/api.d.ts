@@ -11,7 +11,7 @@ declare global {
       onPetEvent: (cb: (event: AppEvent) => void) => void
       setInteractive: (channelId: string, interactive: boolean) => void
       showContextMenu: (channelId: string) => void
-      openCenter: () => void
+      openCenter: (channelId: string) => void
       onSetSkin: (cb: (id: string) => void) => void
       onUnreadCount: (cb: (n: number) => void) => void
       markRead: (id: string) => void
@@ -43,6 +43,8 @@ declare global {
       onCardDismissed: (cb: (p: { id: string }) => void) => void
       getPendingDetail: () => Promise<{ id: string | null }>
       onOpenDetail: (cb: () => void) => void
+      getPendingChannelTab: () => Promise<string | null>
+      onOpenChannelTab: (cb: () => void) => void
       getChannels: () => Promise<Channel[]>
       onChannelsUpdated: (cb: (channels: Channel[]) => void) => void
     }

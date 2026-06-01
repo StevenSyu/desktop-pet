@@ -216,7 +216,7 @@ function registerHandlers(): void {
   })
 
   // ===== 全域命令 / 查詢（不分 pet）=====
-  handleCommand('open-center', () => bus.emit('open-center'))
+  handleCommand('open-center', ({ channelId }) => bus.emit('open-center', channelId))
   handleQuery('get-auto-walk', () => prefs.autoWalk)
   handleQuery('get-prefs', () => prefs)
   handleQuery('get-skins', () => {

@@ -25,7 +25,7 @@ import type { Channel, SourceMatch } from '../core/channel'
 export interface Commands {
   'set-interactive': { channelId: string; interactive: boolean }
   'show-context-menu': { channelId: string }
-  'open-center': void
+  'open-center': { channelId: string }
   'mark-read': string
   'mark-all-read': void
   'clear-messages': void
@@ -55,6 +55,7 @@ export interface Queries {
   'get-skins': { args: void; result: { skins: DiscoveredSkin[]; requestedId: string; effectiveId: string } }
   'select-skin': { args: string; result: { ok: boolean; effectiveId: string } }
   'get-pending-detail': { args: void; result: { id: string | null } }
+  'get-pending-channel-tab': { args: void; result: string | null }
   'get-channels': { args: void; result: Channel[] }
   'get-known-sources': { args: void; result: SourceMatch[] }
   'get-all-enabled': { args: void; result: boolean }
@@ -75,6 +76,7 @@ export interface Pushes {
   'card-data': CardView
   'card-dismissed': { id: string }
   'open-detail': void
+  'open-channel-tab': void
   'channels-updated': Channel[]
   'known-sources-updated': SourceMatch[]
   'all-enabled-updated': boolean

@@ -73,7 +73,7 @@ function applyEffect(eff: InteractionEffect): void {
       window.petBridge.dragEnd(myChannel)
       break
     case 'openCenter':
-      window.petBridge.openCenter()
+      window.petBridge.openCenter(myChannel)
       break
   }
 }
@@ -296,7 +296,7 @@ document.addEventListener('contextmenu', (e) => {
 // 未讀徽章：訂閱 main 推送的未讀數，點擊開啟通知中心
 // 邏輯：總未讀 - 螢幕上正在顯示的卡片（=1）= 有效未讀數；為 0 時紅點隱藏
 const badgeEl = document.querySelector<HTMLDivElement>('#badge')!
-badgeEl.addEventListener('click', () => window.petBridge.openCenter())
+badgeEl.addEventListener('click', () => window.petBridge.openCenter(myChannel))
 let lastUnreadCount = 0
 function refreshBadge(): void {
   const visibleAndUnread = currentEvent ? 1 : 0

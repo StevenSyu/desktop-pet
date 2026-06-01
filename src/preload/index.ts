@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld('petBridge', {
   onPetEvent: (cb: (event: AppEvent) => void) => subscribePush('pet-event', cb),
   setInteractive: (channelId: string, interactive: boolean) => sendCommand('set-interactive', { channelId, interactive }),
   showContextMenu: (channelId: string) => sendCommand('show-context-menu', { channelId }),
-  openCenter: () => sendCommand('open-center'),
+  openCenter: (channelId: string) => sendCommand('open-center', { channelId }),
   onSetSkin: (cb: (id: string) => void) => subscribePush('set-skin', cb),
   onUnreadCount: (cb: (n: number) => void) => subscribePush('unread-count', cb),
   markRead: (id: string) => sendCommand('mark-read', id),
@@ -44,6 +44,8 @@ contextBridge.exposeInMainWorld('petBridge', {
   onCardDismissed: (cb: (p: { id: string }) => void) => subscribePush('card-dismissed', cb),
   getPendingDetail: () => invokeQuery('get-pending-detail'),
   onOpenDetail: (cb: () => void) => subscribePush('open-detail', cb),
+  getPendingChannelTab: () => invokeQuery('get-pending-channel-tab'),
+  onOpenChannelTab: (cb: () => void) => subscribePush('open-channel-tab', cb),
   getChannels: () => invokeQuery('get-channels'),
   onChannelsUpdated: (cb: (channels: Channel[]) => void) => subscribePush('channels-updated', cb),
 })
