@@ -75,6 +75,8 @@ sanitizeChannels(raw: unknown): Channel[]
 ## 6. 狀態 / 持久化 / IPC
 
 - **main 是 `prefs.channels` 唯一寫入者**。`prefs` 加 `channels: Channel[]`；`loadPrefs` 預設 `[]` + `sanitizeChannels`；舊 `prefs.json` 無 channels 照常載入。`prefs.skin` 續為「全部」寵物造型。
+- **prefs.json 併發**：`window.ts`（autoWalk/dnd/walk/skin）與 `index.ts`（channels）皆寫同一檔。一律走新 helper `updatePrefs(userDataDir, partial)`（讀最新→合併→寫），各自只更新負責欄位，避免互相覆蓋。`window.ts` 的 Prefs literal 同步補 `channels: []`（channels 變必填）。
+- **channel id 由 main 指派**：`channel-upsert` 收到空 id → main 產生 opaque id（新建）；非空 → 依 id 覆蓋。renderer 不產 id。
 - IPC（`src/ipc/contract.ts`）：
   - Command `channel-upsert`：`Channel`（新增或依 id 覆蓋）
   - Command `channel-delete`：`{ id: string }`
@@ -100,7 +102,7 @@ sanitizeChannels(raw: unknown): Channel[]
 - UI（Preact + `@preact/signals`，狀態用 signal 存 channels 清單）：
   - 列出**所有** channel（含自動建的停用項），每列：名稱、skin 縮圖、enable/disable 開關、編輯、刪除。
   - 編輯：名稱、skin（下拉 `getSkins` 清單 + 縮圖）、match 依據（`name` 或 `kind` + 值）。
-  - 「手動新增」：自訂 match（可預建尚未出現的來源，如打卡）。
+  - 「手動新增」：本地草稿（不送空 match）→ 填非空比對值按「建立」才送 `channel-upsert`（id 空 → main 指派）。可預建尚未出現的來源（如打卡）。
   - 「全部」channel 不在此管理（特殊）。
 - 所有變更 → `channelsBridge.upsertChannel/deleteChannel` → main 寫入 + 廣播 → 本視窗與中心都收 `channels-updated` 即時更新。
 
