@@ -35,6 +35,20 @@ npm run build
 npm run start
 ```
 
+## 打包成 App（在自己電腦啟動）
+
+產出 macOS `.dmg`（Apple Silicon）：
+
+```bash
+npm run dist
+```
+
+完成後 `release/desktop-notify-<版本>-arm64.dmg`：打開 → 把 `desktop-notify.app` 拖進「應用程式」→ 從啟動台/Spotlight 開。
+
+- 內建造型（may / maruko / oil-king-penguin）會一起打包（`electron-builder.yml` 的 `extraResources`，放在 `.app/Contents/Resources/resources/pets`；程式以 `process.resourcesPath` 讀取）。
+- **未做 Apple Developer 簽章 / 公證**（個人用）。本機自己 build 的 app 為 ad-hoc 簽章可直接開；若從別處下載被 Gatekeeper 擋，右鍵 →「開啟」一次即可。
+- 目前只設定 macOS target；Windows/Linux 打包尚未設定。
+
 ## 接 Claude Code（Hook Kit）
 
 讓 Claude Code 回完一輪、需要授權或 API 出錯時自動讓 may 反應。

@@ -1,0 +1,21 @@
+appId: com.stevensyu.desktop-notify
+productName: desktop-notify
+directories:
+  output: release
+  buildResources: build
+# 打包進 asar 的檔案：electron-vite 的產物（main/preload/renderer）。
+files:
+  - out/**
+asar: true
+# 內建造型放到 asar 外的 Contents/Resources/resources/，pet:// 用 file:// 才讀得到。
+# 對應 src/main/window.ts builtinRoot()=process.resourcesPath。
+extraResources:
+  - from: resources
+    to: resources
+    filter:
+      - "**/*"
+mac:
+  target: dmg
+  category: public.app-category.developer-tools
+  # 個人使用：不做 Apple 簽章 / 公證（ad-hoc）。
+  identity: null

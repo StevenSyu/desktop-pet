@@ -29,13 +29,19 @@ export function getSkinSheetPath(id: string): string | undefined {
   return skinSheetPaths.get(id)
 }
 
+// 內建造型根目錄：打包後 resources/pets 由 electron-builder extraResources 放到 asar 外的
+// process.resourcesPath（pet:// 用 file:// 讀得到）；開發/未打包時用 app.getAppPath()。
+function builtinRoot(): string {
+  return app.isPackaged ? process.resourcesPath : app.getAppPath()
+}
+
 export function createPetWindow(): BrowserWindow {
   const primary = screen.getPrimaryDisplay()
   const displays: DisplayInfo[] = screen.getAllDisplays().map((d) => ({ id: d.id, workArea: d.workArea }))
   const primaryInfo: DisplayInfo = { id: primary.id, workArea: primary.workArea }
   prefs = loadPrefs(app.getPath('userData'))
   // 先掃一次填好 skinSheetPaths，確保 renderer 啟動請求 pet://<id>/sheet 時 protocol 已有對應（避免 race 404）
-  skinSheetPaths = scanSkins(app.getPath('userData'), app.getAppPath()).sheetPaths
+  skinSheetPaths = scanSkins(app.getPath('userData'), builtinRoot()).sheetPaths
   const saved = loadWindowState(app.getPath('userData'))
   const winSize = { width: PET_WIDTH, height: PET_HEIGHT }
   const { x: initX, y: initY } = clampToValidPosition(saved, displays, primaryInfo, winSize, MARGIN)
@@ -67,7 +73,7 @@ export function createPetWindow(): BrowserWindow {
   }
   win.webContents.once('did-finish-load', () => {
     // 掃描決定有效造型；prefs.skin 失效（資料夾刪了）則退回 DEFAULT_SKIN_ID
-    const { sheetPaths } = scanSkins(app.getPath('userData'), app.getAppPath())
+    const { sheetPaths } = scanSkins(app.getPath('userData'), builtinRoot())
     skinSheetPaths = sheetPaths
     const effectiveId = sheetPaths.has(prefs.skin) ? prefs.skin : DEFAULT_SKIN_ID
     pushTo(win, 'set-skin', effectiveId)
@@ -202,14 +208,14 @@ export function createPetWindow(): BrowserWindow {
     handleQuery('get-auto-walk', () => prefs.autoWalk)
     handleQuery('get-prefs', () => prefs)
     handleQuery('get-skins', () => {
-      const { skins, sheetPaths } = scanSkins(app.getPath('userData'), app.getAppPath())
+      const { skins, sheetPaths } = scanSkins(app.getPath('userData'), builtinRoot())
       skinSheetPaths = sheetPaths
       const requestedId = prefs.skin
       const effectiveId = sheetPaths.has(requestedId) ? requestedId : DEFAULT_SKIN_ID
       return { skins, requestedId, effectiveId }
     })
     handleQuery('select-skin', (id) => {
-      const { sheetPaths } = scanSkins(app.getPath('userData'), app.getAppPath())
+      const { sheetPaths } = scanSkins(app.getPath('userData'), builtinRoot())
       skinSheetPaths = sheetPaths
       if (!sheetPaths.has(id)) {
         const effectiveId = sheetPaths.has(prefs.skin) ? prefs.skin : DEFAULT_SKIN_ID

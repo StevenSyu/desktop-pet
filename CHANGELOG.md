@@ -6,6 +6,7 @@
 
 ### Added
 
+- **macOS 打包（electron-builder → .dmg）**：`npm run dist` 產出 Apple Silicon `.dmg`，可拖進「應用程式」雙擊啟動。內建造型以 `extraResources` 放到 `.app/Contents/Resources/resources/pets`（asar 外），`src/main/window.ts` 的 `builtinRoot()` 在 `app.isPackaged` 時改用 `process.resourcesPath`，使 `pet://` 在打包後仍讀得到內建 spritesheet。未做 Apple 簽章/公證（個人用，ad-hoc 簽章本機可直接開）。
 - **點卡片看全文 + 通知中心詳情面板**（Spec ⑧）：即時卡片內文改為精簡首段（`cardSummary` 換行/句號切分）；**點卡片本體 → 關卡片 + 開通知中心並直接進該則單則詳情面板**，卡片右上角 ✕ 則只關閉（依使用回饋從「點卡片關閉」改為此互動）。詳情面板以安全 Markdown 渲染完整內文（`renderMarkdown`：escape-first + 無屬性標籤白名單，支援粗體/行內與區塊程式碼/清單/**表格 `<table>`**；不支援連結/圖片/raw HTML）+ 完整 metadata（來源/完整 sessionId/絕對時間 + 收到時間）。列表↔詳情兩態、Esc 兩段式（詳情→列表→關窗）、詳情該則被清空自動 fallback 回列表、返回列表還原捲動位置 + highlight。卡片/列表預覽（`stripMarkdown`）整列略過表格，不再出現 `|`／`---` 符號。新增純函式 `card-summary`、`markdown-render`（含 XSS/ReDoS 測試）。
 - **即時卡片獨立視窗**（Spec ⑦）：即時卡片從寵物視窗的 DOM 抽成獨立浮動小視窗，浮在寵物上方（上方空間不足自動翻到下方）、右對齊、跟著寵物拖動移動；card renderer 純顯示（窄版 `cardBridge` preload，只 `onCardData`/`cardClicked`，不暴露 walk/prefs/skin）。卡片 IPC 帶事件 id，main 持 `activeCardId`、pet renderer 比對 `currentEvent`，防舊卡片延遲點擊誤標新訊息已讀。新增純函式 `card-position`（上方/下方 flip + 右對齊 + workArea 夾邊，5 測試）。卡片視窗 `showInactive` 不搶焦點、`moveTop` 確保浮在寵物之上、跨 Spaces。
 - **走動暫停與中斷**（Spec ⑦）：有即時卡片時暫停自走；走動中被 hover 或點擊立即中斷走動。
