@@ -6,7 +6,7 @@
 
 ### Added
 
-- **點「更多」看全文 + 通知中心詳情面板**（Spec ⑧）：即時卡片內文改為精簡首段（`cardSummary` 換行/句號切分），內文被截斷時右下顯示「更多」連結（點卡片本體仍是關閉）；點「更多」→ 關卡片 + 開通知中心並直接進該則**單則詳情面板**。詳情面板以安全 Markdown 渲染完整內文（`renderMarkdown`：escape-first + 無屬性標籤白名單，支援粗體/行內與區塊程式碼/清單/**表格 `<table>`**；不支援連結/圖片/raw HTML）+ 完整 metadata（來源/完整 sessionId/絕對時間 + 收到時間）。列表↔詳情兩態、Esc 兩段式（詳情→列表→關窗）、詳情該則被清空自動 fallback 回列表、返回列表還原捲動位置 + highlight。卡片/列表預覽（`stripMarkdown`）整列略過表格，不再出現 `|`／`---` 符號。新增純函式 `card-summary`、`markdown-render`（含 XSS/ReDoS 測試）。
+- **點卡片看全文 + 通知中心詳情面板**（Spec ⑧）：即時卡片內文改為精簡首段（`cardSummary` 換行/句號切分）；**點卡片本體 → 關卡片 + 開通知中心並直接進該則單則詳情面板**，卡片右上角 ✕ 則只關閉（依使用回饋從「點卡片關閉」改為此互動）。詳情面板以安全 Markdown 渲染完整內文（`renderMarkdown`：escape-first + 無屬性標籤白名單，支援粗體/行內與區塊程式碼/清單/**表格 `<table>`**；不支援連結/圖片/raw HTML）+ 完整 metadata（來源/完整 sessionId/絕對時間 + 收到時間）。列表↔詳情兩態、Esc 兩段式（詳情→列表→關窗）、詳情該則被清空自動 fallback 回列表、返回列表還原捲動位置 + highlight。卡片/列表預覽（`stripMarkdown`）整列略過表格，不再出現 `|`／`---` 符號。新增純函式 `card-summary`、`markdown-render`（含 XSS/ReDoS 測試）。
 - **即時卡片獨立視窗**（Spec ⑦）：即時卡片從寵物視窗的 DOM 抽成獨立浮動小視窗，浮在寵物上方（上方空間不足自動翻到下方）、右對齊、跟著寵物拖動移動；card renderer 純顯示（窄版 `cardBridge` preload，只 `onCardData`/`cardClicked`，不暴露 walk/prefs/skin）。卡片 IPC 帶事件 id，main 持 `activeCardId`、pet renderer 比對 `currentEvent`，防舊卡片延遲點擊誤標新訊息已讀。新增純函式 `card-position`（上方/下方 flip + 右對齊 + workArea 夾邊，5 測試）。卡片視窗 `showInactive` 不搶焦點、`moveTop` 確保浮在寵物之上、跨 Spaces。
 - **走動暫停與中斷**（Spec ⑦）：有即時卡片時暫停自走；走動中被 hover 或點擊立即中斷走動。
 - **造型掃描與選擇 UI**（Spec ⑥）：掃描 `~/Library/Application Support/desktop-notify/pets/<id>/`，合規造型（pet.json + 1536×1872 spritesheet）自動出現在右鍵「更換造型…」選擇視窗，顯示名稱／描述／來源、縮圖（idle 第一格），可選；無效造型灰掉並標分類原因（缺 json／JSON 格式錯／尺寸不符／路徑不安全／找不到圖）。視窗頂部提示造型資料夾位置 + 「開啟造型資料夾」按鈕。`prefs.skin` 失效時退回 may 並提示。新增純函式 `webp-size`（自寫 WebP header 尺寸解析，只讀檔頭 32 bytes，取代不可靠的 nativeImage）、`skin-scan`（驗證 + 路徑穿越防護），共 15 測試。
