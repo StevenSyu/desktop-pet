@@ -8,7 +8,7 @@ import { clampToValidPosition, defaultPosition, type DisplayInfo } from '../core
 import { sanitizeWalkBounds, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
 import { WalkSession } from '../core/walk-session'
 import { loadWindowState, saveWindowState } from './window-state'
-import { loadPrefs, savePrefs, type Prefs } from './prefs'
+import { loadPrefs, updatePrefs, type Prefs } from './prefs'
 import { handleCommand, handleQuery, pushTo } from '../ipc/main-helpers'
 
 const PET_WIDTH = 135
@@ -21,6 +21,7 @@ let prefs: Prefs = {
   walk: { ...DEFAULT_WALK_BOUNDS },
   skin: DEFAULT_SKIN_ID,
   dnd: false,
+  channels: [],
 }
 // 最近一次掃描的 id → spritesheet 絕對路徑（供 pet:// protocol handler 取檔）
 let skinSheetPaths = new Map<string, string>()
@@ -97,7 +98,7 @@ export function createPetWindow(): BrowserWindow {
           checked: prefs.autoWalk,
           click: (menuItem) => {
             prefs = { ...prefs, autoWalk: menuItem.checked }
-            savePrefs(app.getPath('userData'), prefs)
+            prefs = updatePrefs(app.getPath('userData'), { autoWalk: prefs.autoWalk })
             pushTo(petWinRef, 'auto-walk-changed', prefs.autoWalk)
             if (!prefs.autoWalk) endWalk(true)
           },
@@ -222,7 +223,7 @@ export function createPetWindow(): BrowserWindow {
         return { ok: false, effectiveId }
       }
       prefs = { ...prefs, skin: id }
-      savePrefs(app.getPath('userData'), prefs)
+      prefs = updatePrefs(app.getPath('userData'), { skin: prefs.skin })
       pushTo(petWinRef, 'set-skin', id)
       return { ok: true, effectiveId: id }
     })
@@ -234,13 +235,13 @@ export function createPetWindow(): BrowserWindow {
     handleCommand('set-walk-bounds', (partial) => {
       const next = sanitizeWalkBounds({ ...prefs.walk, ...partial })
       prefs = { ...prefs, walk: next }
-      savePrefs(app.getPath('userData'), prefs)
+      prefs = updatePrefs(app.getPath('userData'), { walk: prefs.walk })
       pushTo(petWinRef, 'prefs-changed', prefs)
     })
 
     function applyDnd(enabled: boolean): void {
       prefs = { ...prefs, dnd: enabled }
-      savePrefs(app.getPath('userData'), prefs)
+      prefs = updatePrefs(app.getPath('userData'), { dnd: prefs.dnd })
       bus.emit('dnd-changed', enabled) // 讓 index.ts 的 onEvent gate 讀到
       if (enabled) pushTo(petWinRef, 'dnd-on') // renderer 清當前 replay 卡片
       pushTo(petWinRef, 'dnd-changed', enabled) // 通知中心顯示「勿擾中」
