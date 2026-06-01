@@ -16,6 +16,9 @@ body { padding: 14px; box-sizing: border-box; height: 100vh; }
   box-shadow: 0 3px 12px rgba(46, 33, 18, .24);
   cursor: pointer;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   animation: cardIn .26s cubic-bezier(.2, .9, .3, 1.25) both;
 }
 #card[data-type="done"]      { --accent: #2e9e6b; }
@@ -47,6 +50,9 @@ body { padding: 14px; box-sizing: border-box; height: 100vh; }
   letter-spacing: .02em;
   color: #ad9f8c;
   margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @keyframes cardIn {

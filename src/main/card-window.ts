@@ -3,7 +3,7 @@ import { join } from 'node:path'
 
 // 卡片視窗尺寸（含透明邊距給 CSS 陰影；定位以視窗 bounds 計）
 export const CARD_W = 264
-export const CARD_H = 112
+export const CARD_H = 148
 export const CARD_GAP = 8
 
 export function createCardWindow(): BrowserWindow {
