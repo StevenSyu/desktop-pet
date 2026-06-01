@@ -9,18 +9,18 @@ import { sendCommand, invokeQuery, subscribePush } from '../ipc/preload-helpers'
 
 contextBridge.exposeInMainWorld('petBridge', {
   onPetEvent: (cb: (event: AppEvent) => void) => subscribePush('pet-event', cb),
-  setInteractive: (interactive: boolean) => sendCommand('set-interactive', interactive),
-  showContextMenu: () => sendCommand('show-context-menu'),
+  setInteractive: (channelId: string, interactive: boolean) => sendCommand('set-interactive', { channelId, interactive }),
+  showContextMenu: (channelId: string) => sendCommand('show-context-menu', { channelId }),
   openCenter: () => sendCommand('open-center'),
   onSetSkin: (cb: (id: string) => void) => subscribePush('set-skin', cb),
   onUnreadCount: (cb: (n: number) => void) => subscribePush('unread-count', cb),
   markRead: (id: string) => sendCommand('mark-read', id),
-  dragStart: (sx: number, sy: number) => sendCommand('drag-start', { sx, sy }),
-  dragMove: (sx: number, sy: number) => sendCommand('drag-move', { sx, sy }),
-  dragEnd: () => sendCommand('drag-end'),
-  walkStart: (req: { direction: 'left' | 'right'; distance: number; duration: number }) =>
-    sendCommand('walk-start', req),
-  walkCancel: () => sendCommand('walk-cancel'),
+  dragStart: (channelId: string, sx: number, sy: number) => sendCommand('drag-start', { channelId, sx, sy }),
+  dragMove: (channelId: string, sx: number, sy: number) => sendCommand('drag-move', { channelId, sx, sy }),
+  dragEnd: (channelId: string) => sendCommand('drag-end', { channelId }),
+  walkStart: (channelId: string, req: { direction: 'left' | 'right'; distance: number; duration: number }) =>
+    sendCommand('walk-start', { channelId, ...req }),
+  walkCancel: (channelId: string) => sendCommand('walk-cancel', { channelId }),
   onWalkEnded: (cb: () => void) => subscribePush('walk-ended', cb),
   onWalkDirection: (cb: (direction: 'left' | 'right') => void) => subscribePush('walk-direction', cb),
   getAutoWalk: () => invokeQuery('get-auto-walk'),

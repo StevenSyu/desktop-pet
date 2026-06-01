@@ -18,6 +18,8 @@ import type { AppEvent, NotifyType } from '../core/events'
 import type { CardView } from '../core/card-view'
 import { cardSummary } from '../core/card-summary'
 
+const myChannel = new URLSearchParams(location.search).get('c') ?? 'all'
+const isAllPet = myChannel === 'all'
 const DISPLAY_SCALE = 0.7
 // 狀態以文字標籤＋色彩（CSS 依 data-type 上色）呈現，不用 emoji
 const LABEL: Record<NotifyType, string> = {
@@ -48,7 +50,7 @@ let dragMoveRaf = 0
 function flushDragMove(): void {
   dragMoveRaf = 0
   if (pendingDragMove) {
-    window.petBridge.dragMove(pendingDragMove.sx, pendingDragMove.sy)
+    window.petBridge.dragMove(myChannel, pendingDragMove.sx, pendingDragMove.sy)
     pendingDragMove = null
   }
 }
@@ -56,7 +58,7 @@ function flushDragMove(): void {
 function applyEffect(eff: InteractionEffect): void {
   switch (eff.type) {
     case 'ipcDragStart':
-      window.petBridge.dragStart(eff.sx, eff.sy)
+      window.petBridge.dragStart(myChannel, eff.sx, eff.sy)
       break
     case 'ipcDragMove':
       // 以 rAF 合併位置更新，避免每次 pointermove 都打 IPC
@@ -68,7 +70,7 @@ function applyEffect(eff: InteractionEffect): void {
         cancelAnimationFrame(dragMoveRaf)
         flushDragMove()
       }
-      window.petBridge.dragEnd()
+      window.petBridge.dragEnd(myChannel)
       break
     case 'openCenter':
       window.petBridge.openCenter()
@@ -99,7 +101,7 @@ function stopReplay(): void {
 
 function applyEvent(event: AppEvent): void {
   pet.onEvent(event, performance.now())
-  if (walking) window.petBridge.walkCancel()
+  if (walking) window.petBridge.walkCancel(myChannel)
 }
 
 function startReplay(event: AppEvent): void {
@@ -114,12 +116,14 @@ function startReplay(event: AppEvent): void {
 // optional-chaining 防護：即使 preload 載入失敗，idle 動畫迴圈仍會啟動
 window.petBridge?.onPetEvent?.((event: AppEvent) => {
   applyEvent(event)
-  currentEvent = event
-  window.petBridge.showCard(buildCardView(event))
-  startReplay(event)
-  refreshBadge()
   // 反應事件優先級高於本地互動 → 通知 reducer 清互動動畫與待觸發點擊
   dispatch({ kind: 'externalEvent' })
+  if (isAllPet) {
+    currentEvent = event
+    window.petBridge.showCard(buildCardView(event))
+    startReplay(event)
+  }
+  refreshBadge()
 })
 
 // 勿擾開啟瞬間：清當前卡片與 replay，避免殘留卡片繼續 5 秒抽動畫
@@ -170,7 +174,7 @@ window.petBridge.getPrefs().then((p) => {
 })
 window.petBridge.onAutoWalkChanged((enabled) => {
   autoWalkEnabled = enabled
-  if (!enabled && walking) window.petBridge.walkCancel()
+  if (!enabled && walking) window.petBridge.walkCancel(myChannel)
   if (enabled) nextWalkAt = pickWalk(Math.random, performance.now(), walkBounds).nextWalkAt
 })
 window.petBridge.onPrefsChanged((p) => {
@@ -202,6 +206,7 @@ function tick(): void {
 
   // 自走觸發（idle 且未走動、未隱藏、自動走動開啟、到時間；有卡片時暫停自走）
   if (
+    isAllPet &&
     !currentEvent &&
     shouldWalkNow({ autoWalkEnabled, walking, animation: view.animation, hidden: document.hidden, now, nextWalkAt })
   ) {
@@ -209,7 +214,7 @@ function tick(): void {
     nextWalkAt = w.nextWalkAt
     walking = true
     walkDirection = w.direction
-    window.petBridge.walkStart({ direction: w.direction, distance: w.distance, duration: w.duration })
+    window.petBridge.walkStart(myChannel, { direction: w.direction, distance: w.distance, duration: w.duration })
   }
 }
 
@@ -233,7 +238,7 @@ document.addEventListener('visibilitychange', () => {
       clearInterval(tickTimer)
       tickTimer = null
     }
-    if (walking) window.petBridge.walkCancel()
+    if (walking) window.petBridge.walkCancel(myChannel)
   } else {
     petEl.removeAttribute('data-paused')
     if (!tickTimer) tickTimer = setInterval(tick, 100)
@@ -242,13 +247,13 @@ document.addEventListener('visibilitychange', () => {
 })
 
 function bindHover(): void {
-  const enableInteractive = () => window.petBridge.setInteractive(true)
-  const disableInteractive = () => window.petBridge.setInteractive(false)
+  const enableInteractive = () => window.petBridge.setInteractive(myChannel, true)
+  const disableInteractive = () => window.petBridge.setInteractive(myChannel, false)
   const badge = document.querySelector<HTMLDivElement>('#badge')!
 
   petEl.addEventListener('mouseenter', () => {
     enableInteractive()
-    if (walking) window.petBridge.walkCancel() // 走動中被 hover → 立即停
+    if (walking) window.petBridge.walkCancel(myChannel) // 走動中被 hover → 立即停
     dispatch({ kind: 'hover' }) // 拖動中／反應中 reducer 自會略過
   })
   petEl.addEventListener('mouseleave', disableInteractive)
@@ -285,7 +290,7 @@ petEl.addEventListener('pointercancel', endDrag)
 // 右鍵叫出原生選單（結束 may／通知中心）
 document.addEventListener('contextmenu', (e) => {
   e.preventDefault()
-  window.petBridge?.showContextMenu?.()
+  window.petBridge?.showContextMenu?.(myChannel)
 })
 
 // 未讀徽章：訂閱 main 推送的未讀數，點擊開啟通知中心

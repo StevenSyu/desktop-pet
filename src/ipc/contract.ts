@@ -23,17 +23,17 @@ import type { Channel, SourceMatch } from '../core/channel'
 
 /** renderer → main，單向命令。 */
 export interface Commands {
-  'set-interactive': boolean
-  'show-context-menu': void
+  'set-interactive': { channelId: string; interactive: boolean }
+  'show-context-menu': { channelId: string }
   'open-center': void
   'mark-read': string
   'mark-all-read': void
   'clear-messages': void
-  'drag-start': { sx: number; sy: number }
-  'drag-move': { sx: number; sy: number }
-  'drag-end': void
-  'walk-start': { direction: 'left' | 'right'; distance: number; duration: number }
-  'walk-cancel': void
+  'drag-start': { channelId: string; sx: number; sy: number }
+  'drag-move': { channelId: string; sx: number; sy: number }
+  'drag-end': { channelId: string }
+  'walk-start': { channelId: string; direction: 'left' | 'right'; distance: number; duration: number }
+  'walk-cancel': { channelId: string }
   'set-walk-bounds': Partial<WalkBounds>
   'set-dnd': boolean
   'open-pets-folder': void

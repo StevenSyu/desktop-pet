@@ -1,5 +1,5 @@
 import { app, BrowserWindow, screen } from 'electron'
-import { createPetWindow, getSkinSheetPath } from './window'
+import { createPetWindow, getSkinSheetPath, getPetWindow, petChannelIds, closePetWindow } from './window'
 import { createCenterWindow, CENTER_W, CENTER_H } from './center-window'
 import { createCardWindow, CARD_W, CARD_H, CARD_GAP } from './card-window'
 import { createSettingsWindow } from './settings-window'
@@ -7,7 +7,7 @@ import { createSkinWindow } from './skin-window'
 import { createChannelsWindow } from './channels-window'
 import { cardPosition } from '../core/card-position'
 import type { CardView } from '../core/card-view'
-import { needsAutoChannel, type Channel, type SourceMatch } from '../core/channel'
+import { matchingChannels, needsAutoChannel, unreadByChannel, type Channel, type SourceMatch } from '../core/channel'
 import { DEFAULT_SKIN_ID } from '../core/skins'
 import { registerPetScheme, registerPetProtocol } from './pet-protocol'
 import { findFreePort, generateToken, writeEndpointFile } from './endpoint'
@@ -22,7 +22,6 @@ import type { AppEvent } from '../core/events'
 registerPetScheme()
 
 const store = new MessageStore()
-let petWindow: BrowserWindow | null = null
 let centerWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
 let skinWindow: BrowserWindow | null = null
@@ -46,8 +45,39 @@ function nextChannelId(): string {
   return `ch-${Date.now().toString(36)}-${channelSeq.toString(36)}`
 }
 
+function skinFor(channelId: string): string {
+  if (channelId === 'all') return loadPrefs(app.getPath('userData')).skin
+  const ch = channels.find((c) => c.id === channelId)
+  return ch ? ch.skin : DEFAULT_SKIN_ID
+}
+
+// 應存在的寵物集合：allEnabled?'all' + 啟用 channel；空則強制留 'all'（≥1 防鎖死）
+function desiredPetIds(): string[] {
+  const ids = [...(allEnabled ? ['all'] : []), ...channels.filter((c) => c.enabled).map((c) => c.id)]
+  return ids.length > 0 ? ids : ['all']
+}
+
+function reconcilePets(): void {
+  const desired = desiredPetIds()
+  const want = new Set(desired)
+  for (const id of petChannelIds()) if (!want.has(id)) closePetWindow(id)
+  desired.forEach((id, index) => {
+    if (!getPetWindow(id)) {
+      const win = createPetWindow(id, skinFor(id), index)
+      if (id === 'all') {
+        win.on('closed', () => {
+          if (cardWindow && !cardWindow.isDestroyed()) cardWindow.close()
+        })
+      }
+    }
+  })
+}
+
 function broadcastUnread(): void {
-  pushTo(petWindow, 'unread-count', store.unreadCount())
+  const counts = unreadByChannel(store.list(), channels)
+  for (const id of petChannelIds()) {
+    pushTo(getPetWindow(id), 'unread-count', id === 'all' ? counts.all : (counts[id] ?? 0))
+  }
 }
 function broadcastMessages(): void {
   pushTo(centerWindow, 'messages-updated', store.list())
@@ -63,8 +93,9 @@ function persistChannels(): void {
 function persistKnownSources() { updatePrefs(app.getPath('userData'), { knownSources }) }
 
 function computeCenterPos(): { x: number; y: number } | undefined {
-  if (!petWindow || petWindow.isDestroyed()) return undefined
-  const pet = petWindow.getBounds()
+  const all = getPetWindow('all')
+  if (!all) return undefined
+  const pet = all.getBounds()
   const display = screen.getDisplayMatching(pet)
   return cardPosition(pet, { width: CENTER_W, height: CENTER_H }, display.workArea, 8)
 }
@@ -101,8 +132,9 @@ function ensureCardWindow(): BrowserWindow {
 // 若卡片可見，依寵物 bounds 重新定位卡片並置頂（兩窗同為 floating，需 moveTop 保證在寵物上）
 function repositionCard(): void {
   if (!cardWindow || cardWindow.isDestroyed() || !cardWindow.isVisible()) return
-  if (!petWindow || petWindow.isDestroyed()) return
-  const pet = petWindow.getBounds()
+  const all = getPetWindow('all')
+  if (!all) return
+  const pet = all.getBounds()
   const display = screen.getDisplayMatching(pet)
   const pos = cardPosition(pet, { width: CARD_W, height: CARD_H }, display.workArea, CARD_GAP)
   cardWindow.setPosition(pos.x, pos.y)
@@ -119,17 +151,13 @@ function flushCard(): void {
 
 app.whenReady().then(async () => {
   registerPetProtocol(getSkinSheetPath) // 在任何載入 pet: 的視窗前
-  petWindow = createPetWindow()
-  petWindow.on('closed', () => {
-    if (cardWindow && !cardWindow.isDestroyed()) cardWindow.close()
-  })
-
   const startupPrefs = loadPrefs(app.getPath('userData'))
   dndEnabled = startupPrefs.dnd
   allEnabled = startupPrefs.allEnabled
   channels = startupPrefs.channels
   knownSources = startupPrefs.knownSources
   defaultSkin = startupPrefs.skin
+  reconcilePets()
   bus.on('dnd-changed', (enabled: boolean) => {
     dndEnabled = enabled
   })
@@ -147,7 +175,8 @@ app.whenReady().then(async () => {
       broadcastUnread()
       broadcastMessages()
       if (dndEnabled) return // 勿擾模式：不彈卡片、不演反應動畫
-      pushTo(petWindow, 'pet-event', event)
+      const targets = new Set<string>([...(allEnabled ? ['all'] : []), ...matchingChannels(event.source, channels)])
+      for (const id of targets) pushTo(getPetWindow(id), 'pet-event', event)
     },
   })
 
@@ -178,18 +207,25 @@ app.whenReady().then(async () => {
     persistChannels()
     broadcastChannels()
     broadcastMessages() // 讓中心分頁重算
+    reconcilePets()
+    pushTo(getPetWindow(withId.id), 'set-skin', withId.skin) // 既有寵物的造型即時更新（新建的由 did-finish-load 推）
+    broadcastUnread()
   })
   handleCommand('channel-delete', ({ id }) => {
     channels = channels.filter((c) => c.id !== id)
     persistChannels()
     broadcastChannels()
     broadcastMessages()
+    reconcilePets()
+    broadcastUnread()
   })
   handleQuery('get-all-enabled', () => allEnabled)
   handleCommand('set-all-enabled', (v) => {
     allEnabled = v
     updatePrefs(app.getPath('userData'), { allEnabled })
     pushTo(channelsWindow, 'all-enabled-updated', allEnabled)
+    reconcilePets()
+    broadcastUnread()
   })
 
   handleCommand('show-card', (view) => {
@@ -208,13 +244,13 @@ app.whenReady().then(async () => {
     if (id !== activeCardId) return // 舊卡片殘留點擊：忽略
     activeCardId = null
     if (cardWindow && !cardWindow.isDestroyed()) cardWindow.hide()
-    pushTo(petWindow, 'card-dismissed', { id })
+    pushTo(getPetWindow('all'), 'card-dismissed', { id })
   })
   handleCommand('card-more', ({ id }) => {
     if (id !== activeCardId) return
     activeCardId = null
     if (cardWindow && !cardWindow.isDestroyed()) cardWindow.hide()
-    pushTo(petWindow, 'card-dismissed', { id }) // pet renderer 照常 markRead + 清理
+    pushTo(getPetWindow('all'), 'card-dismissed', { id }) // pet renderer 照常 markRead + 清理
     pendingDetailId = id
     openCenter()
     pushTo(centerWindow, 'open-detail') // 已開窗 → 觸發重查；新開窗靠載入時 query
@@ -261,7 +297,7 @@ app.whenReady().then(async () => {
   })
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) petWindow = createPetWindow()
+    if (BrowserWindow.getAllWindows().length === 0) reconcilePets()
   })
 })
 

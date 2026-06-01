@@ -9,17 +9,17 @@ declare global {
   interface Window {
     petBridge: {
       onPetEvent: (cb: (event: AppEvent) => void) => void
-      setInteractive: (interactive: boolean) => void
-      showContextMenu: () => void
+      setInteractive: (channelId: string, interactive: boolean) => void
+      showContextMenu: (channelId: string) => void
       openCenter: () => void
       onSetSkin: (cb: (id: string) => void) => void
       onUnreadCount: (cb: (n: number) => void) => void
       markRead: (id: string) => void
-      dragStart: (sx: number, sy: number) => void
-      dragMove: (sx: number, sy: number) => void
-      dragEnd: () => void
-      walkStart: (req: { direction: 'left' | 'right'; distance: number; duration: number }) => void
-      walkCancel: () => void
+      dragStart: (channelId: string, sx: number, sy: number) => void
+      dragMove: (channelId: string, sx: number, sy: number) => void
+      dragEnd: (channelId: string) => void
+      walkStart: (channelId: string, req: { direction: 'left' | 'right'; distance: number; duration: number }) => void
+      walkCancel: (channelId: string) => void
       onWalkEnded: (cb: () => void) => void
       onWalkDirection: (cb: (direction: 'left' | 'right') => void) => void
       getAutoWalk: () => Promise<boolean>
