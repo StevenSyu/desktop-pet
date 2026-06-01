@@ -4,14 +4,16 @@ import { createCenterWindow, CENTER_W, CENTER_H } from './center-window'
 import { createCardWindow, CARD_W, CARD_H, CARD_GAP } from './card-window'
 import { createSettingsWindow } from './settings-window'
 import { createSkinWindow } from './skin-window'
+import { createChannelsWindow } from './channels-window'
 import { cardPosition } from '../core/card-position'
 import type { CardView } from '../core/card-view'
+import { needsAutoChannel, type Channel } from '../core/channel'
 import { registerPetScheme, registerPetProtocol } from './pet-protocol'
 import { findFreePort, generateToken, writeEndpointFile } from './endpoint'
 import { startIngestServer } from './ingest'
 import { MessageStore } from '../core/message-store'
 import { bus } from './bus'
-import { loadPrefs } from './prefs'
+import { loadPrefs, updatePrefs } from './prefs'
 import { handleCommand, handleQuery, pushTo } from '../ipc/main-helpers'
 import type { AppEvent } from '../core/events'
 
@@ -23,18 +25,32 @@ let petWindow: BrowserWindow | null = null
 let centerWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
 let skinWindow: BrowserWindow | null = null
+let channelsWindow: BrowserWindow | null = null
 let cardWindow: BrowserWindow | null = null
 let cardLoaded = false
 let pendingCard: CardView | null = null
 let activeCardId: string | null = null
 let pendingDetailId: string | null = null
 let dndEnabled = false
+let channels: Channel[] = []
+let channelSeq = 0
+function nextChannelId(): string {
+  channelSeq += 1
+  return `ch-${Date.now().toString(36)}-${channelSeq.toString(36)}`
+}
 
 function broadcastUnread(): void {
   pushTo(petWindow, 'unread-count', store.unreadCount())
 }
 function broadcastMessages(): void {
   pushTo(centerWindow, 'messages-updated', store.list())
+}
+function broadcastChannels(): void {
+  pushTo(centerWindow, 'channels-updated', channels)
+  pushTo(channelsWindow, 'channels-updated', channels)
+}
+function persistChannels(): void {
+  updatePrefs(app.getPath('userData'), { channels }) // 合併寫入，不覆蓋 window.ts 的欄位
 }
 
 function computeCenterPos(): { x: number; y: number } | undefined {
@@ -100,6 +116,7 @@ app.whenReady().then(async () => {
   })
 
   dndEnabled = loadPrefs(app.getPath('userData')).dnd
+  channels = loadPrefs(app.getPath('userData')).channels
   bus.on('dnd-changed', (enabled: boolean) => {
     dndEnabled = enabled
   })
@@ -113,6 +130,7 @@ app.whenReady().then(async () => {
     token,
     onEvent: (event: AppEvent) => {
       store.push(event)
+      autoDetectChannel(event.source)
       broadcastUnread()
       broadcastMessages()
       if (dndEnabled) return // 勿擾模式：不彈卡片、不演反應動畫
@@ -136,6 +154,23 @@ app.whenReady().then(async () => {
     broadcastMessages()
   })
   handleQuery('get-messages', () => store.list())
+  handleQuery('get-channels', () => channels)
+  handleCommand('channel-upsert', (ch) => {
+    // 空 id → 新建（main 指派 id，renderer 不產 id）；否則依 id 覆蓋
+    const withId: Channel = ch.id ? ch : { ...ch, id: nextChannelId() }
+    const i = channels.findIndex((c) => c.id === withId.id)
+    if (i >= 0) channels[i] = withId
+    else channels = [...channels, withId]
+    persistChannels()
+    broadcastChannels()
+    broadcastMessages() // 讓中心分頁重算
+  })
+  handleCommand('channel-delete', ({ id }) => {
+    channels = channels.filter((c) => c.id !== id)
+    persistChannels()
+    broadcastChannels()
+    broadcastMessages()
+  })
 
   handleCommand('show-card', (view) => {
     activeCardId = view.id
@@ -194,11 +229,39 @@ app.whenReady().then(async () => {
       skinWindow = null
     })
   })
+  bus.on('open-channels', () => {
+    if (channelsWindow && !channelsWindow.isDestroyed()) {
+      channelsWindow.focus()
+      return
+    }
+    channelsWindow = createChannelsWindow()
+    channelsWindow.on('closed', () => {
+      channelsWindow = null
+    })
+  })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) petWindow = createPetWindow()
   })
 })
+
+function autoDetectChannel(source: { kind: string; name?: string }): void {
+  if (!needsAutoChannel(source, channels)) return // 純函式判定 (a)+(b)（Task 1）
+  const match: { kind?: string; name?: string } = { kind: source.kind }
+  if (source.name) match.name = source.name
+  channels = [
+    ...channels,
+    {
+      id: nextChannelId(),
+      name: source.name || source.kind,
+      skin: loadPrefs(app.getPath('userData')).skin,
+      enabled: false,
+      match,
+    },
+  ]
+  persistChannels()
+  broadcastChannels()
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
