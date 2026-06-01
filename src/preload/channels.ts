@@ -6,6 +6,9 @@ contextBridge.exposeInMainWorld('channelsBridge', {
   getChannels: (): Promise<Channel[]> => ipcRenderer.invoke('get-channels'),
   upsertChannel: (ch: Channel) => ipcRenderer.send('channel-upsert', ch),
   deleteChannel: (id: string) => ipcRenderer.send('channel-delete', { id }),
+  getAllEnabled: (): Promise<boolean> => ipcRenderer.invoke('get-all-enabled'),
+  setAllEnabled: (v: boolean) => ipcRenderer.send('set-all-enabled', v),
+  onAllEnabledUpdated: (cb: (v: boolean) => void) => ipcRenderer.on('all-enabled-updated', (_e, v) => cb(v)),
   onChannelsUpdated: (cb: (channels: Channel[]) => void) =>
     ipcRenderer.on('channels-updated', (_e, channels: Channel[]) => cb(channels)),
   getKnownSources: (): Promise<import('../core/channel').SourceMatch[]> => ipcRenderer.invoke('get-known-sources'),

@@ -5,6 +5,7 @@ import { matchesSource, type Channel, type SourceMatch } from '../core/channel'
 import type { DiscoveredSkin } from '../core/skin-scan'
 
 const channels = signal<Channel[]>([])
+const allEnabled = signal(true)
 const knownSources = signal<SourceMatch[]>([])
 const skins = signal<DiscoveredSkin[]>([])
 const selectedId = signal<string | null>(null)
@@ -15,6 +16,8 @@ window.channelsBridge.onChannelsUpdated((cs) => (channels.value = cs))
 window.channelsBridge.getKnownSources().then((s) => (knownSources.value = s))
 window.channelsBridge.onKnownSourcesUpdated((s) => (knownSources.value = s))
 window.channelsBridge.getSkins().then((r) => (skins.value = r.skins))
+window.channelsBridge.getAllEnabled().then((v) => (allEnabled.value = v))
+window.channelsBridge.onAllEnabledUpdated((v) => (allEnabled.value = v))
 
 const srcKey = (s: SourceMatch): string => `${s.kind ?? ''} ${s.name ?? ''}`
 const srcLabel = (s: SourceMatch): string => s.name || s.kind || '(unknown)'
@@ -32,11 +35,13 @@ function ChannelRow({ ch }: { ch: Channel }): preact.JSX.Element {
   const sel = selectedId.value === ch.id
   const stop = (e: Event) => e.stopPropagation()
   return (
-    <div class={'crow' + (sel ? ' sel' : '')} onClick={() => (selectedId.value = ch.id)}>
+    <div class={'crow' + (sel ? ' sel' : '')} onClick={() => (selectedId.value = sel ? null : ch.id)} title="點此列選取並在下方編輯成員">
+      <span class="chev">{sel ? '▾' : '▸'}</span>
       <input class="name" value={ch.name} onClick={stop} onInput={(e) => upsert({ ...ch, name: (e.target as HTMLInputElement).value })} />
       <select class="skin" onClick={stop} value={ch.skin} onChange={(e) => upsert({ ...ch, skin: (e.target as HTMLSelectElement).value })}>
         {skins.value.filter((s) => s.valid).map((s) => <option value={s.id}>{s.displayName}</option>)}
       </select>
+      <span class="count">{ch.members.length} 來源</span>
       <button class={'toggle' + (ch.enabled ? ' on' : '')} onClick={(e) => { stop(e); upsert({ ...ch, enabled: !ch.enabled }) }}>{ch.enabled ? '啟用中' : '停用'}</button>
       <button class="del" onClick={(e) => { stop(e); window.channelsBridge.deleteChannel(ch.id); if (sel) selectedId.value = null }}>✕</button>
     </div>
@@ -62,8 +67,8 @@ function MemberEditor({ ch }: { ch: Channel }): preact.JSX.Element {
         <div class="col-h">「{ch.name}」成員</div>
         <div class="zone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const key = e.dataTransfer?.getData('src-key'); const s = knownSources.value.find((x) => srcKey(x) === key); if (s) addMember(ch, s) }}>
           {ch.members.map((m, i) => (
-            <div class="src member" draggable onDragStart={(e) => e.dataTransfer?.setData('member-index', String(i))}>
-              {srcLabel(m)}{m.name == null ? ' (整類)' : ''}<span class="rm" onClick={() => removeMember(ch, i)}>✕</span>
+            <div class="src member" draggable onDragStart={(e) => e.dataTransfer?.setData('member-index', String(i))} onClick={() => removeMember(ch, i)} title="點擊或拖回左邊移除">
+              {srcLabel(m)}{m.name == null ? ' (整類)' : ''}<span class="rm">✕</span>
             </div>
           ))}
           {ch.members.length === 0 && <div class="ph">（拖來源進來）</div>}
@@ -84,6 +89,14 @@ function App(): preact.JSX.Element {
       <header><div class="title">頻道</div><button class="close" onClick={() => window.close()}>×</button></header>
       <div class="hint">把「已知來源」拖或點進某頻道＝該頻道含它（可跨專案合併）。啟用→通知中心多一分頁。</div>
       <div class="list">
+        <div class="crow all">
+          <span class="chev" />
+          <span class="all-name">全部</span>
+          <span class="all-note">所有訊息 · 不可編輯</span>
+          <span class="count" />
+          <button class={'toggle' + (allEnabled.value ? ' on' : '')} onClick={() => window.channelsBridge.setAllEnabled(!allEnabled.value)}>{allEnabled.value ? '啟用中' : '停用'}</button>
+          <span class="del-spacer" />
+        </div>
         {channels.value.map((ch) => <ChannelRow ch={ch} key={ch.id} />)}
         {channels.value.length === 0 && <div class="ph">尚無頻道（發一則通知即自動偵測）</div>}
       </div>

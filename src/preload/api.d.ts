@@ -55,6 +55,9 @@ declare global {
       getChannels: () => Promise<Channel[]>
       upsertChannel: (ch: Channel) => void
       deleteChannel: (id: string) => void
+      getAllEnabled: () => Promise<boolean>
+      setAllEnabled: (v: boolean) => void
+      onAllEnabledUpdated: (cb: (v: boolean) => void) => void
       onChannelsUpdated: (cb: (channels: Channel[]) => void) => void
       getKnownSources: () => Promise<import('../core/channel').SourceMatch[]>
       onKnownSourcesUpdated: (cb: (s: import('../core/channel').SourceMatch[]) => void) => void

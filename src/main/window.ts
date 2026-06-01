@@ -21,6 +21,7 @@ let prefs: Prefs = {
   walk: { ...DEFAULT_WALK_BOUNDS },
   skin: DEFAULT_SKIN_ID,
   dnd: false,
+  allEnabled: true,
   channels: [],
   knownSources: [],
 }

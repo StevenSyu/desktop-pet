@@ -33,6 +33,7 @@ let pendingCard: CardView | null = null
 let activeCardId: string | null = null
 let pendingDetailId: string | null = null
 let dndEnabled = false
+let allEnabled = true
 let channels: Channel[] = []
 let knownSources: SourceMatch[] = []
 let defaultSkin = DEFAULT_SKIN_ID // 啟動時快取，供自動建 channel 預設造型（避免每次讀 prefs）
@@ -125,6 +126,7 @@ app.whenReady().then(async () => {
 
   const startupPrefs = loadPrefs(app.getPath('userData'))
   dndEnabled = startupPrefs.dnd
+  allEnabled = startupPrefs.allEnabled
   channels = startupPrefs.channels
   knownSources = startupPrefs.knownSources
   defaultSkin = startupPrefs.skin
@@ -182,6 +184,12 @@ app.whenReady().then(async () => {
     persistChannels()
     broadcastChannels()
     broadcastMessages()
+  })
+  handleQuery('get-all-enabled', () => allEnabled)
+  handleCommand('set-all-enabled', (v) => {
+    allEnabled = v
+    updatePrefs(app.getPath('userData'), { allEnabled })
+    pushTo(channelsWindow, 'all-enabled-updated', allEnabled)
   })
 
   handleCommand('show-card', (view) => {

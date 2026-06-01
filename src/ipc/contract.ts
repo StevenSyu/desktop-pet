@@ -43,6 +43,7 @@ export interface Commands {
   'card-more': { id: string }
   'channel-upsert': Channel
   'channel-delete': { id: string }
+  'set-all-enabled': boolean
 }
 
 /** renderer → main，往返查詢。 */
@@ -56,6 +57,7 @@ export interface Queries {
   'get-pending-detail': { args: void; result: { id: string | null } }
   'get-channels': { args: void; result: Channel[] }
   'get-known-sources': { args: void; result: SourceMatch[] }
+  'get-all-enabled': { args: void; result: boolean }
 }
 
 /** main → renderer，單向推播。 */
@@ -75,4 +77,5 @@ export interface Pushes {
   'open-detail': void
   'channels-updated': Channel[]
   'known-sources-updated': SourceMatch[]
+  'all-enabled-updated': boolean
 }

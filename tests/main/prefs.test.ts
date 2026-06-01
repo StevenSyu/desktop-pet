@@ -21,6 +21,7 @@ const FULL_DEFAULTS = {
   walk: DEFAULT_WALK_BOUNDS,
   skin: DEFAULT_SKIN_ID,
   dnd: false,
+  allEnabled: true,
   channels: [],
   knownSources: [],
 }
@@ -105,6 +106,7 @@ describe('savePrefs', () => {
       walk: { intervalMinMs: 10_000, intervalMaxMs: 30_000, durationMinMs: 1000, durationMaxMs: 4000 },
       skin: 'oil-king-penguin',
       dnd: true,
+      allEnabled: true,
       channels: [],
       knownSources: [],
     }
