@@ -92,6 +92,7 @@ export function createPetWindow(): BrowserWindow {
     handleCommand('show-context-menu', () => {
       const menu = Menu.buildFromTemplate([
         { label: '更換造型…', click: () => bus.emit('open-skins') },
+        { label: '頻道…', click: () => bus.emit('open-channels') },
         {
           label: '自動走動',
           type: 'checkbox',
