@@ -45,21 +45,21 @@ header {
 }
 #close:hover { background: #efe9df; color: #d6453d; }
 
-#chips { display: flex; gap: 6px; padding: 0 14px 9px; flex-wrap: wrap; }
-.chip {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: .04em;
-  border-radius: 11px;
-  padding: 2px 9px;
-  cursor: pointer;
-  background: #efe9df;
+#filters { display: flex; gap: 8px; padding: 2px 14px 9px; align-items: center; }
+.filter-select {
+  font: 600 11px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  padding: 3px 24px 3px 9px;
+  border: 1px solid #d8cfbe;
+  border-radius: 8px;
+  background: #fff;
   color: #5a5247;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238a7f70' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
 }
-.chip.active { background: #2a2622; color: #fff; }
-.chip-sep { width: 1px; align-self: stretch; background: rgba(46, 33, 18, .14); margin: 0 1px; }
-.chip.session { background: #e6e9f5; color: #5b6280; }
-.chip.session.active { background: #5b6ee0; color: #fff; }
+.filter-select.session { border-color: #5b6ee0; color: #5b6ee0; background-color: #f3f4fb; }
 
 #list { flex: 1; overflow-y: auto; }
 .group {

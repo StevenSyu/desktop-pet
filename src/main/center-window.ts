@@ -1,8 +1,8 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
 
-export const CENTER_W = 300
-export const CENTER_H = 440
+export const CENTER_W = 360
+export const CENTER_H = 480
 const MARGIN = 24
 const PET_RESERVE = 320 // 寵物視窗高度的預留，讓中心落在寵物上方（fallback 用）
 

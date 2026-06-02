@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'" />
     <title>通知中心</title>
     <link rel="stylesheet" href="./center.css" />
   </head>
@@ -12,7 +12,7 @@
       <div class="actions"><button id="mark-all">全部已讀</button><button id="clear">清空</button><button id="close" aria-label="關閉" title="關閉（Esc）">×</button></div>
     </header>
     <div id="channel-tabs"></div>
-    <div id="chips"></div>
+    <div id="filters"></div>
     <div id="list"></div>
     <div id="empty" hidden>目前沒有通知</div>
     <script type="module" src="./center.ts"></script>

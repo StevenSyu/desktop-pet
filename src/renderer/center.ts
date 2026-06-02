@@ -42,7 +42,7 @@ const listEl = document.querySelector<HTMLDivElement>('#list')!
 const emptyEl = document.querySelector<HTMLDivElement>('#empty')!
 const unreadEl = document.querySelector<HTMLSpanElement>('#unread')!
 const tabsEl = document.querySelector<HTMLDivElement>('#channel-tabs')!
-const chipsEl = document.querySelector<HTMLDivElement>('#chips')!
+const filtersEl = document.querySelector<HTMLDivElement>('#filters')!
 const dndFlagEl = document.querySelector<HTMLSpanElement>('#dnd-flag')!
 
 function setDndFlag(enabled: boolean): void {
@@ -52,40 +52,39 @@ function setDndFlag(enabled: boolean): void {
 window.petBridge.getDnd().then(setDndFlag)
 window.petBridge.onDndChanged(setDndFlag)
 
-function renderChips(): void {
-  const typeChips = CHIPS.map((c) => {
-    const el = document.createElement('span')
-    el.className = 'chip' + (filter === c.id ? ' active' : '')
-    el.textContent = c.name
-    el.addEventListener('click', () => {
-      filter = c.id
-      render()
-    })
-    return el
-  })
+// type / session 篩選用下拉選單（語意上非分頁；與 channel 分頁區隔、省空間）
+function mkSelect(cls: string, opts: { id: string; name: string }[], current: string, onPick: (v: string) => void): HTMLSelectElement {
+  const sel = document.createElement('select')
+  sel.className = 'filter-select' + cls
+  for (const o of opts) {
+    const op = document.createElement('option')
+    op.value = o.id
+    op.textContent = o.name
+    if (o.id === current) op.selected = true
+    sel.appendChild(op)
+  }
+  sel.addEventListener('change', () => onPick(sel.value))
+  return sel
+}
 
-  // session 篩選 chips：僅當目前頻道內出現 ≥2 個非 default session 才顯示
+function renderFilters(): void {
+  const children: HTMLElement[] = [
+    mkSelect('', CHIPS, filter, (v) => {
+      filter = v as 'all' | NotifyType
+      render()
+    }),
+  ]
+  // session 下拉：僅當目前頻道內出現 ≥2 個非 default session 才顯示
   const sessions = collectSessions(filterByChannel(all, channelTab, channels))
   if (sessionFilter !== 'all' && !sessions.includes(sessionFilter)) sessionFilter = 'all'
-  const sessionChips: HTMLElement[] = []
   if (sessions.length >= 2) {
-    const mk = (id: string, label: string): HTMLSpanElement => {
-      const el = document.createElement('span')
-      el.className = 'chip session' + (sessionFilter === id ? ' active' : '')
-      el.textContent = label
-      el.title = id === 'all' ? '所有 session' : id
-      el.addEventListener('click', () => {
-        sessionFilter = id
-        render()
-      })
-      return el
-    }
-    const sep = document.createElement('span')
-    sep.className = 'chip-sep'
-    sessionChips.push(sep, mk('all', '全部 session'), ...sessions.map((s) => mk(s, sessionShort(s))))
+    const opts = [{ id: 'all', name: '全部 session' }, ...sessions.map((s) => ({ id: s, name: sessionShort(s) }))]
+    children.push(mkSelect(' session', opts, sessionFilter, (v) => {
+      sessionFilter = v
+      render()
+    }))
   }
-
-  chipsEl.replaceChildren(...typeChips, ...sessionChips)
+  filtersEl.replaceChildren(...children)
 }
 
 function renderTabs(): void {
@@ -197,7 +196,7 @@ function currentItems(): StoredMessage[] {
 
 function renderList(): void {
   renderTabs()
-  renderChips()
+  renderFilters()
   const now = Date.now()
   const items = currentItems()
   const unread = all.filter((m) => !m.read).length
@@ -227,7 +226,7 @@ function renderList(): void {
 function renderDetail(m: StoredMessage): void {
   if (!m.read) window.petBridge.markRead(m.id) // 進詳情才標已讀（未讀才送，避免重複 broadcast）
   tabsEl.replaceChildren()
-  chipsEl.replaceChildren() // 詳情時清掉 chips（回列表時 renderChips 會重建）
+  filtersEl.replaceChildren() // 詳情時清掉篩選列（回列表時 renderFilters 會重建）
   emptyEl.hidden = true
 
   const wrap = document.createElement('div')
