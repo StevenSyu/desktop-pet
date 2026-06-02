@@ -45,7 +45,7 @@ header {
 }
 #close:hover { background: #efe9df; color: #d6453d; }
 
-#filters { display: flex; gap: 8px; padding: 2px 14px 9px; align-items: center; }
+#filters { display: flex; gap: 8px; padding: 6px 14px 9px; align-items: center; }
 .filter-select {
   font: 600 11px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
   padding: 3px 24px 3px 9px;
