@@ -16,11 +16,27 @@
         </div>
       </header>
       <div class="intro">
-        <span>把造型資料夾（含 <code>pet.json</code> + 1536×1872 <code>spritesheet.webp</code>）放進 <code>pets/</code>，按 ↻ 重新整理</span>
-        <button id="open-folder">開啟造型資料夾</button>
+        <span>把自訂造型資料夾放進 <code>pets/</code> 後按 ↻ 重新整理</span>
+        <div class="intro-actions">
+          <button id="open-folder">開啟造型資料夾</button>
+          <button id="spec-link" class="link">造型規格說明</button>
+        </div>
       </div>
       <div id="hint" class="hint" hidden></div>
       <div id="list"></div>
+      <div id="spec-modal" class="modal" hidden>
+        <div class="modal-card">
+          <div class="modal-head"><span>造型規格</span><button id="spec-close" aria-label="關閉">×</button></div>
+          <div class="modal-body">
+            <p>每個造型一個資料夾，放進 <code>pets/</code>：</p>
+            <ul>
+              <li><code>pet.json</code> — 造型名稱、描述等中繼資料</li>
+              <li><code>spritesheet.webp</code> — 尺寸 <code>1536×1872</code>，8 欄 × 9 列（每格 192×208）</li>
+            </ul>
+            <p>9 列對應 9 種動畫狀態（idle、走動、揮手…）。放好後按 ↻ 重新整理即出現在清單。</p>
+          </div>
+        </div>
+      </div>
     </div>
     <script type="module" src="./skins.ts"></script>
   </body>

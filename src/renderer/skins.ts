@@ -88,8 +88,19 @@ async function render(): Promise<void> {
 document.querySelector('#refresh')!.addEventListener('click', () => render())
 document.querySelector('#open-folder')!.addEventListener('click', () => window.petBridge.openPetsFolder())
 document.querySelector('#close')!.addEventListener('click', () => window.close())
+
+// 造型規格說明 popup
+const specModal = document.querySelector<HTMLDivElement>('#spec-modal')!
+document.querySelector('#spec-link')!.addEventListener('click', () => (specModal.hidden = false))
+document.querySelector('#spec-close')!.addEventListener('click', () => (specModal.hidden = true))
+specModal.addEventListener('click', (e) => {
+  if (e.target === specModal) specModal.hidden = true // 點背景關閉
+})
+
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') window.close()
+  if (e.key !== 'Escape') return
+  if (!specModal.hidden) specModal.hidden = true // modal 開著 → Esc 先關 modal
+  else window.close()
 })
 
 render()

@@ -11,9 +11,19 @@ const skins = signal<DiscoveredSkin[]>([])
 const defaultSkin = signal<string>('')
 const selectedId = signal<string | null>(null)
 const draftName = signal('')
+let pendingScrollBottom = false // 新增頻道後捲到底（新頻道在清單末）
 
 window.channelsBridge.getChannels().then((cs) => (channels.value = cs))
-window.channelsBridge.onChannelsUpdated((cs) => (channels.value = cs))
+window.channelsBridge.onChannelsUpdated((cs) => {
+  channels.value = cs
+  if (pendingScrollBottom) {
+    pendingScrollBottom = false
+    requestAnimationFrame(() => {
+      const l = document.querySelector('.list')
+      if (l) l.scrollTop = l.scrollHeight
+    })
+  }
+})
 window.channelsBridge.getKnownSources().then((s) => (knownSources.value = s))
 window.channelsBridge.onKnownSourcesUpdated((s) => (knownSources.value = s))
 window.channelsBridge.getSkins().then((r) => (skins.value = r.skins))
@@ -114,7 +124,7 @@ function App(): preact.JSX.Element {
       </div>
       <div class="addbar">
         <input value={draftName.value} placeholder="新頻道名稱" onInput={(e) => (draftName.value = (e.target as HTMLInputElement).value)} />
-        <button disabled={draftName.value.trim() === ''} onClick={() => { upsert({ id: '', name: draftName.value.trim(), skin: skins.value.find((s) => s.valid)?.id ?? '', enabled: false, showPet: true, members: [] }); draftName.value = '' }}>＋ 新增頻道</button>
+        <button disabled={draftName.value.trim() === ''} onClick={() => { pendingScrollBottom = true; upsert({ id: '', name: draftName.value.trim(), skin: skins.value.find((s) => s.valid)?.id ?? '', enabled: false, showPet: true, members: [] }); draftName.value = '' }}>＋ 新增頻道</button>
       </div>
       {sel ? <MemberEditor ch={sel} /> : <div class="ph editor-empty">選一個頻道編輯成員</div>}
     </div>
