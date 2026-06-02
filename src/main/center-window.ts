@@ -35,8 +35,6 @@ export function createCenterWindow(pos?: { x: number; y: number }): BrowserWindo
     win.loadFile(join(__dirname, '../renderer/center.html'))
   }
 
-  win.on('blur', () => {
-    if (!win.isDestroyed()) win.close()
-  })
+  // 失焦不自動關閉：避免點桌面卡片/寵物時連帶關掉通知中心（#4）。只由 ✕ / Esc 關。
   return win
 }
