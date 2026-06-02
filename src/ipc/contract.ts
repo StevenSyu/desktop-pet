@@ -24,6 +24,7 @@ import type { Channel, SourceMatch } from '../core/channel'
 /** renderer → main，單向命令。 */
 export interface Commands {
   'set-interactive': { channelId: string; interactive: boolean }
+  'set-scale': { channelId: string; scale: number }
   'show-context-menu': { channelId: string }
   'open-center': { channelId: string }
   'mark-read': string
@@ -67,6 +68,7 @@ export interface Queries {
 export interface Pushes {
   'pet-event': AppEvent
   'set-skin': string
+  'set-scale': number
   'unread-count': number
   'walk-ended': void
   'walk-direction': 'left' | 'right'
