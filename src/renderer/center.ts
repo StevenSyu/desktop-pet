@@ -5,6 +5,7 @@ import { relativeTime, timeGroup, type TimeGroup } from '../core/time-format'
 import { stripMarkdown } from '../core/markdown-strip'
 import { renderMarkdown } from '../core/markdown-render'
 import { filterByChannel, unreadByChannel, type Channel } from '../core/channel'
+import { sessionShort, collectSessions, filterBySession } from '../core/session-filter'
 
 const LABEL: Record<NotifyType, string> = {
   done: '完成',
@@ -32,6 +33,7 @@ let all: StoredMessage[] = []
 let filter: 'all' | NotifyType = 'all'
 let channels: Channel[] = []
 let channelTab = 'all'
+let sessionFilter = 'all'
 let detailId: string | null = null
 let savedScrollTop = 0
 let flashId: string | null = null
@@ -51,18 +53,39 @@ window.petBridge.getDnd().then(setDndFlag)
 window.petBridge.onDndChanged(setDndFlag)
 
 function renderChips(): void {
-  chipsEl.replaceChildren(
-    ...CHIPS.map((c) => {
+  const typeChips = CHIPS.map((c) => {
+    const el = document.createElement('span')
+    el.className = 'chip' + (filter === c.id ? ' active' : '')
+    el.textContent = c.name
+    el.addEventListener('click', () => {
+      filter = c.id
+      render()
+    })
+    return el
+  })
+
+  // session 篩選 chips：僅當目前頻道內出現 ≥2 個非 default session 才顯示
+  const sessions = collectSessions(filterByChannel(all, channelTab, channels))
+  if (sessionFilter !== 'all' && !sessions.includes(sessionFilter)) sessionFilter = 'all'
+  const sessionChips: HTMLElement[] = []
+  if (sessions.length >= 2) {
+    const mk = (id: string, label: string): HTMLSpanElement => {
       const el = document.createElement('span')
-      el.className = 'chip' + (filter === c.id ? ' active' : '')
-      el.textContent = c.name
+      el.className = 'chip session' + (sessionFilter === id ? ' active' : '')
+      el.textContent = label
+      el.title = id === 'all' ? '所有 session' : id
       el.addEventListener('click', () => {
-        filter = c.id
+        sessionFilter = id
         render()
       })
       return el
-    }),
-  )
+    }
+    const sep = document.createElement('span')
+    sep.className = 'chip-sep'
+    sessionChips.push(sep, mk('all', '全部 session'), ...sessions.map((s) => mk(s, sessionShort(s))))
+  }
+
+  chipsEl.replaceChildren(...typeChips, ...sessionChips)
 }
 
 function renderTabs(): void {
@@ -170,7 +193,7 @@ function renderList(): void {
   renderTabs()
   renderChips()
   const now = Date.now()
-  const byChannel = filterByChannel(all, channelTab, channels)
+  const byChannel = filterBySession(filterByChannel(all, channelTab, channels), sessionFilter)
   const items = filter === 'all' ? byChannel : byChannel.filter((m) => m.type === filter)
   const unread = all.filter((m) => !m.read).length
   unreadEl.textContent = unread > 0 ? `${unread} 則未讀` : ''

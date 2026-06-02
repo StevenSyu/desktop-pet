@@ -57,6 +57,9 @@ header {
   color: #5a5247;
 }
 .chip.active { background: #2a2622; color: #fff; }
+.chip-sep { width: 1px; align-self: stretch; background: rgba(46, 33, 18, .14); margin: 0 1px; }
+.chip.session { background: #e6e9f5; color: #5b6280; }
+.chip.session.active { background: #5b6ee0; color: #fff; }
 
 #list { flex: 1; overflow-y: auto; }
 .group {
