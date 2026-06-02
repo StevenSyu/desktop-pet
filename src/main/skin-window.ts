@@ -1,8 +1,8 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
 
-const W = 380
-const H = 500
+const W = 480
+const H = 520
 
 export function createSkinWindow(channelId: string): BrowserWindow {
   const primary = screen.getPrimaryDisplay()
