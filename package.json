@@ -1,6 +1,8 @@
 {
   "name": "desktop-notify",
   "version": "0.0.1",
+  "description": "A desktop pet notification companion for AI coding agents.",
+  "author": "StevenSyu",
   "private": true,
   "type": "module",
   "main": "./out/main/index.js",
@@ -13,7 +15,10 @@
     "hooks:config": "node hooks/print-config.mjs",
     "hooks:codex-config": "node hooks/print-codex-config.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:linux": "npm run build && electron-builder --linux"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.5",

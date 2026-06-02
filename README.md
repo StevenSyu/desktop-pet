@@ -165,3 +165,15 @@ desktop-notify/
 ## 變更紀錄
 
 詳見 [CHANGELOG.md](./CHANGELOG.md)。
+
+## Cross-platform packaging
+
+Windows and Linux packaging targets are configured in `electron-builder.yml`.
+
+```bash
+npm run dist:mac
+npm run dist:win
+npm run dist:linux
+```
+
+See [docs/CROSS_PLATFORM.md](docs/CROSS_PLATFORM.md) for platform-specific notes and the validation checklist for issue #8.

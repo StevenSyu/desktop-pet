@@ -20,3 +20,27 @@ mac:
   icon: assets/icon.png # 企鵝 idle 第一格合成（electron-builder 自此產 .icns）
   # 個人使用：不做 Apple 簽章 / 公證（ad-hoc）。
   identity: null
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  signAndEditExecutable: false
+  artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  category: Utility
+  icon: assets/icon.png
+  artifactName: ${productName}-${version}-${os}-${arch}.${ext}

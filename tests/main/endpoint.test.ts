@@ -35,6 +35,10 @@ describe('writeEndpointFile', () => {
   it('writes the credential file with owner-only permissions (0600)', () => {
     const dir = tempDir()
     const path = writeEndpointFile(dir, { port: 8765, token: 'tok123' })
+    if (process.platform === 'win32') {
+      expect(existsSync(path)).toBe(true)
+      return
+    }
     expect(statSync(path).mode & 0o777).toBe(0o600)
   })
 })
