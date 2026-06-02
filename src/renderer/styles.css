@@ -42,7 +42,7 @@ html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; h
   border-radius: 10px;
   background: rgba(30, 30, 30, 0.72);
   color: #fff;
-  font: 600 11px/1.4 -apple-system, 'SF Pro Rounded', system-ui, sans-serif;
+  font: 600 11px/1.4 -apple-system, 'SF Pro Rounded', "Segoe UI", system-ui, sans-serif;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

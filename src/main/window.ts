@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { DEFAULT_SKIN_ID } from '../core/skins'
 import { scanSkins } from './skin-registry'
 import { bus } from './bus'
+import { pinWindow } from './win-util'
 import { type ChannelLabelMode } from '../core/channel-label'
 import { defaultPosition, type DisplayInfo } from '../core/window-position'
 import { stackPosition } from '../core/pet-layout'
@@ -108,8 +109,7 @@ export function createPetWindow(channelId: string, requestedSkin: string, index:
     hasShadow: false,
     webPreferences: { preload: join(__dirname, '../preload/index.cjs') },
   })
-  win.setAlwaysOnTop(true, 'floating')
-  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  pinWindow(win, true)
 
   if (process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(`${process.env.ELECTRON_RENDERER_URL}?c=${encodeURIComponent(channelId)}`)

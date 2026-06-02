@@ -1,6 +1,6 @@
 html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
 body {
-  font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif;
+  font-family: ui-rounded, "SF Pro Rounded", -apple-system, "Segoe UI", system-ui, sans-serif;
   color: #2a2622;
   display: flex;
   flex-direction: column;
@@ -24,7 +24,7 @@ header {
   border: none;
   background: none;
   color: #8a7f70;
-  font: 600 11px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  font: 600 11px ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
   cursor: pointer;
   padding: 3px 6px;
   border-radius: 6px;
@@ -47,7 +47,7 @@ header {
 
 #filters { display: flex; gap: 8px; padding: 6px 14px 9px; align-items: center; }
 .filter-select {
-  font: 600 11px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  font: 600 11px ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
   padding: 3px 24px 3px 9px;
   border: 1px solid #d8cfbe;
   border-radius: 8px;
@@ -163,7 +163,7 @@ header {
   border-bottom: 1px solid rgba(46, 33, 18, .08);
   background: #fffdf8;
   color: #8a7f70;
-  font: 600 12px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  font: 600 12px ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
   cursor: pointer;
 }
 .back:hover { color: #2a2622; }

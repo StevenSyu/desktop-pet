@@ -1,5 +1,6 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
+import { pinWindow } from './win-util'
 
 // 卡片視窗尺寸（含透明邊距給 CSS 陰影；定位以視窗 bounds 計）
 export const CARD_W = 264
@@ -27,9 +28,8 @@ export function createCardWindow(channelId: string): BrowserWindow {
     },
   })
 
-  win.setAlwaysOnTop(true, 'floating')
-  // 跨 Spaces / 全螢幕，建立時設一次（避免反覆呼叫造成 process-type 閃爍）
-  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  // 置頂 + 跨 Spaces / 全螢幕（mac）；非 mac 走一般 alwaysOnTop。建立時設一次避免閃爍
+  pinWindow(win, true)
 
   if (process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(`${process.env.ELECTRON_RENDERER_URL}/card.html?c=${encodeURIComponent(channelId)}`)

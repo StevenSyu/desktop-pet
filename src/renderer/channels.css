@@ -1,5 +1,5 @@
 html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
-.panel { position: relative; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; background: #fffdf8; border-radius: 14px; box-shadow: 0 12px 34px rgba(46,33,18,.3); font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif; color: #2a2622; overflow: hidden; }
+.panel { position: relative; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; background: #fffdf8; border-radius: 14px; box-shadow: 0 12px 34px rgba(46,33,18,.3); font-family: ui-rounded, "SF Pro Rounded", -apple-system, "Segoe UI", system-ui, sans-serif; color: #2a2622; overflow: hidden; }
 header { display: flex; justify-content: space-between; align-items: center; padding: 11px 14px 8px; }
 .title { font-weight: 800; font-size: 14px; }
 .close { border: none; background: none; font-size: 16px; color: #8a7f70; cursor: pointer; width: 22px; height: 22px; border-radius: 50%; }
@@ -21,15 +21,15 @@ header { display: flex; justify-content: space-between; align-items: center; pad
 .crow-top { display: flex; align-items: center; gap: 8px; }
 .crow .chev { color: #a89c8b; font-size: 10px; width: 10px; flex-shrink: 0; }
 .crow.sel .chev { color: #2a2622; }
-.crow .name { flex: 1; min-width: 0; font: 700 12.5px ui-rounded, system-ui, sans-serif; padding: 4px 8px; border: 1px solid #e3dccf; border-radius: 7px; background: #fff; }
-.crow .all-name { flex: 1; font: 800 13px ui-rounded, system-ui, sans-serif; }
+.crow .name { flex: 1; min-width: 0; font: 700 12.5px ui-rounded, "Segoe UI", system-ui, sans-serif; padding: 4px 8px; border: 1px solid #e3dccf; border-radius: 7px; background: #fff; }
+.crow .all-name { flex: 1; font: 800 13px ui-rounded, "Segoe UI", system-ui, sans-serif; }
 .crow .all-note { font-size: 10.5px; color: #ad9f8c; flex-shrink: 0; }
 
 /* 第二行：造型 · 來源 · 眼睛 · 刪除（次要資訊，縮排對齊名稱） */
 .crow-bottom { display: flex; align-items: center; gap: 9px; padding-left: 18px; }
 .crow .skin-pick {
   max-width: 168px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0;
-  font: 600 11px ui-rounded, system-ui, sans-serif; padding: 3px 9px;
+  font: 600 11px ui-rounded, "Segoe UI", system-ui, sans-serif; padding: 3px 9px;
   border: 1px solid #e3dccf; border-radius: 7px; background: #fff; color: #5a4f44; cursor: pointer;
 }
 .crow .skin-pick:hover { background: #efe9df; border-color: #d8cfbe; }
@@ -62,17 +62,17 @@ header { display: flex; justify-content: space-between; align-items: center; pad
 .add-trigger {
   margin: 4px 14px 10px; padding: 10px; box-sizing: border-box;
   border: 1.5px dashed #cfc4b2; border-radius: 9px; background: none;
-  color: #8a7f70; font: 700 12.5px ui-rounded, "SF Pro Rounded", system-ui, sans-serif; cursor: pointer;
+  color: #8a7f70; font: 700 12.5px ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif; cursor: pointer;
   transition: border-color .12s, color .12s, background .12s;
 }
 .add-trigger:hover { border-color: #2e9e6b; color: #2e9e6b; background: rgba(46, 158, 107, .05); }
 .addbar { display: flex; gap: 6px; padding: 4px 14px 10px; }
-.add-input { flex: 1; min-width: 0; font: 600 12.5px ui-rounded, "SF Pro Rounded", system-ui, sans-serif; padding: 6px 9px; border: 1px solid #d8cfbe; border-radius: 7px; background: #fff; }
+.add-input { flex: 1; min-width: 0; font: 600 12.5px ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif; padding: 6px 9px; border: 1px solid #d8cfbe; border-radius: 7px; background: #fff; }
 .add-input:focus { outline: none; border-color: #2e9e6b; }
-.add-confirm { flex-shrink: 0; border: none; border-radius: 7px; background: #2e9e6b; color: #fff; font: 700 12px ui-rounded, "SF Pro Rounded", system-ui, sans-serif; padding: 6px 14px; cursor: pointer; }
+.add-confirm { flex-shrink: 0; border: none; border-radius: 7px; background: #2e9e6b; color: #fff; font: 700 12px ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif; padding: 6px 14px; cursor: pointer; }
 .add-confirm:hover { background: #257f56; }
 .add-confirm:disabled { opacity: .4; cursor: default; }
-.add-cancel { flex-shrink: 0; border: none; border-radius: 7px; background: #ece5d8; color: #5a4f44; font: 700 12px ui-rounded, "SF Pro Rounded", system-ui, sans-serif; padding: 6px 12px; cursor: pointer; }
+.add-cancel { flex-shrink: 0; border: none; border-radius: 7px; background: #ece5d8; color: #5a4f44; font: 700 12px ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif; padding: 6px 12px; cursor: pointer; }
 .add-cancel:hover { background: #e0d8ca; }
 .editor { display: flex; gap: 10px; padding: 8px 14px 14px; flex: 1; min-height: 0; }
 .editor-empty { padding: 24px 14px; }
@@ -96,7 +96,7 @@ header { display: flex; justify-content: space-between; align-items: center; pad
 .modal-body strong { font-weight: 800; }
 .modal-body .sub { display: block; margin-top: 4px; font-size: 11.5px; color: #ad9f8c; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 0 16px 14px; }
-.modal-actions button { border: none; border-radius: 7px; font: 700 12px ui-rounded, "SF Pro Rounded", system-ui, sans-serif; padding: 6px 14px; cursor: pointer; }
+.modal-actions button { border: none; border-radius: 7px; font: 700 12px ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif; padding: 6px 14px; cursor: pointer; }
 .btn-cancel { background: #ece5d8; color: #5a4f44; }
 .btn-cancel:hover { background: #e0d8ca; }
 .btn-danger { background: #d6453d; color: #fff; }

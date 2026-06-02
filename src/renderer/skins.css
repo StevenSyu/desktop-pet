@@ -1,5 +1,5 @@
 html, body { margin: 0; padding: 0; height: 100%; background: transparent; overflow: hidden; }
-body { font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif; color: #2a2622; }
+body { font-family: ui-rounded, "SF Pro Rounded", -apple-system, "Segoe UI", system-ui, sans-serif; color: #2a2622; }
 
 .panel {
   margin: 8px;
@@ -40,13 +40,13 @@ header {
   border: 1px solid rgba(46, 33, 18, .18);
   background: #fff;
   color: #5a4f44;
-  font: 700 12px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  font: 700 12px ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
   padding: 6px 12px;
   border-radius: 7px;
   cursor: pointer;
 }
 #open-folder:hover { background: rgba(0, 0, 0, .04); }
-.link { border: none; background: none; padding: 0; font: 600 11.5px ui-rounded, "SF Pro Rounded", system-ui, sans-serif; color: #2e9e6b; cursor: pointer; text-decoration: underline; }
+.link { border: none; background: none; padding: 0; font: 600 11.5px ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif; color: #2e9e6b; cursor: pointer; text-decoration: underline; }
 .link:hover { color: #257f56; }
 .title { font-weight: 800; font-size: 15px; letter-spacing: .04em; }
 .title span { font-size: 11px; font-weight: 600; color: #ad9f8c; }
@@ -83,7 +83,7 @@ header {
 
 button.select {
   flex: none; border: 0; background: #2e9e6b; color: #fff;
-  font: 700 12px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  font: 700 12px ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
   padding: 6px 12px; border-radius: 7px; cursor: pointer;
 }
 button.select:hover { background: #257f56; }

@@ -1,6 +1,6 @@
 html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
 body {
-  font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif;
+  font-family: ui-rounded, "SF Pro Rounded", -apple-system, "Segoe UI", system-ui, sans-serif;
   color: #2a2622;
 }
 
@@ -62,7 +62,7 @@ header {
   border: 1px solid rgba(46, 33, 18, .18);
   border-radius: 7px;
   background: #fff;
-  font: 600 13px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  font: 600 13px ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
   color: #2a2622;
   outline: none;
 }
@@ -77,7 +77,7 @@ footer {
 }
 button.primary, button.ghost {
   border: 0; padding: 7px 14px; border-radius: 8px;
-  font: 700 13px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  font: 700 13px ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
   cursor: pointer;
 }
 button.primary { background: #2e9e6b; color: #fff; }

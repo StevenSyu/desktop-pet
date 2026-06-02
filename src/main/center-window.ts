@@ -1,5 +1,6 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
+import { pinWindow } from './win-util'
 
 export const CENTER_W = 360
 export const CENTER_H = 480
@@ -26,8 +27,7 @@ export function createCenterWindow(pos?: { x: number; y: number }): BrowserWindo
     },
   })
 
-  win.setAlwaysOnTop(true, 'floating')
-  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  pinWindow(win, true)
 
   if (process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(`${process.env.ELECTRON_RENDERER_URL}/center.html`)

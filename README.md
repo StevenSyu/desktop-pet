@@ -21,9 +21,17 @@
 - **寵物互動 sprite 反應**：hover / 單擊隨機反應動畫（waving / jumping / review 三選一）；雙擊（< 300ms）直接開通知中心；拖動時 sprite 依累計位移方向（DIR_THRESHOLD=8px）切 `running-left` / `running-right`，剛拖起無方向時為 jumping。動畫優先級由純函式 `resolveAnimation` 仲裁：FSM reaction > drag > userAnim > walking > idle。
 - 核心邏輯純 TypeScript＋Vitest TDD，UI 用 Playwright `_electron` 自動煙霧測試＋截圖驗證。
 
+## 讓 AI 幫你跑起來
+
+clone 本專案後，把下面這句貼給 Claude Code（或任何能讀檔、執行指令的 AI agent），它會幫你裝相依、跑起寵物、並接上 Claude Code hook：
+
+> 讀取 `docs/AI-SETUP.md`，幫我安裝相依、跑起這個桌面寵物，並設定 Claude Code hook。
+
+（步驟細節都在 [`docs/AI-SETUP.md`](docs/AI-SETUP.md)；只用 `npm run`，不需打包 App。）
+
 ## 快速開始
 
-需求：macOS、Node.js 20+。
+需求：Node.js 20+。平台：**macOS 為主力**；Windows / Linux 可用 `npm run` 跑（視窗置頂與 endpoint 路徑已依平台處理、字體退回系統字型；尚未做跨平台打包與透明視窗細節調校）。
 
 ```bash
 npm install

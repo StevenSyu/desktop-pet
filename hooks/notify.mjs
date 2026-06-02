@@ -8,7 +8,15 @@ import { buildHookPayload } from './payload.mjs'
 import { extractLastAssistantTextWithRetry } from './transcript.mjs'
 
 const type = process.argv[2] ?? 'info'
-const ENDPOINT = join(homedir(), 'Library', 'Application Support', 'desktop-notify', 'endpoint.json')
+
+// 跨平台 userData 路徑，對齊 Electron app.getPath('userData')，使各平台 hook 都讀得到 endpoint.json
+function userDataDir() {
+  const home = homedir()
+  if (process.platform === 'win32') return join(process.env.APPDATA || join(home, 'AppData', 'Roaming'), 'desktop-notify')
+  if (process.platform === 'darwin') return join(home, 'Library', 'Application Support', 'desktop-notify')
+  return join(process.env.XDG_CONFIG_HOME || join(home, '.config'), 'desktop-notify')
+}
+const ENDPOINT = join(userDataDir(), 'endpoint.json')
 
 // env-gated 除錯追蹤：設了 DESKPET_HOOK_LOG 才寫；用於確認 hook 是否被觸發
 function trace(msg) {

@@ -13,7 +13,7 @@ body { padding: 14px; box-sizing: border-box; height: 100vh; }
   border-radius: 5px 14px 14px 5px;
   background: #fffdf8;
   color: #2a2622;
-  font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif;
+  font-family: ui-rounded, "SF Pro Rounded", -apple-system, "Segoe UI", system-ui, sans-serif;
   box-shadow: 0 3px 12px rgba(46, 33, 18, .24);
   cursor: pointer;
   overflow: hidden;

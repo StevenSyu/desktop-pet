@@ -1,5 +1,6 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
+import { pinWindow } from './win-util'
 
 const W = 480
 const H = 520
@@ -24,7 +25,7 @@ export function createSkinWindow(channelId: string): BrowserWindow {
     },
   })
 
-  win.setAlwaysOnTop(true, 'floating')
+  pinWindow(win)
 
   if (process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(`${process.env.ELECTRON_RENDERER_URL}/skins.html?c=${encodeURIComponent(channelId)}`)
