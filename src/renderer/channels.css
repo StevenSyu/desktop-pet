@@ -27,9 +27,9 @@ header { display: flex; justify-content: space-between; align-items: center; pad
 .crow .toggle { border: none; border-radius: 6px; padding: 3px 8px; font: 700 11px ui-rounded, system-ui, sans-serif; cursor: pointer; background: #e3dccf; color: #8a7f70; white-space: nowrap; flex-shrink: 0; }
 .crow .name, .crow .skin-pick, .crow .eye, .crow .del { flex-shrink: 0; }
 .crow .toggle.on { background: #2e9e6b; color: #fff; }
-.crow .eye { border: none; background: none; cursor: pointer; font-size: 13px; padding: 2px 4px; line-height: 1; opacity: .3; filter: grayscale(1); }
-.crow .eye.on { opacity: 1; filter: none; }
-.crow .eye:disabled { cursor: not-allowed; opacity: .12; }
+.crow .eye { width: 24px; height: 24px; border: none; background-color: transparent; background-repeat: no-repeat; background-position: center; background-size: 20px 20px; cursor: pointer; padding: 0; background-image: url(./ic_eyes_close.webp); }
+.crow .eye.on { background-image: url(./ic_eyes_open.webp); }
+.crow .eye:disabled { cursor: not-allowed; filter: grayscale(1); opacity: .4; }
 .crow .del { border: none; background: none; color: #b3a692; cursor: pointer; font-size: 13px; }
 .crow .del:hover { color: #d6453d; }
 .crow .toggle:disabled, .crow .del:disabled { opacity: .35; cursor: not-allowed; }
