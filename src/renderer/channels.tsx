@@ -97,10 +97,10 @@ function App(): preact.JSX.Element {
         <div class="crow all">
           <span class="chev" />
           <span class="all-name">全部</span>
-          <span class="all-note">所有訊息 · 不可編輯</span>
+          <span class="all-note">所有訊息 · 恆啟用</span>
           <button class="skin-pick" onClick={() => window.channelsBridge.openSkinPicker('all')}>造型：{skinName(defaultSkin.value)} ⚙</button>
           <span class="count" />
-          <button class={'toggle' + (allEnabled.value ? ' on' : '')} disabled={allEnabled.value && activePetCount(channels.value, allEnabled.value) <= 1} title={allEnabled.value && activePetCount(channels.value, allEnabled.value) <= 1 ? '至少保留一隻寵物（先啟用其他頻道）' : ''} onClick={() => window.channelsBridge.setAllEnabled(!allEnabled.value)}>{allEnabled.value ? '啟用中' : '停用'}</button>
+          <button class={'eye' + (allEnabled.value ? ' on' : '')} disabled={allEnabled.value && activePetCount(channels.value, allEnabled.value) <= 1} title={allEnabled.value && activePetCount(channels.value, allEnabled.value) <= 1 ? '至少保留一隻顯示寵物（先顯示其他頻道）' : allEnabled.value ? '顯示「全部」寵物中（點按隱藏）' : '「全部」寵物已隱藏（點按顯示）'} onClick={() => window.channelsBridge.setAllEnabled(!allEnabled.value)}>👁</button>
           <span class="del-spacer" />
         </div>
         {channels.value.map((ch) => <ChannelRow ch={ch} key={ch.id} />)}

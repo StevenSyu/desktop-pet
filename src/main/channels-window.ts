@@ -1,7 +1,7 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
 
-const W = 420
+const W = 480
 const H = 520
 
 export function createChannelsWindow(): BrowserWindow {
