@@ -209,8 +209,8 @@ app.whenReady().then(async () => {
     broadcastUnread()
     broadcastMessages()
   })
-  handleCommand('mark-all-read', () => {
-    store.markAllRead()
+  handleCommand('mark-read-ids', (ids) => {
+    for (const id of ids) store.markRead(id)
     broadcastUnread()
     broadcastMessages()
   })

@@ -189,12 +189,17 @@ function render(): void {
   renderList()
 }
 
+// 當前 channel 分頁 + session 篩選 + type 篩選後可見的訊息（renderList 與「全部已讀」共用）
+function currentItems(): StoredMessage[] {
+  const byChannel = filterBySession(filterByChannel(all, channelTab, channels), sessionFilter)
+  return filter === 'all' ? byChannel : byChannel.filter((m) => m.type === filter)
+}
+
 function renderList(): void {
   renderTabs()
   renderChips()
   const now = Date.now()
-  const byChannel = filterBySession(filterByChannel(all, channelTab, channels), sessionFilter)
-  const items = filter === 'all' ? byChannel : byChannel.filter((m) => m.type === filter)
+  const items = currentItems()
   const unread = all.filter((m) => !m.read).length
   unreadEl.textContent = unread > 0 ? `${unread} 則未讀` : ''
 
@@ -279,7 +284,11 @@ function renderDetail(m: StoredMessage): void {
   listEl.replaceChildren(wrap)
 }
 
-document.querySelector('#mark-all')!.addEventListener('click', () => window.petBridge.markAllRead())
+document.querySelector('#mark-all')!.addEventListener('click', () => {
+  // 只標當前分頁 + session/type 篩選後可見的未讀，不動其他分頁的訊息
+  const ids = currentItems().filter((m) => !m.read).map((m) => m.id)
+  if (ids.length) window.petBridge.markReadIds(ids)
+})
 document.querySelector('#clear')!.addEventListener('click', () => window.petBridge.clearMessages())
 document.querySelector('#close')!.addEventListener('click', () => window.close())
 document.addEventListener('keydown', (e) => {

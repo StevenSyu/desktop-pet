@@ -38,7 +38,7 @@ contextBridge.exposeInMainWorld('petBridge', {
   onDndOn: (cb: () => void) => subscribePush('dnd-on', cb),
   onDndChanged: (cb: (enabled: boolean) => void) => subscribePush('dnd-changed', cb),
   getMessages: () => invokeQuery('get-messages'),
-  markAllRead: () => sendCommand('mark-all-read'),
+  markReadIds: (ids: string[]) => sendCommand('mark-read-ids', ids),
   clearMessages: () => sendCommand('clear-messages'),
   onMessagesUpdated: (cb: (msgs: StoredMessage[]) => void) => subscribePush('messages-updated', cb),
   showCard: (channelId: string, view: CardView) => sendCommand('show-card', { channelId, view }),

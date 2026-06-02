@@ -28,7 +28,7 @@ export interface Commands {
   'show-context-menu': { channelId: string }
   'open-center': { channelId: string }
   'mark-read': string
-  'mark-all-read': void
+  'mark-read-ids': string[]
   'clear-messages': void
   'drag-start': { channelId: string; sx: number; sy: number }
   'drag-move': { channelId: string; sx: number; sy: number }
