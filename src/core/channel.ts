@@ -1,7 +1,7 @@
 import type { NotifySource } from './events'
 
 export interface SourceMatch { kind?: string; name?: string }
-export interface Channel { id: string; name: string; skin: string; enabled: boolean; members: SourceMatch[] }
+export interface Channel { id: string; name: string; skin: string; enabled: boolean; showPet: boolean; members: SourceMatch[] }
 
 export function matchesSource(match: SourceMatch, source: NotifySource): boolean {
   if (match.kind == null && match.name == null) return false
@@ -59,14 +59,16 @@ export function sanitizeChannels(raw: unknown): Channel[] {
     const name = typeof o.name === 'string' ? o.name : null
     const skin = typeof o.skin === 'string' ? o.skin : ''
     const enabled = typeof o.enabled === 'boolean' ? o.enabled : false
+    const showPet = typeof o.showPet === 'boolean' ? o.showPet : true // 向後相容：舊檔無 showPet → 顯示
     const members = Array.isArray(o.members) ? sanitizeSources(o.members) : []
     if (!id || !name || members.length === 0) continue
-    out.push({ id, name, skin, enabled, members })
+    out.push({ id, name, skin, enabled, showPet, members })
   }
   return out
 }
 
-/** 目前會顯示的寵物數：allEnabled 的「全部」+ 啟用中的頻道。用於「至少保留一隻」防呆。 */
+/** 實際顯示的寵物數：allEnabled 的「全部」+ 「啟用且寵物顯示」的頻道（enabled && showPet）。
+ *  用於「至少保留一隻顯示在外」防呆。停用頻道連帶關寵物，故只算 enabled && showPet。 */
 export function activePetCount(channels: Channel[], allEnabled: boolean): number {
-  return (allEnabled ? 1 : 0) + channels.filter((c) => c.enabled).length
+  return (allEnabled ? 1 : 0) + channels.filter((c) => c.enabled && c.showPet).length
 }

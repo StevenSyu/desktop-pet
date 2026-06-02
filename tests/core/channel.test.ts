@@ -13,11 +13,12 @@ import {
   type SourceMatch,
 } from '../../src/core/channel'
 
-const ch = (id: string, members: SourceMatch[], enabled = true): Channel => ({
+const ch = (id: string, members: SourceMatch[], enabled = true, showPet = true): Channel => ({
   id,
   name: id,
   skin: 'may',
   enabled,
+  showPet,
   members,
 })
 const msg = (kind: string, name: string | undefined, read: boolean) => ({
@@ -116,9 +117,13 @@ describe('sanitizeChannels', () => {
       'garbage',
     ]
     expect(sanitizeChannels(raw)).toEqual([
-      { id: 'c1', name: 'A', skin: 'may', enabled: true, members: [{ kind: 'claude-code' }] },
-      { id: 'c3', name: 'C', skin: '', enabled: false, members: [{ name: 'desktop-notify' }] },
+      { id: 'c1', name: 'A', skin: 'may', enabled: true, showPet: true, members: [{ kind: 'claude-code' }] },
+      { id: 'c3', name: 'C', skin: '', enabled: false, showPet: true, members: [{ name: 'desktop-notify' }] },
     ])
+  })
+  it('保留 showPet、舊檔無 showPet → true', () => {
+    expect(sanitizeChannels([{ id: 'a', name: 'a', skin: '', enabled: true, showPet: false, members: [{ kind: 'k' }] }])[0].showPet).toBe(false)
+    expect(sanitizeChannels([{ id: 'b', name: 'b', skin: '', enabled: true, members: [{ kind: 'k' }] }])[0].showPet).toBe(true)
   })
 })
 
@@ -138,11 +143,13 @@ describe('sanitizeSources', () => {
 })
 
 describe('activePetCount', () => {
-  const ch = (enabled: boolean): Channel => ({ id: 'x', name: 'x', skin: '', enabled, members: [{ kind: 'k' }] })
-  it('= allEnabled 的 1 + 啟用頻道數', () => {
-    expect(activePetCount([ch(true), ch(false)], true)).toBe(2) // all + 1 啟用
-    expect(activePetCount([ch(true), ch(true)], false)).toBe(2) // 0 + 2 啟用
+  const ch = (enabled: boolean, showPet = true): Channel => ({ id: 'x', name: 'x', skin: '', enabled, showPet, members: [{ kind: 'k' }] })
+  it('= allEnabled 的 1 + 啟用且顯示寵物的頻道數', () => {
+    expect(activePetCount([ch(true), ch(false)], true)).toBe(2) // all + 1 啟用顯示
+    expect(activePetCount([ch(true), ch(true)], false)).toBe(2) // 0 + 2 啟用顯示
     expect(activePetCount([], true)).toBe(1) // 只有 all
-    expect(activePetCount([ch(false)], false)).toBe(0) // 都沒開 → 0（防呆要擋到這步）
+    expect(activePetCount([ch(false)], false)).toBe(0) // 都沒開 → 0
+    expect(activePetCount([ch(true, false)], false)).toBe(0) // 啟用但寵物隱藏 → 不算
+    expect(activePetCount([ch(true, true), ch(true, false)], false)).toBe(1) // 一顯示一隱藏
   })
 })

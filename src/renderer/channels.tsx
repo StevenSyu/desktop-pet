@@ -38,14 +38,15 @@ function removeMember(ch: Channel, i: number): void {
 function ChannelRow({ ch }: { ch: Channel }): preact.JSX.Element {
   const sel = selectedId.value === ch.id
   const stop = (e: Event) => e.stopPropagation()
-  // 停用/刪除這個啟用中的頻道會使寵物歸零 → 防呆鎖定（至少保留一隻）
-  const lockLast = ch.enabled && activePetCount(channels.value, allEnabled.value) <= 1
+  // 這個頻道的寵物是否為「唯一顯示」→ 停用/刪除/關眼睛都會歸零，防呆鎖定（至少保留一隻顯示）
+  const lockLast = ch.enabled && ch.showPet && activePetCount(channels.value, allEnabled.value) <= 1
   return (
     <div class={'crow' + (sel ? ' sel' : '')} onClick={() => (selectedId.value = sel ? null : ch.id)} title="點此列選取並在下方編輯成員">
       <span class="chev">{sel ? '▾' : '▸'}</span>
       <input class="name" value={ch.name} onClick={stop} onInput={(e) => upsert({ ...ch, name: (e.target as HTMLInputElement).value })} />
       <button class="skin-pick" onClick={(e) => { stop(e); window.channelsBridge.openSkinPicker(ch.id) }}>造型：{skinName(ch.skin)} ⚙</button>
       <span class="count">{ch.members.length} 來源</span>
+      <button class={'eye' + (ch.showPet ? ' on' : '')} disabled={!ch.enabled || lockLast} title={!ch.enabled ? '頻道停用中（無寵物）' : lockLast ? '至少保留一隻顯示寵物' : ch.showPet ? '顯示寵物中（點按隱藏）' : '寵物已隱藏（點按顯示）'} onClick={(e) => { stop(e); upsert({ ...ch, showPet: !ch.showPet }) }}>👁</button>
       <button class={'toggle' + (ch.enabled ? ' on' : '')} disabled={lockLast} title={lockLast ? '至少保留一隻寵物' : ''} onClick={(e) => { stop(e); upsert({ ...ch, enabled: !ch.enabled }) }}>{ch.enabled ? '啟用中' : '停用'}</button>
       <button class="del" disabled={lockLast} title={lockLast ? '至少保留一隻寵物（先啟用其他頻道再刪）' : ''} onClick={(e) => { stop(e); window.channelsBridge.deleteChannel(ch.id); if (sel) selectedId.value = null }}>✕</button>
     </div>
@@ -107,7 +108,7 @@ function App(): preact.JSX.Element {
       </div>
       <div class="addbar">
         <input value={draftName.value} placeholder="新頻道名稱" onInput={(e) => (draftName.value = (e.target as HTMLInputElement).value)} />
-        <button disabled={draftName.value.trim() === ''} onClick={() => { upsert({ id: '', name: draftName.value.trim(), skin: skins.value.find((s) => s.valid)?.id ?? '', enabled: false, members: [] }); draftName.value = '' }}>＋ 新增頻道</button>
+        <button disabled={draftName.value.trim() === ''} onClick={() => { upsert({ id: '', name: draftName.value.trim(), skin: skins.value.find((s) => s.valid)?.id ?? '', enabled: false, showPet: true, members: [] }); draftName.value = '' }}>＋ 新增頻道</button>
       </div>
       {sel ? <MemberEditor ch={sel} /> : <div class="ph editor-empty">選一個頻道編輯成員</div>}
     </div>

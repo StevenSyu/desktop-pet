@@ -53,7 +53,7 @@ function skinFor(channelId: string): string {
 
 // 應存在的寵物集合：allEnabled?'all' + 啟用 channel；空則強制留 'all'（≥1 防鎖死）
 function desiredPetIds(): string[] {
-  const ids = [...(allEnabled ? ['all'] : []), ...channels.filter((c) => c.enabled).map((c) => c.id)]
+  const ids = [...(allEnabled ? ['all'] : []), ...channels.filter((c) => c.enabled && c.showPet).map((c) => c.id)]
   return ids.length > 0 ? ids : ['all']
 }
 
@@ -276,7 +276,7 @@ app.whenReady().then(async () => {
       applyAllEnabled(false)
     } else {
       const ch = channels.find((c) => c.id === channelId)
-      if (ch) upsertChannel({ ...ch, enabled: false })
+      if (ch) upsertChannel({ ...ch, showPet: false }) // 只關寵物顯示，頻道仍啟用（分頁/分類照常）
     }
   })
 
@@ -379,7 +379,7 @@ function autoDetectChannel(source: { kind: string; name?: string }): void {
   if (!needsAutoChannel(source, channels)) return
   const member: SourceMatch = { kind: source.kind }
   if (source.name) member.name = source.name
-  channels = [...channels, { id: nextChannelId(), name: source.name || source.kind, skin: defaultSkin, enabled: false, members: [member] }]
+  channels = [...channels, { id: nextChannelId(), name: source.name || source.kind, skin: defaultSkin, enabled: false, showPet: true, members: [member] }]
   persistChannels()
   broadcastChannels()
 }
