@@ -2,7 +2,7 @@ html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
 #pet {
   position: absolute;
   top: 0;
-  right: 0;
+  left: 0;
   image-rendering: pixelated;
   background-repeat: no-repeat;
   transform-origin: top left;
@@ -70,14 +70,23 @@ html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
 
 #resize-handle {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 14px;
-  height: 14px;
+  right: 1px;
+  bottom: 1px;
+  width: 20px;
+  height: 20px;
   cursor: nwse-resize;
   pointer-events: auto;
-  background:
-    linear-gradient(135deg, transparent 0 50%, rgba(80,70,60,.55) 50% 60%, transparent 60% 70%, rgba(80,70,60,.55) 70% 80%, transparent 80%);
-  border-bottom-right-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(55, 52, 48, .82);
+  border: 1.5px solid rgba(255, 255, 255, .92);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
 }
+#resize-handle::before { content: "⤡"; }
+#resize-handle:hover { background: rgba(40, 38, 34, .92); }
 #resize-handle[hidden] { display: none; }
