@@ -11,19 +11,24 @@ const skins = signal<DiscoveredSkin[]>([])
 const defaultSkin = signal<string>('')
 const selectedId = signal<string | null>(null)
 const confirmDelId = signal<string | null>(null)
+const confirmRemoveSrc = signal<SourceMatch | null>(null)
 const draftName = signal('')
 const adding = signal(false)
-let pendingScrollBottom = false // 新增頻道後捲到底（新頻道在清單末）
+let pendingSelectNew = false // 新增頻道後自動選中（展開編輯區）並捲到頂
+
+// 選中的頻道列捲到清單頂（避免被下方展開的編輯區遮擋）
+function scrollSelectedToTop(): void {
+  requestAnimationFrame(() => document.querySelector('.crow.sel')?.scrollIntoView({ block: 'start', behavior: 'smooth' }))
+}
 
 window.channelsBridge.getChannels().then((cs) => (channels.value = cs))
 window.channelsBridge.onChannelsUpdated((cs) => {
   channels.value = cs
-  if (pendingScrollBottom) {
-    pendingScrollBottom = false
-    requestAnimationFrame(() => {
-      const l = document.querySelector('.list')
-      if (l) l.scrollTop = l.scrollHeight
-    })
+  if (pendingSelectNew) {
+    pendingSelectNew = false
+    const last = cs[cs.length - 1]
+    if (last) selectedId.value = last.id // 自動選中剛新增的頻道 → 展開來源編輯區
+    scrollSelectedToTop()
   }
 })
 window.channelsBridge.getKnownSources().then((s) => (knownSources.value = s))
@@ -41,7 +46,7 @@ const upsert = (ch: Channel): void => window.channelsBridge.upsertChannel(ch)
 function createChannel(): void {
   const name = draftName.value.trim()
   if (!name) return
-  pendingScrollBottom = true
+  pendingSelectNew = true
   upsert({ id: '', name, skin: skins.value.find((s) => s.valid)?.id ?? '', enabled: false, showPet: true, members: [] })
   draftName.value = ''
   adding.value = false
@@ -65,7 +70,7 @@ function ChannelRow({ ch }: { ch: Channel }): preact.JSX.Element {
   // 這個頻道的寵物是否為「唯一顯示」→ 停用/刪除/關眼睛都會歸零，防呆鎖定（至少保留一隻顯示）
   const lockLast = ch.enabled && ch.showPet && activePetCount(channels.value, allEnabled.value) <= 1
   return (
-    <div class={'crow' + (sel ? ' sel' : '')} onClick={() => (selectedId.value = sel ? null : ch.id)} title="點此列選取並在下方編輯成員">
+    <div class={'crow' + (sel ? ' sel' : '')} onClick={() => { const next = sel ? null : ch.id; selectedId.value = next; if (next) scrollSelectedToTop() }} title="點此列選取並在下方編輯成員">
       <div class="crow-top">
         <span class="chev">{sel ? '▾' : '▸'}</span>
         <input class="name" value={ch.name} onClick={stop} onInput={(e) => upsert({ ...ch, name: (e.target as HTMLInputElement).value })} />
@@ -92,7 +97,7 @@ function MemberEditor({ ch }: { ch: Channel }): preact.JSX.Element {
             <div class="src" draggable onDragStart={(e) => e.dataTransfer?.setData('src-key', srcKey(s))} onClick={() => addMember(ch, s)} title="點擊或拖到右邊加入此頻道">
               <span class="src-label">{srcLabel(s)}</span>
               <span class="add">＋</span>
-              <button class="src-del" title="從已知來源永久移除" onClick={(e) => { e.stopPropagation(); window.channelsBridge.removeKnownSource(s) }}>✕</button>
+              <button class="src-del" title="從已知來源永久移除" onClick={(e) => { e.stopPropagation(); confirmRemoveSrc.value = s }}>✕</button>
             </div>
           ))}
           {pool.length === 0 && <div class="ph">（無可加入來源）</div>}
@@ -151,6 +156,27 @@ function App(): preact.JSX.Element {
       )}
       {sel ? <MemberEditor ch={sel} /> : <div class="ph editor-empty">選一個頻道編輯成員</div>}
       {confirmDelId.value != null && <DeleteDialog />}
+      {confirmRemoveSrc.value != null && <RemoveSrcDialog />}
+    </div>
+  )
+}
+
+function RemoveSrcDialog(): preact.JSX.Element {
+  const s = confirmRemoveSrc.value
+  const cancel = (): void => { confirmRemoveSrc.value = null }
+  const confirm = (): void => {
+    if (s) window.channelsBridge.removeKnownSource(s)
+    confirmRemoveSrc.value = null
+  }
+  return (
+    <div class="modal" onClick={(e) => { if (e.target === e.currentTarget) cancel() }}>
+      <div class="modal-card">
+        <div class="modal-body">從已知來源移除 <strong>「{s ? srcLabel(s) : ''}」</strong>？<span class="sub">之後該來源若再發通知會自動重新偵測加回。</span></div>
+        <div class="modal-actions">
+          <button class="btn-cancel" onClick={cancel}>取消</button>
+          <button class="btn-danger" onClick={confirm}>移除</button>
+        </div>
+      </div>
     </div>
   )
 }
