@@ -288,9 +288,11 @@ document.addEventListener('visibilitychange', () => {
 function bindHover(): void {
   const enableInteractive = () => window.petBridge.setInteractive(myChannel, true)
   const disableInteractive = () => window.petBridge.setInteractive(myChannel, false)
-  const badge = document.querySelector<HTMLDivElement>('#badge')!
 
-  petEl.addEventListener('mouseenter', () => {
+  // hover 偵測綁在涵蓋整個視窗的 body（非 #pet）：把手（pointer-events:auto）疊在 #pet 右下角，
+  // 若綁 #pet，滑鼠移到把手會觸發 #pet mouseleave → 隱藏把手 → 又落回 #pet mouseenter → 無限閃爍。
+  // body 是 #pet/把手/名稱標籤的共同祖先，子元素間移動不會觸發 body 的 mouseleave。
+  document.body.addEventListener('mouseenter', () => {
     labelHovering = true
     applyLabel()
     handleEl.hidden = false
@@ -298,7 +300,7 @@ function bindHover(): void {
     if (walking) window.petBridge.walkCancel(myChannel) // 走動中被 hover → 立即停
     dispatch({ kind: 'hover' }) // 拖動中／反應中 reducer 自會略過
   })
-  petEl.addEventListener('mouseleave', () => {
+  document.body.addEventListener('mouseleave', () => {
     labelHovering = false
     applyLabel()
     if (!resizing) {
@@ -306,8 +308,6 @@ function bindHover(): void {
       disableInteractive()
     }
   })
-  badge.addEventListener('mouseenter', enableInteractive)
-  badge.addEventListener('mouseleave', disableInteractive)
 }
 
 bindHover()

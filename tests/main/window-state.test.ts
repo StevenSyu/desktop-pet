@@ -10,7 +10,7 @@ describe('migrateWindowStates', () => {
     expect(migrateWindowStates(raw)).toEqual({ all: { displayId: 1, x: 1, y: 2, scale: 1 }, cA: { displayId: 1, x: 3, y: 4, scale: 1 } })
   })
   it('含 scale round-trip + 舊檔無 scale → 1', () => {
-    expect(migrateWindowStates({ cA: { displayId: 1, x: 10, y: 20, scale: 1.5 } }).cA.scale).toBe(1.5)
+    expect(migrateWindowStates({ cA: { displayId: 1, x: 10, y: 20, scale: 1.2 } }).cA.scale).toBe(1.2)
     expect(migrateWindowStates({ cA: { displayId: 1, x: 10, y: 20 } }).cA.scale).toBe(1)
   })
   it('非物件 → {}', () => expect(migrateWindowStates(null)).toEqual({}))

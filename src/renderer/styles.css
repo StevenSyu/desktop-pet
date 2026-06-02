@@ -1,4 +1,4 @@
-html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; height: 100%; }
 #pet {
   position: absolute;
   top: 0;
@@ -70,21 +70,21 @@ html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
 
 #resize-handle {
   position: absolute;
-  right: 1px;
-  bottom: 1px;
-  width: 20px;
-  height: 20px;
+  right: 2px;
+  bottom: 2px;
+  width: 28px;
+  height: 28px;
   cursor: nwse-resize;
   pointer-events: auto;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgba(55, 52, 48, .82);
-  border: 1.5px solid rgba(255, 255, 255, .92);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
+  background: rgba(55, 52, 48, .85);
+  border: 2px solid rgba(255, 255, 255, .95);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, .4);
   color: #fff;
-  font-size: 12px;
+  font-size: 16px;
   line-height: 1;
 }
 #resize-handle::before { content: "⤡"; }

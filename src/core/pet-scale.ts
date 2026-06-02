@@ -1,5 +1,5 @@
 export const MIN_SCALE = 0.6
-export const MAX_SCALE = 2.0
+export const MAX_SCALE = 1.35
 
 export function clampScale(raw: unknown): number {
   if (typeof raw !== 'number' || Number.isNaN(raw)) return 1
