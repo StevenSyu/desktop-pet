@@ -4,7 +4,7 @@ import { join } from 'node:path'
 const W = 380
 const H = 500
 
-export function createSkinWindow(): BrowserWindow {
+export function createSkinWindow(channelId: string): BrowserWindow {
   const primary = screen.getPrimaryDisplay()
   const { x, y, width, height } = primary.workArea
 
@@ -27,9 +27,9 @@ export function createSkinWindow(): BrowserWindow {
   win.setAlwaysOnTop(true, 'floating')
 
   if (process.env.ELECTRON_RENDERER_URL) {
-    win.loadURL(`${process.env.ELECTRON_RENDERER_URL}/skins.html`)
+    win.loadURL(`${process.env.ELECTRON_RENDERER_URL}/skins.html?c=${encodeURIComponent(channelId)}`)
   } else {
-    win.loadFile(join(__dirname, '../renderer/skins.html'))
+    win.loadFile(join(__dirname, '../renderer/skins.html'), { query: { c: channelId } })
   }
   return win
 }

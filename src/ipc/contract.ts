@@ -44,6 +44,7 @@ export interface Commands {
   'channel-upsert': Channel
   'channel-delete': { id: string }
   'set-all-enabled': boolean
+  'open-skin-picker': { channelId: string }
 }
 
 /** renderer → main，往返查詢。 */
@@ -52,8 +53,9 @@ export interface Queries {
   'get-prefs': { args: void; result: Prefs }
   'get-dnd': { args: void; result: boolean }
   'get-messages': { args: void; result: StoredMessage[] }
-  'get-skins': { args: void; result: { skins: DiscoveredSkin[]; requestedId: string; effectiveId: string } }
-  'select-skin': { args: string; result: { ok: boolean; effectiveId: string } }
+  'get-skins': { args: { channelId: string }; result: { skins: DiscoveredSkin[]; requestedId: string; effectiveId: string } }
+  'select-skin': { args: { channelId: string; id: string }; result: { ok: boolean; effectiveId: string } }
+  'get-default-skin': { args: void; result: string }
   'get-pending-detail': { args: void; result: { id: string | null } }
   'get-pending-channel-tab': { args: void; result: string | null }
   'get-channels': { args: void; result: Channel[] }
@@ -80,4 +82,5 @@ export interface Pushes {
   'channels-updated': Channel[]
   'known-sources-updated': SourceMatch[]
   'all-enabled-updated': boolean
+  'default-skin-updated': string
 }

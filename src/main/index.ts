@@ -1,5 +1,5 @@
 import { app, BrowserWindow, screen } from 'electron'
-import { createPetWindow, getSkinSheetPath, getPetWindow, petChannelIds, closePetWindow } from './window'
+import { createPetWindow, getSkinSheetPath, getPetWindow, petChannelIds, closePetWindow, builtinRoot, setSkinSheetPaths } from './window'
 import { createCenterWindow, CENTER_W, CENTER_H } from './center-window'
 import { createCardWindow, CARD_W, CARD_H, CARD_GAP } from './card-window'
 import { createSettingsWindow } from './settings-window'
@@ -17,6 +17,7 @@ import { bus } from './bus'
 import { loadPrefs, updatePrefs } from './prefs'
 import { handleCommand, handleQuery, pushTo } from '../ipc/main-helpers'
 import type { AppEvent } from '../core/events'
+import { scanSkins } from './skin-registry'
 
 // pet: scheme 必須在 app ready 前註冊（一次）
 registerPetScheme()
@@ -89,6 +90,27 @@ function persistChannels(): void {
   updatePrefs(app.getPath('userData'), { channels }) // 合併寫入，不覆蓋 window.ts 的欄位
 }
 function persistKnownSources() { updatePrefs(app.getPath('userData'), { knownSources }) }
+
+function scanAvailableSkins(): ReturnType<typeof scanSkins> {
+  const result = scanSkins(app.getPath('userData'), builtinRoot())
+  setSkinSheetPaths(result.sheetPaths)
+  return result
+}
+
+function upsertChannel(ch: Channel): Channel {
+  // 空 id → 新建（main 指派 id，renderer 不產 id）；否則依 id 覆蓋
+  const withId: Channel = ch.id ? ch : { ...ch, id: nextChannelId() }
+  const i = channels.findIndex((c) => c.id === withId.id)
+  if (i >= 0) channels[i] = withId
+  else channels = [...channels, withId]
+  persistChannels()
+  broadcastChannels()
+  broadcastMessages() // 讓中心分頁重算
+  reconcilePets()
+  pushTo(getPetWindow(withId.id), 'set-skin', withId.skin) // 既有寵物的造型即時更新（新建的由 did-finish-load 推）
+  broadcastUnread()
+  return withId
+}
 
 function computeCenterPos(): { x: number; y: number } | undefined {
   const all = getPetWindow('all')
@@ -198,20 +220,34 @@ app.whenReady().then(async () => {
     broadcastMessages()
   })
   handleQuery('get-messages', () => store.list())
+  handleQuery('get-skins', ({ channelId }) => {
+    const { skins, sheetPaths } = scanAvailableSkins()
+    const requestedId = skinFor(channelId)
+    return { skins, requestedId, effectiveId: sheetPaths.has(requestedId) ? requestedId : DEFAULT_SKIN_ID }
+  })
+  handleQuery('select-skin', ({ channelId, id }) => {
+    const { sheetPaths } = scanAvailableSkins()
+    if (!sheetPaths.has(id)) {
+      const cur = skinFor(channelId)
+      return { ok: false, effectiveId: sheetPaths.has(cur) ? cur : DEFAULT_SKIN_ID }
+    }
+    if (channelId === 'all') {
+      const nextPrefs = updatePrefs(app.getPath('userData'), { skin: id })
+      defaultSkin = id
+      pushTo(getPetWindow('all'), 'set-skin', id)
+      for (const petId of petChannelIds()) pushTo(getPetWindow(petId), 'prefs-changed', nextPrefs)
+      pushTo(channelsWindow, 'default-skin-updated', id)
+    } else {
+      const ch = channels.find((c) => c.id === channelId)
+      if (ch) upsertChannel({ ...ch, skin: id })
+    }
+    return { ok: true, effectiveId: id }
+  })
+  handleQuery('get-default-skin', () => loadPrefs(app.getPath('userData')).skin)
   handleQuery('get-channels', () => channels)
   handleQuery('get-known-sources', () => knownSources)
   handleCommand('channel-upsert', (ch) => {
-    // 空 id → 新建（main 指派 id，renderer 不產 id）；否則依 id 覆蓋
-    const withId: Channel = ch.id ? ch : { ...ch, id: nextChannelId() }
-    const i = channels.findIndex((c) => c.id === withId.id)
-    if (i >= 0) channels[i] = withId
-    else channels = [...channels, withId]
-    persistChannels()
-    broadcastChannels()
-    broadcastMessages() // 讓中心分頁重算
-    reconcilePets()
-    pushTo(getPetWindow(withId.id), 'set-skin', withId.skin) // 既有寵物的造型即時更新（新建的由 did-finish-load 推）
-    broadcastUnread()
+    upsertChannel(ch)
   })
   handleCommand('channel-delete', ({ id }) => {
     channels = channels.filter((c) => c.id !== id)
@@ -229,6 +265,7 @@ app.whenReady().then(async () => {
     reconcilePets()
     broadcastUnread()
   })
+  handleCommand('open-skin-picker', ({ channelId }) => bus.emit('open-skins', channelId))
 
   handleCommand('show-card', ({ channelId, view }) => {
     const cs = ensureCard(channelId)
@@ -286,14 +323,16 @@ app.whenReady().then(async () => {
       settingsWindow = null
     })
   })
-  bus.on('open-skins', () => {
+  bus.on('open-skins', (channelId: string = 'all') => {
     if (skinWindow && !skinWindow.isDestroyed()) {
-      skinWindow.focus()
-      return
-    }
-    skinWindow = createSkinWindow()
-    skinWindow.on('closed', () => {
+      const oldWindow = skinWindow
       skinWindow = null
+      oldWindow.close()
+    }
+    skinWindow = createSkinWindow(channelId)
+    const currentWindow = skinWindow
+    currentWindow.on('closed', () => {
+      if (skinWindow === currentWindow) skinWindow = null
     })
   })
   bus.on('open-channels', () => {
