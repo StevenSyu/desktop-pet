@@ -105,6 +105,29 @@ function scanAvailableSkins(): ReturnType<typeof scanSkins> {
   return result
 }
 
+// 啟動時修正失效造型：channel.skin / prefs.skin 指向已不存在的造型時，桌面寵物會 fallback
+// 預設 may，但設定頁仍顯示舊造型名 → 兩邊不一致（#7）。改成把失效造型回正成預設並持久化，
+// 確保「設定頁顯示」與「桌面實際」一致。
+function healInvalidSkins(): void {
+  const { sheetPaths } = scanAvailableSkins()
+  let channelsChanged = false
+  channels = channels.map((c) => {
+    if (c.skin && !sheetPaths.has(c.skin)) {
+      channelsChanged = true
+      return { ...c, skin: DEFAULT_SKIN_ID }
+    }
+    return c
+  })
+  if (channelsChanged) {
+    persistChannels()
+    broadcastChannels()
+  }
+  if (!sheetPaths.has(defaultSkin)) {
+    defaultSkin = DEFAULT_SKIN_ID
+    updatePrefs(app.getPath('userData'), { skin: DEFAULT_SKIN_ID })
+  }
+}
+
 function upsertChannel(ch: Channel): Channel {
   // 空 id → 新建（main 指派 id，renderer 不產 id）；否則依 id 覆蓋
   const withId: Channel = ch.id ? ch : { ...ch, id: nextChannelId() }
@@ -189,6 +212,7 @@ app.whenReady().then(async () => {
   channels = startupPrefs.channels
   knownSources = startupPrefs.knownSources
   defaultSkin = startupPrefs.skin
+  healInvalidSkins() // 失效造型回正成預設，避免桌面 fallback 與設定頁顯示不一致（#7）
   reconcilePets()
   bus.on('dnd-changed', (enabled: boolean) => {
     dndEnabled = enabled
