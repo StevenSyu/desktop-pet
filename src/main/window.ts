@@ -4,11 +4,11 @@ import { join } from 'node:path'
 import { DEFAULT_SKIN_ID } from '../core/skins'
 import { scanSkins } from './skin-registry'
 import { bus } from './bus'
-import { clampToValidPosition, defaultPosition, type DisplayInfo } from '../core/window-position'
+import { defaultPosition, type DisplayInfo } from '../core/window-position'
 import { stackPosition } from '../core/pet-layout'
 import { sanitizeWalkBounds, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
 import { WalkSession } from '../core/walk-session'
-import { loadWindowState, saveWindowState } from './window-state'
+import { loadWindowStates, saveWindowState } from './window-state'
 import { loadPrefs, updatePrefs, type Prefs } from './prefs'
 import { handleCommand, handleQuery, pushTo } from '../ipc/main-helpers'
 
@@ -67,13 +67,16 @@ export function createPetWindow(channelId: string, requestedSkin: string, index:
   prefs = loadPrefs(app.getPath('userData'))
   skinSheetPaths = scanSkins(app.getPath('userData'), builtinRoot()).sheetPaths
 
-  // 定位：'all' 用 window-state（沿用單寵物）；其餘向左堆疊
+  const states = loadWindowStates(app.getPath('userData'))
+  const saved = states[channelId]
   let pos: { x: number; y: number }
-  if (channelId === 'all') {
+  const displays: DisplayInfo[] = screen.getAllDisplays().map((d) => ({ id: d.id, workArea: d.workArea }))
+  const validSaved = saved && displays.some((d) => saved.x >= d.workArea.x && saved.y >= d.workArea.y && saved.x + PET_WIDTH <= d.workArea.x + d.workArea.width && saved.y + PET_HEIGHT <= d.workArea.y + d.workArea.height)
+  if (validSaved && saved) {
+    pos = { x: saved.x, y: saved.y }
+  } else if (channelId === 'all') {
     const primary = screen.getPrimaryDisplay()
-    const displays: DisplayInfo[] = screen.getAllDisplays().map((d) => ({ id: d.id, workArea: d.workArea }))
-    const saved = loadWindowState(app.getPath('userData'))
-    pos = clampToValidPosition(saved, displays, { id: primary.id, workArea: primary.workArea }, { width: PET_WIDTH, height: PET_HEIGHT }, MARGIN)
+    pos = defaultPosition({ id: primary.id, workArea: primary.workArea }, { width: PET_WIDTH, height: PET_HEIGHT }, MARGIN)
   } else {
     pos = stackPosition(index, { width: PET_WIDTH, height: PET_HEIGHT }, screen.getPrimaryDisplay().workArea, MARGIN, GAP)
   }
@@ -164,17 +167,15 @@ function registerHandlers(): void {
     if (!win || !off) return
     const cursor = screen.getCursorScreenPoint()
     win.setPosition(Math.round(cursor.x - off.x), Math.round(cursor.y - off.y))
-    if (channelId === 'all') bus.emit('pet-moved') // 卡片只跟「全部」（B1）
+    bus.emit('pet-moved', channelId)
   })
   handleCommand('drag-end', ({ channelId }) => {
     dragOffsets.delete(channelId)
     const win = getPetWindow(channelId)
     if (!win) return
-    if (channelId === 'all') {
-      const [x, y] = win.getPosition()
-      const d = screen.getDisplayMatching(win.getBounds())
-      saveWindowState(app.getPath('userData'), { displayId: d.id, x, y }) // 只持久化「全部」（B1）
-    }
+    const [x, y] = win.getPosition()
+    const d = screen.getDisplayMatching(win.getBounds())
+    saveWindowState(app.getPath('userData'), channelId, { displayId: d.id, x, y })
   })
 
   // ===== walk：只給 'all' =====
@@ -270,7 +271,7 @@ function registerHandlers(): void {
         const primary = screen.getPrimaryDisplay()
         const pos = defaultPosition({ id: primary.id, workArea: primary.workArea }, { width: PET_WIDTH, height: PET_HEIGHT }, MARGIN)
         win.setPosition(pos.x, pos.y)
-        if (channelId === 'all') bus.emit('pet-moved')
+        bus.emit('pet-moved', channelId)
       }
     }
   })

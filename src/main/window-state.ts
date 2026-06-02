@@ -6,6 +6,7 @@ export interface WindowState {
   x: number
   y: number
 }
+export type WindowStates = Record<string, WindowState>
 
 const FILENAME = 'window-state.json'
 
@@ -15,18 +16,30 @@ function isValid(value: unknown): value is WindowState {
   return typeof v.displayId === 'number' && typeof v.x === 'number' && typeof v.y === 'number'
 }
 
-export function loadWindowState(userDataDir: string): WindowState | null {
+/** 舊單一檔 {displayId,x,y} → { all: 它 }；新 keyed map → 過濾有效項；其餘 → {}。 */
+export function migrateWindowStates(raw: unknown): WindowStates {
+  if (isValid(raw)) return { all: { displayId: raw.displayId, x: raw.x, y: raw.y } }
+  if (typeof raw !== 'object' || raw === null) return {}
+  const out: WindowStates = {}
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (isValid(v)) out[k] = { displayId: v.displayId, x: v.x, y: v.y }
+  }
+  return out
+}
+
+export function loadWindowStates(userDataDir: string): WindowStates {
   const path = join(userDataDir, FILENAME)
-  if (!existsSync(path)) return null
+  if (!existsSync(path)) return {}
   try {
-    const parsed = JSON.parse(readFileSync(path, 'utf8'))
-    return isValid(parsed) ? { displayId: parsed.displayId, x: parsed.x, y: parsed.y } : null
+    return migrateWindowStates(JSON.parse(readFileSync(path, 'utf8')))
   } catch {
-    return null
+    return {}
   }
 }
 
-export function saveWindowState(userDataDir: string, state: WindowState): void {
+export function saveWindowState(userDataDir: string, channelId: string, state: WindowState): void {
   mkdirSync(userDataDir, { recursive: true })
-  writeFileSync(join(userDataDir, FILENAME), JSON.stringify(state), 'utf8')
+  const all = loadWindowStates(userDataDir)
+  all[channelId] = state
+  writeFileSync(join(userDataDir, FILENAME), JSON.stringify(all), 'utf8')
 }
