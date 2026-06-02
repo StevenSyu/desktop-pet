@@ -8,6 +8,7 @@ const channels = signal<Channel[]>([])
 const allEnabled = signal(true)
 const knownSources = signal<SourceMatch[]>([])
 const skins = signal<DiscoveredSkin[]>([])
+const defaultSkin = signal<string>('')
 const selectedId = signal<string | null>(null)
 const draftName = signal('')
 
@@ -16,11 +17,14 @@ window.channelsBridge.onChannelsUpdated((cs) => (channels.value = cs))
 window.channelsBridge.getKnownSources().then((s) => (knownSources.value = s))
 window.channelsBridge.onKnownSourcesUpdated((s) => (knownSources.value = s))
 window.channelsBridge.getSkins().then((r) => (skins.value = r.skins))
+window.channelsBridge.getDefaultSkin().then((id) => (defaultSkin.value = id))
+window.channelsBridge.onDefaultSkinUpdated((id) => (defaultSkin.value = id))
 window.channelsBridge.getAllEnabled().then((v) => (allEnabled.value = v))
 window.channelsBridge.onAllEnabledUpdated((v) => (allEnabled.value = v))
 
 const srcKey = (s: SourceMatch): string => `${s.kind ?? ''} ${s.name ?? ''}`
 const srcLabel = (s: SourceMatch): string => s.name || s.kind || '(unknown)'
+const skinName = (id: string): string => skins.value.find((s) => s.id === id)?.displayName ?? id
 const upsert = (ch: Channel): void => window.channelsBridge.upsertChannel(ch)
 
 function addMember(ch: Channel, s: SourceMatch): void {
@@ -38,9 +42,7 @@ function ChannelRow({ ch }: { ch: Channel }): preact.JSX.Element {
     <div class={'crow' + (sel ? ' sel' : '')} onClick={() => (selectedId.value = sel ? null : ch.id)} title="點此列選取並在下方編輯成員">
       <span class="chev">{sel ? '▾' : '▸'}</span>
       <input class="name" value={ch.name} onClick={stop} onInput={(e) => upsert({ ...ch, name: (e.target as HTMLInputElement).value })} />
-      <select class="skin" onClick={stop} value={ch.skin} onChange={(e) => upsert({ ...ch, skin: (e.target as HTMLSelectElement).value })}>
-        {skins.value.filter((s) => s.valid).map((s) => <option value={s.id}>{s.displayName}</option>)}
-      </select>
+      <button class="skin-pick" onClick={(e) => { stop(e); window.channelsBridge.openSkinPicker(ch.id) }}>造型：{skinName(ch.skin)} ⚙</button>
       <span class="count">{ch.members.length} 來源</span>
       <button class={'toggle' + (ch.enabled ? ' on' : '')} onClick={(e) => { stop(e); upsert({ ...ch, enabled: !ch.enabled }) }}>{ch.enabled ? '啟用中' : '停用'}</button>
       <button class="del" onClick={(e) => { stop(e); window.channelsBridge.deleteChannel(ch.id); if (sel) selectedId.value = null }}>✕</button>
@@ -93,6 +95,7 @@ function App(): preact.JSX.Element {
           <span class="chev" />
           <span class="all-name">全部</span>
           <span class="all-note">所有訊息 · 不可編輯</span>
+          <button class="skin-pick" onClick={() => window.channelsBridge.openSkinPicker('all')}>造型：{skinName(defaultSkin.value)} ⚙</button>
           <span class="count" />
           <button class={'toggle' + (allEnabled.value ? ' on' : '')} onClick={() => window.channelsBridge.setAllEnabled(!allEnabled.value)}>{allEnabled.value ? '啟用中' : '停用'}</button>
           <span class="del-spacer" />

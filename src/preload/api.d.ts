@@ -3,7 +3,19 @@ import type { StoredMessage } from '../core/message-store'
 import type { WalkBounds } from '../core/walk-planner'
 import type { DiscoveredSkin } from '../core/skin-scan'
 import type { CardView } from '../core/card-view'
-import type { Channel } from '../core/channel'
+import type { Channel, SourceMatch } from '../core/channel'
+import type { ChannelLabelMode } from '../core/channel-label'
+
+type BridgePrefs = {
+  autoWalk: boolean
+  walk: WalkBounds
+  skin: string
+  channelLabelMode: ChannelLabelMode
+  dnd: boolean
+  allEnabled: boolean
+  channels: Channel[]
+  knownSources: SourceMatch[]
+}
 
 declare global {
   interface Window {
@@ -24,12 +36,12 @@ declare global {
       onWalkDirection: (cb: (direction: 'left' | 'right') => void) => void
       getAutoWalk: () => Promise<boolean>
       onAutoWalkChanged: (cb: (enabled: boolean) => void) => void
-      getPrefs: () => Promise<{ autoWalk: boolean; walk: WalkBounds }>
-      getSkins: () => Promise<{ skins: DiscoveredSkin[]; requestedId: string; effectiveId: string }>
-      selectSkin: (id: string) => Promise<{ ok: boolean; effectiveId: string }>
+      getPrefs: () => Promise<BridgePrefs>
+      getSkins: (channelId: string) => Promise<{ skins: DiscoveredSkin[]; requestedId: string; effectiveId: string }>
+      selectSkin: (channelId: string, id: string) => Promise<{ ok: boolean; effectiveId: string }>
       openPetsFolder: () => void
       setWalkBounds: (bounds: Partial<WalkBounds>) => void
-      onPrefsChanged: (cb: (prefs: { autoWalk: boolean; walk: WalkBounds }) => void) => void
+      onPrefsChanged: (cb: (prefs: BridgePrefs) => void) => void
       setDnd: (enabled: boolean) => void
       getDnd: () => Promise<boolean>
       onDndOn: (cb: () => void) => void
@@ -68,6 +80,9 @@ declare global {
         requestedId: string
         effectiveId: string
       }>
+      openSkinPicker: (channelId: string) => void
+      getDefaultSkin: () => Promise<string>
+      onDefaultSkinUpdated: (cb: (id: string) => void) => void
     }
   }
 }
