@@ -10,6 +10,7 @@ const knownSources = signal<SourceMatch[]>([])
 const skins = signal<DiscoveredSkin[]>([])
 const defaultSkin = signal<string>('')
 const selectedId = signal<string | null>(null)
+const confirmDelId = signal<string | null>(null)
 const draftName = signal('')
 let pendingScrollBottom = false // 新增頻道後捲到底（新頻道在清單末）
 
@@ -58,10 +59,10 @@ function ChannelRow({ ch }: { ch: Channel }): preact.JSX.Element {
         <button class={'switch' + (ch.enabled ? ' on' : '')} role="switch" aria-checked={ch.enabled} disabled={lockLast} title={lockLast ? '至少保留一隻寵物' : ch.enabled ? '已啟用（點按停用）' : '已停用（點按啟用）'} onClick={(e) => { stop(e); upsert({ ...ch, enabled: !ch.enabled }) }}></button>
       </div>
       <div class="crow-bottom">
+        <button class="del" disabled={lockLast} title={lockLast ? '至少保留一隻寵物（先啟用其他頻道再刪）' : '刪除頻道'} onClick={(e) => { stop(e); confirmDelId.value = ch.id }}>✕</button>
         <button class="skin-pick" onClick={(e) => { stop(e); window.channelsBridge.openSkinPicker(ch.id) }}>造型：{skinName(ch.skin)} ⚙</button>
         <span class="count">{ch.members.length} 來源</span>
         <button class={'eye' + (ch.showPet ? ' on' : '')} disabled={!ch.enabled || lockLast} title={!ch.enabled ? '頻道停用中（無寵物）' : lockLast ? '至少保留一隻顯示寵物' : ch.showPet ? '顯示寵物中（點按隱藏）' : '寵物已隱藏（點按顯示）'} onClick={(e) => { stop(e); upsert({ ...ch, showPet: !ch.showPet }) }} aria-label="寵物顯示切換"></button>
-        <button class="del" disabled={lockLast} title={lockLast ? '至少保留一隻寵物（先啟用其他頻道再刪）' : ''} onClick={(e) => { stop(e); window.channelsBridge.deleteChannel(ch.id); if (sel) selectedId.value = null }}>✕</button>
       </div>
     </div>
   )
@@ -127,6 +128,31 @@ function App(): preact.JSX.Element {
         <button disabled={draftName.value.trim() === ''} onClick={() => { pendingScrollBottom = true; upsert({ id: '', name: draftName.value.trim(), skin: skins.value.find((s) => s.valid)?.id ?? '', enabled: false, showPet: true, members: [] }); draftName.value = '' }}>＋ 新增頻道</button>
       </div>
       {sel ? <MemberEditor ch={sel} /> : <div class="ph editor-empty">選一個頻道編輯成員</div>}
+      {confirmDelId.value != null && <DeleteDialog />}
+    </div>
+  )
+}
+
+function DeleteDialog(): preact.JSX.Element {
+  const ch = channels.value.find((c) => c.id === confirmDelId.value)
+  const cancel = (): void => { confirmDelId.value = null }
+  const confirm = (): void => {
+    const id = confirmDelId.value
+    if (id != null) {
+      window.channelsBridge.deleteChannel(id)
+      if (selectedId.value === id) selectedId.value = null
+    }
+    confirmDelId.value = null
+  }
+  return (
+    <div class="modal" onClick={(e) => { if (e.target === e.currentTarget) cancel() }}>
+      <div class="modal-card">
+        <div class="modal-body">確定刪除頻道 <strong>「{ch?.name}」</strong>？<span class="sub">此操作無法復原，該頻道的來源分群設定會一併移除。</span></div>
+        <div class="modal-actions">
+          <button class="btn-cancel" onClick={cancel}>取消</button>
+          <button class="btn-danger" onClick={confirm}>刪除</button>
+        </div>
+      </div>
     </div>
   )
 }

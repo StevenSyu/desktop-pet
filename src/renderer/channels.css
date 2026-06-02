@@ -1,11 +1,11 @@
 html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
-.panel { display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; background: #fffdf8; border-radius: 14px; box-shadow: 0 12px 34px rgba(46,33,18,.3); font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif; color: #2a2622; overflow: hidden; }
+.panel { position: relative; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; background: #fffdf8; border-radius: 14px; box-shadow: 0 12px 34px rgba(46,33,18,.3); font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif; color: #2a2622; overflow: hidden; }
 header { display: flex; justify-content: space-between; align-items: center; padding: 11px 14px 8px; }
 .title { font-weight: 800; font-size: 14px; }
 .close { border: none; background: none; font-size: 16px; color: #8a7f70; cursor: pointer; width: 22px; height: 22px; border-radius: 50%; }
 .close:hover { background: #efe9df; color: #d6453d; }
 .hint { font-size: 11px; color: #ad9f8c; padding: 0 14px 8px; }
-.list { max-height: 44%; overflow-y: auto; padding: 8px 10px 14px; }
+.list { max-height: 44%; overflow-y: auto; padding: 14px 10px 14px; }
 .crow {
   display: flex; flex-direction: column; gap: 7px; padding: 9px 11px; margin-bottom: 6px;
   border: 1px solid #ece5d8; border-left: 3px solid transparent; border-radius: 10px;
@@ -40,10 +40,10 @@ header { display: flex; justify-content: space-between; align-items: center; pad
 }
 .crow .eye.on { background-image: url(./ic_eyes_open.webp); }
 .crow .eye:disabled { cursor: not-allowed; filter: grayscale(1); opacity: .4; }
-.crow .del { flex-shrink: 0; border: none; background: none; color: #b3a692; cursor: pointer; font-size: 14px; padding: 0 2px; }
-.crow .del:hover { color: #d6453d; }
-.crow .del:disabled { opacity: .35; cursor: not-allowed; }
-.crow .del:disabled:hover { color: #b3a692; }
+.crow .del { flex-shrink: 0; border: none; background: none; color: #d6453d; cursor: pointer; font-size: 15px; padding: 0 2px; margin-right: 2px; }
+.crow .del:hover { color: #b5392f; }
+.crow .del:disabled { opacity: .3; cursor: not-allowed; }
+.crow .del:disabled:hover { color: #d6453d; }
 
 /* 啟用 switch（iOS 風滑動開關） */
 .switch {
@@ -72,3 +72,16 @@ header { display: flex; justify-content: space-between; align-items: center; pad
 .src .rm { margin-left: auto; color: #b3a692; cursor: pointer; }
 .src .rm:hover { color: #d6453d; }
 .ph { color: #a89c8b; font-size: 12px; text-align: center; padding: 12px 0; }
+
+/* 刪除確認 dialog */
+.modal { position: absolute; inset: 0; background: rgba(46, 33, 18, .4); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 10; }
+.modal-card { background: #fffdf8; border-radius: 12px; max-width: 280px; width: 100%; box-shadow: 0 16px 40px rgba(46, 33, 18, .3); overflow: hidden; }
+.modal-body { padding: 16px; font-size: 13px; color: #2a2622; line-height: 1.55; }
+.modal-body strong { font-weight: 800; }
+.modal-body .sub { display: block; margin-top: 4px; font-size: 11.5px; color: #ad9f8c; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 0 16px 14px; }
+.modal-actions button { border: none; border-radius: 7px; font: 700 12px ui-rounded, "SF Pro Rounded", system-ui, sans-serif; padding: 6px 14px; cursor: pointer; }
+.btn-cancel { background: #ece5d8; color: #5a4f44; }
+.btn-cancel:hover { background: #e0d8ca; }
+.btn-danger { background: #d6453d; color: #fff; }
+.btn-danger:hover { background: #b5392f; }
