@@ -11,6 +11,7 @@
     "test": "vitest run",
     "e2e": "node scripts/e2e-smoke.mjs",
     "hooks:config": "node hooks/print-config.mjs",
+    "hooks:codex-config": "node hooks/print-codex-config.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "dist": "npm run build && electron-builder"
   },

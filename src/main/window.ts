@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { DEFAULT_SKIN_ID } from '../core/skins'
 import { scanSkins } from './skin-registry'
 import { bus } from './bus'
-import { pinWindow } from './win-util'
+import { isMac, isWindows, pinWindow } from './win-util'
 import { type ChannelLabelMode } from '../core/channel-label'
 import { defaultPosition, type DisplayInfo } from '../core/window-position'
 import { stackPosition } from '../core/pet-layout'
@@ -33,6 +33,21 @@ let prefs: Prefs = {
   knownSources: [],
 }
 let skinSheetPaths = new Map<string, string>()
+
+function petWindowSize(scale: number): { width: number; height: number } {
+  return {
+    width: Math.round(PET_WIDTH * scale),
+    height: Math.round(PET_HEIGHT * scale),
+  }
+}
+
+function setPetContentSize(win: BrowserWindow, scale: number): void {
+  const size = petWindowSize(scale)
+  win.setContentSize(size.width, size.height)
+  if (isWindows) {
+    win.setShape([{ x: 0, y: 0, width: size.width, height: size.height }])
+  }
+}
 
 export function getSkinSheetPath(id: string): string | undefined {
   return skinSheetPaths.get(id)
@@ -75,6 +90,14 @@ function setLabelMode(mode: ChannelLabelMode): void {
   for (const id of petChannelIds()) pushTo(getPetWindow(id), 'prefs-changed', prefs)
 }
 
+function setPetInteractive(win: BrowserWindow, interactive: boolean): void {
+  if (isMac) {
+    win.setIgnoreMouseEvents(!interactive, { forward: true })
+  } else {
+    win.setIgnoreMouseEvents(false)
+  }
+}
+
 export function createPetWindow(channelId: string, requestedSkin: string, index: number): BrowserWindow {
   prefs = loadPrefs(app.getPath('userData'))
   skinSheetPaths = scanSkins(app.getPath('userData'), builtinRoot()).sheetPaths
@@ -82,8 +105,7 @@ export function createPetWindow(channelId: string, requestedSkin: string, index:
   const states = loadWindowStates(app.getPath('userData'))
   const saved = states[channelId]
   const scale = clampScale(saved?.scale)
-  const winW = Math.round(PET_WIDTH * scale)
-  const winH = Math.round(PET_HEIGHT * scale)
+  const { width: winW, height: winH } = petWindowSize(scale)
   let pos: { x: number; y: number }
   const displays: DisplayInfo[] = screen.getAllDisplays().map((d) => ({ id: d.id, workArea: d.workArea }))
   const validSaved = saved && displays.some((d) => saved.x >= d.workArea.x && saved.y >= d.workArea.y && saved.x + winW <= d.workArea.x + d.workArea.width && saved.y + winH <= d.workArea.y + d.workArea.height)
@@ -107,9 +129,14 @@ export function createPetWindow(channelId: string, requestedSkin: string, index:
     skipTaskbar: true,
     alwaysOnTop: true,
     hasShadow: false,
-    webPreferences: { preload: join(__dirname, '../preload/index.cjs') },
+    useContentSize: true,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.cjs'),
+      backgroundThrottling: false,
+    },
   })
   pinWindow(win, true)
+  setPetContentSize(win, scale)
 
   if (process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(`${process.env.ELECTRON_RENDERER_URL}?c=${encodeURIComponent(channelId)}`)
@@ -120,10 +147,11 @@ export function createPetWindow(channelId: string, requestedSkin: string, index:
     const { sheetPaths } = scanSkins(app.getPath('userData'), builtinRoot())
     skinSheetPaths = sheetPaths
     const effectiveId = sheetPaths.has(requestedSkin) ? requestedSkin : DEFAULT_SKIN_ID
+    setPetContentSize(win, scale)
     pushTo(win, 'set-skin', effectiveId)
     pushTo(win, 'set-scale', scale)
   })
-  win.setIgnoreMouseEvents(true, { forward: true })
+  setPetInteractive(win, false)
   petWindows.set(channelId, win)
   win.on('closed', () => {
     if (petWindows.get(channelId) === win) petWindows.delete(channelId)
@@ -138,7 +166,8 @@ export function createPetWindow(channelId: string, requestedSkin: string, index:
 
 function registerHandlers(): void {
   handleCommand('set-interactive', ({ channelId, interactive }) => {
-    getPetWindow(channelId)?.setIgnoreMouseEvents(!interactive, { forward: true })
+    const win = getPetWindow(channelId)
+    if (win) setPetInteractive(win, interactive)
   })
 
   handleCommand('show-context-menu', ({ channelId }) => {
@@ -185,19 +214,24 @@ function registerHandlers(): void {
     if (!win) return
     if (channelId === 'all') endWalk(true) // 只有 'all' 會走動
     const cursor = screen.getCursorScreenPoint()
-    const [wx, wy] = win.getPosition()
-    dragOffsets.set(channelId, { x: cursor.x - wx, y: cursor.y - wy })
+    const bounds = win.getBounds()
+    dragOffsets.set(channelId, { x: cursor.x - bounds.x, y: cursor.y - bounds.y })
+    bus.emit('pet-drag-start', channelId)
   })
   handleCommand('drag-move', ({ channelId }) => {
     const win = getPetWindow(channelId)
     const off = dragOffsets.get(channelId)
     if (!win || !off) return
     const cursor = screen.getCursorScreenPoint()
-    win.setPosition(Math.round(cursor.x - off.x), Math.round(cursor.y - off.y))
-    bus.emit('pet-moved', channelId)
+    const bounds = win.getBounds()
+    const x = Math.round(cursor.x - off.x)
+    const y = Math.round(cursor.y - off.y)
+    win.setPosition(x, y)
+    bus.emit('pet-moved', channelId, { x, y, width: bounds.width, height: bounds.height })
   })
   handleCommand('drag-end', ({ channelId }) => {
     dragOffsets.delete(channelId)
+    bus.emit('pet-drag-end', channelId)
     const win = getPetWindow(channelId)
     if (!win) return
     const [x, y] = win.getPosition()
@@ -210,10 +244,10 @@ function registerHandlers(): void {
     const win = getPetWindow(channelId)
     if (!win) return
     const b = win.getBounds()
-    win.setBounds({ x: b.x, y: b.y, width: Math.round(PET_WIDTH * s), height: Math.round(PET_HEIGHT * s) })
+    setPetContentSize(win, s)
     const d = screen.getDisplayMatching(win.getBounds())
     saveWindowState(app.getPath('userData'), channelId, { displayId: d.id, x: b.x, y: b.y, scale: s })
-    bus.emit('pet-moved', channelId)
+    bus.emit('pet-moved', channelId, win.getBounds())
   })
 
   // ===== walk：只給 'all' =====
@@ -293,7 +327,7 @@ function registerHandlers(): void {
         const primary = screen.getPrimaryDisplay()
         const pos = defaultPosition({ id: primary.id, workArea: primary.workArea }, { width: PET_WIDTH, height: PET_HEIGHT }, MARGIN)
         win.setPosition(pos.x, pos.y)
-        bus.emit('pet-moved', channelId)
+        bus.emit('pet-moved', channelId, { ...win.getBounds(), x: pos.x, y: pos.y })
       }
     }
   })

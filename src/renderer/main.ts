@@ -30,13 +30,14 @@ const LABEL: Record<NotifyType, string> = {
   done: '完成', attention: '需要注意', error: '錯誤', review: '請檢視', working: '工作中', info: '通知',
 }
 
+const shellEl = document.querySelector<HTMLDivElement>('#pet-shell')!
 const petEl = document.querySelector<HTMLDivElement>('#pet')!
 petEl.style.width = `${SPRITE_FORMAT.frameWidth * DISPLAY_SCALE}px`
 petEl.style.height = `${SPRITE_FORMAT.frameHeight * DISPLAY_SCALE}px`
 petEl.style.backgroundSize = `${SPRITE_FORMAT.sheetWidth * DISPLAY_SCALE}px ${SPRITE_FORMAT.sheetHeight * DISPLAY_SCALE}px`
 const handleEl = document.querySelector<HTMLDivElement>('#resize-handle')!
 let scale = 1
-function applyScale(): void { petEl.style.transform = `scale(${scale})` }
+function applyScale(): void { shellEl.style.transform = `scale(${scale})` }
 window.petBridge.onSetScale((s) => { scale = clampScale(s); applyScale() })
 
 const labelEl = document.querySelector<HTMLDivElement>('#channel-label')!
@@ -271,16 +272,11 @@ window.petBridge?.onWalkDirection?.((direction) => {
 let tickTimer: ReturnType<typeof setInterval> | null = setInterval(tick, 100)
 
 document.addEventListener('visibilitychange', () => {
+  petEl.removeAttribute('data-paused')
+  if (!tickTimer) tickTimer = setInterval(tick, 100)
   if (document.hidden) {
-    petEl.setAttribute('data-paused', 'true')
-    if (tickTimer) {
-      clearInterval(tickTimer)
-      tickTimer = null
-    }
     if (walking) window.petBridge.walkCancel(myChannel)
   } else {
-    petEl.removeAttribute('data-paused')
-    if (!tickTimer) tickTimer = setInterval(tick, 100)
     nextWalkAt = pickWalk(Math.random, performance.now(), walkBounds).nextWalkAt
   }
 })
@@ -292,7 +288,7 @@ function bindHover(): void {
   // hover 偵測綁在涵蓋整個視窗的 body（非 #pet）：把手（pointer-events:auto）疊在 #pet 右下角，
   // 若綁 #pet，滑鼠移到把手會觸發 #pet mouseleave → 隱藏把手 → 又落回 #pet mouseenter → 無限閃爍。
   // body 是 #pet/把手/名稱標籤的共同祖先，子元素間移動不會觸發 body 的 mouseleave。
-  document.body.addEventListener('mouseenter', () => {
+  shellEl.addEventListener('mouseenter', () => {
     labelHovering = true
     applyLabel()
     handleEl.hidden = false
@@ -300,7 +296,7 @@ function bindHover(): void {
     if (walking) window.petBridge.walkCancel(myChannel) // 走動中被 hover → 立即停
     dispatch({ kind: 'hover' }) // 拖動中／反應中 reducer 自會略過
   })
-  document.body.addEventListener('mouseleave', () => {
+  shellEl.addEventListener('mouseleave', () => {
     labelHovering = false
     applyLabel()
     if (!resizing) {
@@ -332,7 +328,7 @@ handleEl.addEventListener('pointerdown', (e) => {
     handleEl.removeEventListener('pointerup', onUp)
     resizing = false
     window.petBridge.setScale(myChannel, scale)
-    if (!petEl.matches(':hover')) {
+    if (!shellEl.matches(':hover')) {
       handleEl.hidden = true
       window.petBridge.setInteractive(myChannel, false)
     }
@@ -342,13 +338,14 @@ handleEl.addEventListener('pointerdown', (e) => {
 })
 
 // 拖動／點擊：pointer 事件轉成 reducer input；DOM pointer capture 留在 adapter
-petEl.addEventListener('pointerdown', (e) => {
+shellEl.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return // 只接左鍵；右鍵留給 contextmenu
-  petEl.setPointerCapture(e.pointerId)
+  if (e.target === handleEl) return
+  shellEl.setPointerCapture(e.pointerId)
   dispatch({ kind: 'pointerDown', sx: e.screenX, sy: e.screenY, button: e.button })
 })
 
-petEl.addEventListener('pointermove', (e) => {
+shellEl.addEventListener('pointermove', (e) => {
   if (!interactionState.drag) return
   dispatch({ kind: 'pointerMove', sx: e.screenX, sy: e.screenY })
 })
@@ -356,17 +353,17 @@ petEl.addEventListener('pointermove', (e) => {
 function endDrag(e: PointerEvent): void {
   if (!interactionState.drag) return
   try {
-    petEl.releasePointerCapture(e.pointerId)
+    shellEl.releasePointerCapture(e.pointerId)
   } catch {
     /* 已釋放 */
   }
   dispatch({ kind: e.type === 'pointercancel' ? 'pointerCancel' : 'pointerUp' })
 }
-petEl.addEventListener('pointerup', endDrag)
-petEl.addEventListener('pointercancel', endDrag)
+shellEl.addEventListener('pointerup', endDrag)
+shellEl.addEventListener('pointercancel', endDrag)
 
 // 右鍵叫出原生選單（結束 may／通知中心）
-document.addEventListener('contextmenu', (e) => {
+shellEl.addEventListener('contextmenu', (e) => {
   e.preventDefault()
   window.petBridge?.showContextMenu?.(myChannel)
 })

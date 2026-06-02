@@ -1,11 +1,19 @@
-html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; height: 100%; }
+html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; width: 100vw; height: 100vh; }
+#pet-shell {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 135px;
+  height: 146px;
+  transform-origin: top left;
+}
+
 #pet {
   position: absolute;
   top: 0;
   left: 0;
   image-rendering: pixelated;
   background-repeat: no-repeat;
-  transform-origin: top left;
 }
 
 /* sprite 影格動畫：9 個 @keyframes 對應 SPRITE_FORMAT.animations。

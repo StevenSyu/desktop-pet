@@ -1,7 +1,7 @@
 import { app, BrowserWindow, screen } from 'electron'
 import { createPetWindow, getSkinSheetPath, getPetWindow, petChannelIds, closePetWindow, builtinRoot, setSkinSheetPaths } from './window'
 import { createCenterWindow, CENTER_W, CENTER_H } from './center-window'
-import { createCardWindow, CARD_W, CARD_H, CARD_GAP } from './card-window'
+import { createCardWindow, CARD_W, CARD_H, CARD_GAP, CARD_SHADOW_PAD } from './card-window'
 import { createSettingsWindow } from './settings-window'
 import { createSkinWindow } from './skin-window'
 import { createChannelsWindow } from './channels-window'
@@ -27,7 +27,14 @@ let centerWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
 let skinWindow: BrowserWindow | null = null
 let channelsWindow: BrowserWindow | null = null
-interface CardState { win: BrowserWindow; loaded: boolean; pending: CardView | null; activeId: string | null }
+interface CardState {
+  win: BrowserWindow
+  loaded: boolean
+  pending: CardView | null
+  activeId: string | null
+  dragOffset: { x: number; y: number } | null
+}
+type PetBounds = { x: number; y: number; width: number; height: number }
 const cardWindows = new Map<string, CardState>()
 let pendingDetailId: string | null = null
 let pendingChannelTab: string | null = null
@@ -172,7 +179,7 @@ function ensureCard(channelId: string): CardState {
   const existing = cardWindows.get(channelId)
   if (existing && !existing.win.isDestroyed()) return existing
   const win = createCardWindow(channelId)
-  const cs: CardState = { win, loaded: false, pending: null, activeId: null }
+  const cs: CardState = { win, loaded: false, pending: null, activeId: null, dragOffset: null }
   cardWindows.set(channelId, cs)
   win.webContents.once('did-finish-load', () => {
     cs.loaded = true
@@ -185,14 +192,52 @@ function ensureCard(channelId: string): CardState {
 }
 
 // 若卡片可見，依寵物 bounds 重新定位卡片並置頂（兩窗同為 floating，需 moveTop 保證在寵物上）
-function repositionCard(channelId: string): void {
+function repositionCard(channelId: string, bringToFront = true, movedBounds?: PetBounds): void {
   const cs = cardWindows.get(channelId)
   const pet = getPetWindow(channelId)
   if (!cs || cs.win.isDestroyed() || !cs.win.isVisible() || !pet) return
-  const display = screen.getDisplayMatching(pet.getBounds())
-  const pos = cardPosition(pet.getBounds(), { width: CARD_W, height: CARD_H }, display.workArea, CARD_GAP)
-  cs.win.setPosition(pos.x, pos.y)
-  cs.win.moveTop()
+  const petBounds = movedBounds ?? pet.getBounds()
+  if (cs.dragOffset) {
+    cs.win.setBounds({
+      x: Math.round(petBounds.x + cs.dragOffset.x),
+      y: Math.round(petBounds.y + cs.dragOffset.y),
+      width: CARD_W,
+      height: CARD_H,
+    })
+    return
+  }
+  const display = screen.getDisplayMatching(petBounds)
+  const visibleCard = {
+    width: CARD_W - CARD_SHADOW_PAD * 2,
+    height: CARD_H - CARD_SHADOW_PAD * 2,
+  }
+  const pos = cardPosition(petBounds, visibleCard, display.workArea, CARD_GAP)
+  cs.win.setBounds({
+    x: Math.round(pos.x - CARD_SHADOW_PAD),
+    y: Math.round(pos.y - CARD_SHADOW_PAD),
+    width: CARD_W,
+    height: CARD_H,
+  })
+  if (bringToFront) cs.win.moveTop()
+}
+
+function startCardDragSync(channelId: string): void {
+  const cs = cardWindows.get(channelId)
+  const pet = getPetWindow(channelId)
+  if (!cs || cs.win.isDestroyed() || !cs.win.isVisible() || !pet) return
+  repositionCard(channelId, false)
+  const cardBounds = cs.win.getBounds()
+  const petBounds = pet.getBounds()
+  cs.dragOffset = {
+    x: cardBounds.x - petBounds.x,
+    y: cardBounds.y - petBounds.y,
+  }
+}
+
+function endCardDragSync(channelId: string): void {
+  const cs = cardWindows.get(channelId)
+  if (!cs) return
+  cs.dragOffset = null
 }
 
 function flushCard(channelId: string): void {
@@ -352,7 +397,10 @@ app.whenReady().then(async () => {
     return t
   })
 
-  bus.on('pet-moved', (channelId: string) => repositionCard(channelId)) // 拖動 / display-removed 重吸附後同步卡片
+  bus.on('pet-drag-start', (channelId: string) => startCardDragSync(channelId))
+  bus.on('pet-drag-end', (channelId: string) => endCardDragSync(channelId))
+
+  bus.on('pet-moved', (channelId: string, bounds?: PetBounds) => repositionCard(channelId, false, bounds)) // 拖動 / display-removed 重吸附後同步卡片
   screen.on('display-metrics-changed', () => { for (const id of cardWindows.keys()) repositionCard(id) }) // 解析度 / 排列變更
 
   bus.on('open-center', (channelId?: string) => openCenter(channelId))

@@ -1,6 +1,6 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
-import { pinWindow } from './win-util'
+import { pinWindow, toolWindowChrome } from './win-util'
 
 export const CENTER_W = 360
 export const CENTER_H = 480
@@ -12,16 +12,12 @@ export function createCenterWindow(pos?: { x: number; y: number }): BrowserWindo
   const { x, y, width, height } = primary.workArea
 
   const win = new BrowserWindow({
+    ...toolWindowChrome({ title: '通知中心' }),
     width: CENTER_W,
     height: CENTER_H,
     x: pos?.x ?? x + width - CENTER_W - MARGIN,
     y: pos?.y ?? Math.max(y + 8, y + height - CENTER_H - MARGIN - PET_RESERVE),
-    frame: false,
-    transparent: true,
-    resizable: false,
-    skipTaskbar: true,
     alwaysOnTop: true,
-    hasShadow: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
     },

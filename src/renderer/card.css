@@ -20,7 +20,7 @@ body { padding: 14px; box-sizing: border-box; height: 100vh; }
   display: flex;
   flex-direction: column;
   justify-content: center;
-  animation: cardIn .26s cubic-bezier(.2, .9, .3, 1.25) both;
+  animation: cardIn .18s ease-out both;
 }
 #card[data-type="done"]      { --accent: #2e9e6b; }
 #card[data-type="attention"] { --accent: #e08a2b; }
@@ -57,8 +57,8 @@ body { padding: 14px; box-sizing: border-box; height: 100vh; }
 }
 
 @keyframes cardIn {
-  from { opacity: 0; transform: translateY(7px) scale(.95); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .card-close {

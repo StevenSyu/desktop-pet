@@ -6,6 +6,7 @@ import { pinWindow } from './win-util'
 export const CARD_W = 264
 export const CARD_H = 148
 export const CARD_GAP = 8
+export const CARD_SHADOW_PAD = 14
 
 export function createCardWindow(channelId: string): BrowserWindow {
   const primary = screen.getPrimaryDisplay()
