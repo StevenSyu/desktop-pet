@@ -22,9 +22,11 @@ declare global {
     petBridge: {
       onPetEvent: (cb: (event: AppEvent) => void) => void
       setInteractive: (channelId: string, interactive: boolean) => void
+      setScale: (channelId: string, scale: number) => void
       showContextMenu: (channelId: string) => void
       openCenter: (channelId: string) => void
       onSetSkin: (cb: (id: string) => void) => void
+      onSetScale: (cb: (scale: number) => void) => void
       onUnreadCount: (cb: (n: number) => void) => void
       markRead: (id: string) => void
       dragStart: (channelId: string, sx: number, sy: number) => void

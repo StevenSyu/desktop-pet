@@ -10,9 +10,11 @@ import { sendCommand, invokeQuery, subscribePush } from '../ipc/preload-helpers'
 contextBridge.exposeInMainWorld('petBridge', {
   onPetEvent: (cb: (event: AppEvent) => void) => subscribePush('pet-event', cb),
   setInteractive: (channelId: string, interactive: boolean) => sendCommand('set-interactive', { channelId, interactive }),
+  setScale: (channelId: string, scale: number) => sendCommand('set-scale', { channelId, scale }),
   showContextMenu: (channelId: string) => sendCommand('show-context-menu', { channelId }),
   openCenter: (channelId: string) => sendCommand('open-center', { channelId }),
   onSetSkin: (cb: (id: string) => void) => subscribePush('set-skin', cb),
+  onSetScale: (cb: (scale: number) => void) => subscribePush('set-scale', cb),
   onUnreadCount: (cb: (n: number) => void) => subscribePush('unread-count', cb),
   markRead: (id: string) => sendCommand('mark-read', id),
   dragStart: (channelId: string, sx: number, sy: number) => sendCommand('drag-start', { channelId, sx, sy }),

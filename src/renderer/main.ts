@@ -8,6 +8,7 @@ import { resolveAnimation, type AnimationContext } from '../core/anim-resolver'
 import { shouldWalkNow } from '../core/walk-decider'
 import { stripMarkdown } from '../core/markdown-strip'
 import { sanitizeLabelMode, shouldShowLabel, type ChannelLabelMode } from '../core/channel-label'
+import { clampScale, scaleFromDrag } from '../core/pet-scale'
 import {
   reduce,
   initialInteractionState,
@@ -22,6 +23,8 @@ import { cardSummary } from '../core/card-summary'
 const myChannel = new URLSearchParams(location.search).get('c') ?? 'all'
 const isAllPet = myChannel === 'all'
 const DISPLAY_SCALE = 0.7
+const BASE_W = 135
+const BASE_H = 146
 // 狀態以文字標籤＋色彩（CSS 依 data-type 上色）呈現，不用 emoji
 const LABEL: Record<NotifyType, string> = {
   done: '完成', attention: '需要注意', error: '錯誤', review: '請檢視', working: '工作中', info: '通知',
@@ -31,6 +34,10 @@ const petEl = document.querySelector<HTMLDivElement>('#pet')!
 petEl.style.width = `${SPRITE_FORMAT.frameWidth * DISPLAY_SCALE}px`
 petEl.style.height = `${SPRITE_FORMAT.frameHeight * DISPLAY_SCALE}px`
 petEl.style.backgroundSize = `${SPRITE_FORMAT.sheetWidth * DISPLAY_SCALE}px ${SPRITE_FORMAT.sheetHeight * DISPLAY_SCALE}px`
+const handleEl = document.querySelector<HTMLDivElement>('#resize-handle')!
+let scale = 1
+function applyScale(): void { petEl.style.transform = `scale(${scale})` }
+window.petBridge.onSetScale((s) => { scale = clampScale(s); applyScale() })
 
 const labelEl = document.querySelector<HTMLDivElement>('#channel-label')!
 let labelMode: ChannelLabelMode = 'hidden'
@@ -286,6 +293,7 @@ function bindHover(): void {
   petEl.addEventListener('mouseenter', () => {
     labelHovering = true
     applyLabel()
+    handleEl.hidden = false
     enableInteractive()
     if (walking) window.petBridge.walkCancel(myChannel) // 走動中被 hover → 立即停
     dispatch({ kind: 'hover' }) // 拖動中／反應中 reducer 自會略過
@@ -293,13 +301,45 @@ function bindHover(): void {
   petEl.addEventListener('mouseleave', () => {
     labelHovering = false
     applyLabel()
-    disableInteractive()
+    if (!resizing) {
+      handleEl.hidden = true
+      disableInteractive()
+    }
   })
   badge.addEventListener('mouseenter', enableInteractive)
   badge.addEventListener('mouseleave', disableInteractive)
 }
 
 bindHover()
+
+let resizing = false
+handleEl.addEventListener('pointerdown', (e) => {
+  e.preventDefault(); e.stopPropagation()
+  resizing = true
+  handleEl.setPointerCapture(e.pointerId)
+  window.petBridge.setInteractive(myChannel, true)
+  const startScale = scale
+  const startX = e.screenX, startY = e.screenY
+  let raf = 0
+  const onMove = (ev: PointerEvent) => {
+    const next = scaleFromDrag(startScale, ev.screenX - startX, ev.screenY - startY, BASE_W, BASE_H)
+    scale = next; applyScale()
+    if (!raf) raf = requestAnimationFrame(() => { raf = 0; window.petBridge.setScale(myChannel, scale) })
+  }
+  const onUp = () => {
+    handleEl.releasePointerCapture(e.pointerId)
+    handleEl.removeEventListener('pointermove', onMove)
+    handleEl.removeEventListener('pointerup', onUp)
+    resizing = false
+    window.petBridge.setScale(myChannel, scale)
+    if (!petEl.matches(':hover')) {
+      handleEl.hidden = true
+      window.petBridge.setInteractive(myChannel, false)
+    }
+  }
+  handleEl.addEventListener('pointermove', onMove)
+  handleEl.addEventListener('pointerup', onUp)
+})
 
 // 拖動／點擊：pointer 事件轉成 reducer input；DOM pointer capture 留在 adapter
 petEl.addEventListener('pointerdown', (e) => {
