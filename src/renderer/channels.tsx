@@ -12,6 +12,7 @@ const defaultSkin = signal<string>('')
 const selectedId = signal<string | null>(null)
 const confirmDelId = signal<string | null>(null)
 const draftName = signal('')
+const adding = signal(false)
 let pendingScrollBottom = false // 新增頻道後捲到底（新頻道在清單末）
 
 window.channelsBridge.getChannels().then((cs) => (channels.value = cs))
@@ -37,6 +38,18 @@ const srcKey = (s: SourceMatch): string => `${s.kind ?? ''} ${s.name ?? ''}`
 const srcLabel = (s: SourceMatch): string => s.name || s.kind || '(unknown)'
 const skinName = (id: string): string => skins.value.find((s) => s.id === id)?.displayName ?? id
 const upsert = (ch: Channel): void => window.channelsBridge.upsertChannel(ch)
+function createChannel(): void {
+  const name = draftName.value.trim()
+  if (!name) return
+  pendingScrollBottom = true
+  upsert({ id: '', name, skin: skins.value.find((s) => s.valid)?.id ?? '', enabled: false, showPet: true, members: [] })
+  draftName.value = ''
+  adding.value = false
+}
+function cancelAdd(): void {
+  adding.value = false
+  draftName.value = ''
+}
 
 function addMember(ch: Channel, s: SourceMatch): void {
   if (ch.members.some((m) => srcKey(m) === srcKey(s))) return
@@ -123,10 +136,17 @@ function App(): preact.JSX.Element {
         {channels.value.map((ch) => <ChannelRow ch={ch} key={ch.id} />)}
         {channels.value.length === 0 && <div class="ph">尚無頻道（發一則通知即自動偵測）</div>}
       </div>
-      <div class="addbar">
-        <input value={draftName.value} placeholder="新頻道名稱" onInput={(e) => (draftName.value = (e.target as HTMLInputElement).value)} />
-        <button disabled={draftName.value.trim() === ''} onClick={() => { pendingScrollBottom = true; upsert({ id: '', name: draftName.value.trim(), skin: skins.value.find((s) => s.valid)?.id ?? '', enabled: false, showPet: true, members: [] }); draftName.value = '' }}>＋ 新增頻道</button>
-      </div>
+      {adding.value ? (
+        <div class="addbar">
+          <input class="add-input" value={draftName.value} placeholder="新頻道名稱…" ref={(el) => el?.focus()}
+            onInput={(e) => (draftName.value = (e.target as HTMLInputElement).value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') createChannel(); else if (e.key === 'Escape') { e.stopPropagation(); cancelAdd() } }} />
+          <button class="add-confirm" disabled={draftName.value.trim() === ''} onClick={createChannel}>建立</button>
+          <button class="add-cancel" onClick={cancelAdd}>取消</button>
+        </div>
+      ) : (
+        <button class="add-trigger" onClick={() => (adding.value = true)}>＋ 新增頻道</button>
+      )}
       {sel ? <MemberEditor ch={sel} /> : <div class="ph editor-empty">選一個頻道編輯成員</div>}
       {confirmDelId.value != null && <DeleteDialog />}
     </div>
