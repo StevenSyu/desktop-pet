@@ -170,6 +170,11 @@ function registerHandlers(): void {
       { type: 'separator' },
       { label: '通知中心', click: () => bus.emit('open-center') },
       { type: 'separator' },
+      {
+        label: petChannelIds().length >= 2 ? '關閉這隻寵物' : '關閉這隻寵物（至少保留一隻）',
+        enabled: petChannelIds().length >= 2,
+        click: () => bus.emit('close-pet', channelId),
+      },
       { label: '關閉小幫手', click: () => app.quit() },
     ])
     menu.popup({ window: win })

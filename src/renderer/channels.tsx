@@ -1,7 +1,7 @@
 /// <reference path="../preload/api.d.ts" />
 import { render } from 'preact'
 import { signal } from '@preact/signals'
-import { matchesSource, type Channel, type SourceMatch } from '../core/channel'
+import { matchesSource, activePetCount, type Channel, type SourceMatch } from '../core/channel'
 import type { DiscoveredSkin } from '../core/skin-scan'
 
 const channels = signal<Channel[]>([])
@@ -38,14 +38,16 @@ function removeMember(ch: Channel, i: number): void {
 function ChannelRow({ ch }: { ch: Channel }): preact.JSX.Element {
   const sel = selectedId.value === ch.id
   const stop = (e: Event) => e.stopPropagation()
+  // 停用/刪除這個啟用中的頻道會使寵物歸零 → 防呆鎖定（至少保留一隻）
+  const lockLast = ch.enabled && activePetCount(channels.value, allEnabled.value) <= 1
   return (
     <div class={'crow' + (sel ? ' sel' : '')} onClick={() => (selectedId.value = sel ? null : ch.id)} title="點此列選取並在下方編輯成員">
       <span class="chev">{sel ? '▾' : '▸'}</span>
       <input class="name" value={ch.name} onClick={stop} onInput={(e) => upsert({ ...ch, name: (e.target as HTMLInputElement).value })} />
       <button class="skin-pick" onClick={(e) => { stop(e); window.channelsBridge.openSkinPicker(ch.id) }}>造型：{skinName(ch.skin)} ⚙</button>
       <span class="count">{ch.members.length} 來源</span>
-      <button class={'toggle' + (ch.enabled ? ' on' : '')} onClick={(e) => { stop(e); upsert({ ...ch, enabled: !ch.enabled }) }}>{ch.enabled ? '啟用中' : '停用'}</button>
-      <button class="del" onClick={(e) => { stop(e); window.channelsBridge.deleteChannel(ch.id); if (sel) selectedId.value = null }}>✕</button>
+      <button class={'toggle' + (ch.enabled ? ' on' : '')} disabled={lockLast} title={lockLast ? '至少保留一隻寵物' : ''} onClick={(e) => { stop(e); upsert({ ...ch, enabled: !ch.enabled }) }}>{ch.enabled ? '啟用中' : '停用'}</button>
+      <button class="del" disabled={lockLast} title={lockLast ? '至少保留一隻寵物（先啟用其他頻道再刪）' : ''} onClick={(e) => { stop(e); window.channelsBridge.deleteChannel(ch.id); if (sel) selectedId.value = null }}>✕</button>
     </div>
   )
 }
@@ -97,7 +99,7 @@ function App(): preact.JSX.Element {
           <span class="all-note">所有訊息 · 不可編輯</span>
           <button class="skin-pick" onClick={() => window.channelsBridge.openSkinPicker('all')}>造型：{skinName(defaultSkin.value)} ⚙</button>
           <span class="count" />
-          <button class={'toggle' + (allEnabled.value ? ' on' : '')} onClick={() => window.channelsBridge.setAllEnabled(!allEnabled.value)}>{allEnabled.value ? '啟用中' : '停用'}</button>
+          <button class={'toggle' + (allEnabled.value ? ' on' : '')} disabled={allEnabled.value && activePetCount(channels.value, allEnabled.value) <= 1} title={allEnabled.value && activePetCount(channels.value, allEnabled.value) <= 1 ? '至少保留一隻寵物（先啟用其他頻道）' : ''} onClick={() => window.channelsBridge.setAllEnabled(!allEnabled.value)}>{allEnabled.value ? '啟用中' : '停用'}</button>
           <span class="del-spacer" />
         </div>
         {channels.value.map((ch) => <ChannelRow ch={ch} key={ch.id} />)}

@@ -28,6 +28,8 @@ header { display: flex; justify-content: space-between; align-items: center; pad
 .crow .toggle.on { background: #2e9e6b; color: #fff; }
 .crow .del { border: none; background: none; color: #b3a692; cursor: pointer; font-size: 13px; }
 .crow .del:hover { color: #d6453d; }
+.crow .toggle:disabled, .crow .del:disabled { opacity: .35; cursor: not-allowed; }
+.crow .del:disabled:hover { color: #b3a692; }
 .crow .del-spacer { width: 13px; }
 .addbar { display: flex; gap: 6px; padding: 8px 14px; border-top: 1px solid #efe9df; }
 .addbar input { flex: 1; font: 600 12px ui-rounded, system-ui, sans-serif; padding: 4px 7px; border: 1px solid #e3dccf; border-radius: 7px; }

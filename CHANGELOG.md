@@ -6,7 +6,14 @@
 
 ### Added
 
-- **通知中心按 session 篩選（#6）**：同專案不同 session 的訊息採「合併為主、可分開看」—— source 身分維持「專案」粒度不變（不把高基數短命的 sessionId 納入來源身分），session 只活在通知中心顯示層。type chips 那排在右側加 session 篩選 chips（藍色系區別、分隔線），**僅當目前頻道內出現 ≥2 個非 default session 才顯示**；點某 session chip 只看該 session、「全部 session」看全部；切頻道分頁會自動重設。新增純函式 `session-filter`（sessionShort / collectSessions / filterBySession）。
+- **右鍵快速關閉寵物 + 至少保留一隻防呆**：右鍵選單新增「關閉這隻寵物」（停用該頻道，「全部」→ 關閉 `allEnabled`）。為避免「全部寵物被關 → 沒介面叫回」，在**右鍵選單**與**頻道管理頁**（停用 toggle／刪除／「全部」開關）**雙重防呆**：當只剩一隻寵物時，相關操作 disabled 灰掉並提示「至少保留一隻」。新增純函式 `activePetCount`，與既有 reconcile「≥1 兜底」雙保險。
+
+### Changed
+
+- **寵物縮放打磨**：縮放把手 14px 斜紋 → 28px 圓形（白邊＋對角箭頭＋陰影），hover 時明顯易按；修正放大時寵物往右溢出被視窗切掉（`#pet` 由 `right` 改 `left` 對齊，與 `transform-origin:top left` 及視窗左上固定一致）；hover 偵測改綁 `document.body` 消除「靠近把手時名字/把手一直閃」（把手 `pointer-events:auto` 疊在 `#pet` 上造成的 mouseenter/leave 循環）；最大倍率 2.0 → 1.35（縮約 1/3）。
+- **通知中心「全部已讀」改為範圍已讀**：只標記**當前 channel 分頁 + session sub-tab + type 篩選**後可見的未讀，不再一次標記所有訊息。
+
+同專案不同 session 的訊息採「合併為主、可分開看」—— source 身分維持「專案」粒度不變（不把高基數短命的 sessionId 納入來源身分），session 只活在通知中心顯示層。type chips 那排在右側加 session 篩選 chips（藍色系區別、分隔線），**僅當目前頻道內出現 ≥2 個非 default session 才顯示**；點某 session chip 只看該 session、「全部 session」看全部；切頻道分頁會自動重設。新增純函式 `session-filter`（sessionShort / collectSessions / filterBySession）。
 - **可調整寵物大小（#3）**：寵物右下角 hover 出現縮放把手，拖曳即時調整大小、**左上角固定**（往右下擴/縮），範圍 0.6×–2.0×；**每隻寵物各自大小**、跨重啟記住（scale 存 `window-state.json` per-channel，向後相容舊檔無 scale→1）。實作以 `#pet` 的 CSS `transform:scale` + `transform-origin:top left`（sprite 影格位移寫死故不動寬高）＋ main `setBounds` resize 視窗（x/y 不變＝左上固定）；卡片定位用 `getBounds()` 自動跟著縮放後尺寸。新增純函式 `pet-scale`（clampScale / scaleFromDrag）。
 - **寵物名稱標籤 + 頻道造型設定整合**：寵物腳邊可顯示所屬 channel 名稱（「全部」寵物顯示「全部」），全域三態 `channelLabelMode`（隱藏／滑過時顯示／常態顯示，**預設隱藏**），右鍵選單「名稱標籤」子選單切換、即時套用所有寵物免重啟（半透明 pill、`pointer-events:none` 不影響互動）。**造型選擇視窗改「認 channel」**（沿用 `?c=`）：右鍵「更換造型…」對**被右鍵的那隻寵物**開、選完寫回該寵物造型並即時換裝（channel 寵物→`channel.skin`、「全部」→`prefs.skin`，走既有 `upsertChannel` 單一寫入路徑）。**頻道管理頁**每列造型由下拉改成「造型：<目前造型名稱> ⚙」按鈕外開造型視窗、**「全部」也納入頻道頁造型設定**（顯示目前造型名稱、改後即時更新）。`get-skins`/`select-skin` handler 從 `window.ts` 移到 `index.ts`（持有 channels 狀態）。新增純函式 `channel-label`（sanitizeLabelMode / shouldShowLabel）。
 - **多寵物（子專案 B1）**：每個**啟用的頻道** + 「全部」各長出**一隻寵物視窗**，各自造型、各自反應符合的事件、各自未讀紅點；從「全部」向左堆疊定位、channel 寵物可拖（不自走）；「全部」維持完整行為（走動/即時卡片）。事件反應：「全部」反應所有訊息、命中的頻道寵物額外反應（多屬來源→多隻一起跳），嫌吵可用「全部」開關關掉那隻。**點寵物開通知中心會切到該頻道分頁**。reconcile 生命週期（啟用→生、停用/刪→收、`allEnabled`→「全部」），保證至少 1 隻寵物以防鎖死。寵物以 URL `?c=<channelId>` 辨識身分、per-pet 命令帶 channelId 路由（`window.ts` 單→多寵物重構）。新增純函式 `pet-layout.stackPosition`。

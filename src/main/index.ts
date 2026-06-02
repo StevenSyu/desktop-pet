@@ -7,7 +7,7 @@ import { createSkinWindow } from './skin-window'
 import { createChannelsWindow } from './channels-window'
 import { cardPosition } from '../core/card-position'
 import type { CardView } from '../core/card-view'
-import { matchingChannels, needsAutoChannel, unreadByChannel, type Channel, type SourceMatch } from '../core/channel'
+import { matchingChannels, needsAutoChannel, unreadByChannel, activePetCount, type Channel, type SourceMatch } from '../core/channel'
 import { DEFAULT_SKIN_ID } from '../core/skins'
 import { registerPetScheme, registerPetProtocol } from './pet-protocol'
 import { findFreePort, generateToken, writeEndpointFile } from './endpoint'
@@ -70,6 +70,14 @@ function reconcilePets(): void {
       createPetWindow(id, skinFor(id), index)
     }
   })
+}
+
+function applyAllEnabled(v: boolean): void {
+  allEnabled = v
+  updatePrefs(app.getPath('userData'), { allEnabled })
+  pushTo(channelsWindow, 'all-enabled-updated', allEnabled)
+  reconcilePets()
+  broadcastUnread()
 }
 
 function broadcastUnread(): void {
@@ -258,14 +266,19 @@ app.whenReady().then(async () => {
     broadcastUnread()
   })
   handleQuery('get-all-enabled', () => allEnabled)
-  handleCommand('set-all-enabled', (v) => {
-    allEnabled = v
-    updatePrefs(app.getPath('userData'), { allEnabled })
-    pushTo(channelsWindow, 'all-enabled-updated', allEnabled)
-    reconcilePets()
-    broadcastUnread()
-  })
+  handleCommand('set-all-enabled', (v) => applyAllEnabled(v))
   handleCommand('open-skin-picker', ({ channelId }) => bus.emit('open-skins', channelId))
+  // 快速關閉目前頻道的寵物（右鍵選單）：停用該頻道（'all' → allEnabled false）。
+  // 防呆保險：至少保留一隻（選單項已 disable，這裡再擋一次避免 race）。
+  bus.on('close-pet', (channelId: string) => {
+    if (activePetCount(channels, allEnabled) <= 1) return
+    if (channelId === 'all') {
+      applyAllEnabled(false)
+    } else {
+      const ch = channels.find((c) => c.id === channelId)
+      if (ch) upsertChannel({ ...ch, enabled: false })
+    }
+  })
 
   handleCommand('show-card', ({ channelId, view }) => {
     const cs = ensureCard(channelId)

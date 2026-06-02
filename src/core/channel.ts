@@ -65,3 +65,8 @@ export function sanitizeChannels(raw: unknown): Channel[] {
   }
   return out
 }
+
+/** 目前會顯示的寵物數：allEnabled 的「全部」+ 啟用中的頻道。用於「至少保留一隻」防呆。 */
+export function activePetCount(channels: Channel[], allEnabled: boolean): number {
+  return (allEnabled ? 1 : 0) + channels.filter((c) => c.enabled).length
+}

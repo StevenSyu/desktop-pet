@@ -8,6 +8,7 @@ import {
   unreadByChannel,
   sanitizeChannels,
   sanitizeSources,
+  activePetCount,
   type Channel,
   type SourceMatch,
 } from '../../src/core/channel'
@@ -133,5 +134,15 @@ describe('sanitizeSources', () => {
       null,
       'bad',
     ])).toEqual([{ kind: 'claude-code' }, { name: 'desktop-notify' }])
+  })
+})
+
+describe('activePetCount', () => {
+  const ch = (enabled: boolean): Channel => ({ id: 'x', name: 'x', skin: '', enabled, members: [{ kind: 'k' }] })
+  it('= allEnabled 的 1 + 啟用頻道數', () => {
+    expect(activePetCount([ch(true), ch(false)], true)).toBe(2) // all + 1 啟用
+    expect(activePetCount([ch(true), ch(true)], false)).toBe(2) // 0 + 2 啟用
+    expect(activePetCount([], true)).toBe(1) // 只有 all
+    expect(activePetCount([ch(false)], false)).toBe(0) // 都沒開 → 0（防呆要擋到這步）
   })
 })
