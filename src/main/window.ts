@@ -7,6 +7,7 @@ import { bus } from './bus'
 import { type ChannelLabelMode } from '../core/channel-label'
 import { defaultPosition, type DisplayInfo } from '../core/window-position'
 import { stackPosition } from '../core/pet-layout'
+import { clampScale } from '../core/pet-scale'
 import { sanitizeWalkBounds, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
 import { WalkSession } from '../core/walk-session'
 import { loadWindowStates, saveWindowState } from './window-state'
@@ -79,9 +80,12 @@ export function createPetWindow(channelId: string, requestedSkin: string, index:
 
   const states = loadWindowStates(app.getPath('userData'))
   const saved = states[channelId]
+  const scale = clampScale(saved?.scale)
+  const winW = Math.round(PET_WIDTH * scale)
+  const winH = Math.round(PET_HEIGHT * scale)
   let pos: { x: number; y: number }
   const displays: DisplayInfo[] = screen.getAllDisplays().map((d) => ({ id: d.id, workArea: d.workArea }))
-  const validSaved = saved && displays.some((d) => saved.x >= d.workArea.x && saved.y >= d.workArea.y && saved.x + PET_WIDTH <= d.workArea.x + d.workArea.width && saved.y + PET_HEIGHT <= d.workArea.y + d.workArea.height)
+  const validSaved = saved && displays.some((d) => saved.x >= d.workArea.x && saved.y >= d.workArea.y && saved.x + winW <= d.workArea.x + d.workArea.width && saved.y + winH <= d.workArea.y + d.workArea.height)
   if (validSaved && saved) {
     pos = { x: saved.x, y: saved.y }
   } else if (channelId === 'all') {
@@ -92,8 +96,8 @@ export function createPetWindow(channelId: string, requestedSkin: string, index:
   }
 
   const win = new BrowserWindow({
-    width: PET_WIDTH,
-    height: PET_HEIGHT,
+    width: winW,
+    height: winH,
     x: pos.x,
     y: pos.y,
     frame: false,
@@ -117,6 +121,7 @@ export function createPetWindow(channelId: string, requestedSkin: string, index:
     skinSheetPaths = sheetPaths
     const effectiveId = sheetPaths.has(requestedSkin) ? requestedSkin : DEFAULT_SKIN_ID
     pushTo(win, 'set-skin', effectiveId)
+    pushTo(win, 'set-scale', scale)
   })
   win.setIgnoreMouseEvents(true, { forward: true })
   petWindows.set(channelId, win)
@@ -193,7 +198,18 @@ function registerHandlers(): void {
     if (!win) return
     const [x, y] = win.getPosition()
     const d = screen.getDisplayMatching(win.getBounds())
-    saveWindowState(app.getPath('userData'), channelId, { displayId: d.id, x, y })
+    const scale = clampScale(loadWindowStates(app.getPath('userData'))[channelId]?.scale)
+    saveWindowState(app.getPath('userData'), channelId, { displayId: d.id, x, y, scale })
+  })
+  handleCommand('set-scale', ({ channelId, scale }) => {
+    const s = clampScale(scale)
+    const win = getPetWindow(channelId)
+    if (!win) return
+    const b = win.getBounds()
+    win.setBounds({ x: b.x, y: b.y, width: Math.round(PET_WIDTH * s), height: Math.round(PET_HEIGHT * s) })
+    const d = screen.getDisplayMatching(win.getBounds())
+    saveWindowState(app.getPath('userData'), channelId, { displayId: d.id, x: b.x, y: b.y, scale: s })
+    bus.emit('pet-moved', channelId)
   })
 
   // ===== walk：只給 'all' =====

@@ -5,6 +5,7 @@ html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
   right: 0;
   image-rendering: pixelated;
   background-repeat: no-repeat;
+  transform-origin: top left;
 }
 
 /* sprite 影格動畫：9 個 @keyframes 對應 SPRITE_FORMAT.animations。
@@ -66,3 +67,17 @@ html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
 #badge:hover { transform: scale(1.25); }
 #badge:active { transform: scale(.9); }
 #badge[hidden] { display: none; }
+
+#resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  pointer-events: auto;
+  background:
+    linear-gradient(135deg, transparent 0 50%, rgba(80,70,60,.55) 50% 60%, transparent 60% 70%, rgba(80,70,60,.55) 70% 80%, transparent 80%);
+  border-bottom-right-radius: 4px;
+}
+#resize-handle[hidden] { display: none; }
