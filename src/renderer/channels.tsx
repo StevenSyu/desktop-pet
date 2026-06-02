@@ -91,7 +91,7 @@ function App(): preact.JSX.Element {
   const sel = channels.value.find((c) => c.id === selectedId.value)
   return (
     <div class="panel">
-      <header><div class="title">頻道</div><button class="close" onClick={() => window.close()}>×</button></header>
+      <header><div class="title">寵物設定</div><button class="close" onClick={() => window.close()}>×</button></header>
       <div class="hint">把「已知來源」拖或點進某頻道＝該頻道含它（可跨專案合併）。啟用→通知中心多一分頁。</div>
       <div class="list">
         <div class="crow all">
@@ -100,7 +100,7 @@ function App(): preact.JSX.Element {
           <span class="all-note">所有訊息 · 恆啟用</span>
           <button class="skin-pick" onClick={() => window.channelsBridge.openSkinPicker('all')}>造型：{skinName(defaultSkin.value)} ⚙</button>
           <span class="count" />
-          <button class={'eye' + (allEnabled.value ? ' on' : '')} disabled={allEnabled.value && activePetCount(channels.value, allEnabled.value) <= 1} title={allEnabled.value && activePetCount(channels.value, allEnabled.value) <= 1 ? '至少保留一隻顯示寵物（先顯示其他頻道）' : allEnabled.value ? '顯示「全部」寵物中（點按隱藏）' : '「全部」寵物已隱藏（點按顯示）'} onClick={() => window.channelsBridge.setAllEnabled(!allEnabled.value)}>👁</button>
+          <button class={'eye' + (allEnabled.value ? ' on' : '')} disabled={allEnabled.value && activePetCount(channels.value, allEnabled.value) <= 1} title={allEnabled.value && activePetCount(channels.value, allEnabled.value) <= 1 ? '至少保留一隻顯示寵物（先顯示其他頻道）' : allEnabled.value ? '顯示「全部」寵物中（點按隱藏）' : '「全部」寵物已隱藏（點按顯示）'} onClick={() => window.channelsBridge.setAllEnabled(!allEnabled.value)} aria-label="全部寵物顯示切換"></button>
           <span class="del-spacer" />
         </div>
         {channels.value.map((ch) => <ChannelRow ch={ch} key={ch.id} />)}

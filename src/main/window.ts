@@ -145,7 +145,6 @@ function registerHandlers(): void {
     const win = getPetWindow(channelId)
     if (!win) return
     const menu = Menu.buildFromTemplate([
-      { label: '更換造型…', click: () => bus.emit('open-skins', channelId) },
       {
         label: '名稱標籤',
         submenu: [
@@ -154,7 +153,7 @@ function registerHandlers(): void {
           { label: '常態顯示', type: 'radio', checked: prefs.channelLabelMode === 'always', click: () => setLabelMode('always') },
         ],
       },
-      { label: '頻道…', click: () => bus.emit('open-channels') },
+      { label: '寵物設定…', click: () => bus.emit('open-channels') },
       {
         label: '自動走動',
         type: 'checkbox',
