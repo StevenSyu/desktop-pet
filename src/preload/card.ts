@@ -7,6 +7,6 @@ import type { CardView } from '../core/card-view'
 contextBridge.exposeInMainWorld('cardBridge', {
   onCardData: (cb: (view: CardView) => void) =>
     ipcRenderer.on('card-data', (_e, view: CardView) => cb(view)),
-  cardClicked: (id: string) => ipcRenderer.send('card-clicked', { id }),
-  cardMore: (id: string) => ipcRenderer.send('card-more', { id }),
+  cardClicked: (channelId: string, id: string) => ipcRenderer.send('card-clicked', { channelId, id }),
+  cardMore: (channelId: string, id: string) => ipcRenderer.send('card-more', { channelId, id }),
 })

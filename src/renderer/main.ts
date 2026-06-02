@@ -118,11 +118,9 @@ window.petBridge?.onPetEvent?.((event: AppEvent) => {
   applyEvent(event)
   // 反應事件優先級高於本地互動 → 通知 reducer 清互動動畫與待觸發點擊
   dispatch({ kind: 'externalEvent' })
-  if (isAllPet) {
-    currentEvent = event
-    window.petBridge.showCard(buildCardView(event))
-    startReplay(event)
-  }
+  currentEvent = event
+  window.petBridge.showCard(myChannel, buildCardView(event))
+  startReplay(event)
   refreshBadge()
 })
 
@@ -130,7 +128,7 @@ window.petBridge?.onPetEvent?.((event: AppEvent) => {
 window.petBridge?.onDndOn?.(() => {
   currentEvent = null
   stopReplay()
-  window.petBridge.hideCard()
+  window.petBridge.hideCard(myChannel)
   refreshBadge()
 })
 

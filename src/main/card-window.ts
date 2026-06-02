@@ -6,7 +6,7 @@ export const CARD_W = 264
 export const CARD_H = 148
 export const CARD_GAP = 8
 
-export function createCardWindow(): BrowserWindow {
+export function createCardWindow(channelId: string): BrowserWindow {
   const primary = screen.getPrimaryDisplay()
   const { x, y } = primary.workArea
 
@@ -32,9 +32,9 @@ export function createCardWindow(): BrowserWindow {
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
 
   if (process.env.ELECTRON_RENDERER_URL) {
-    win.loadURL(`${process.env.ELECTRON_RENDERER_URL}/card.html`)
+    win.loadURL(`${process.env.ELECTRON_RENDERER_URL}/card.html?c=${encodeURIComponent(channelId)}`)
   } else {
-    win.loadFile(join(__dirname, '../renderer/card.html'))
+    win.loadFile(join(__dirname, '../renderer/card.html'), { query: { c: channelId } })
   }
 
   return win

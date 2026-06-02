@@ -26,10 +26,8 @@ let centerWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
 let skinWindow: BrowserWindow | null = null
 let channelsWindow: BrowserWindow | null = null
-let cardWindow: BrowserWindow | null = null
-let cardLoaded = false
-let pendingCard: CardView | null = null
-let activeCardId: string | null = null
+interface CardState { win: BrowserWindow; loaded: boolean; pending: CardView | null; activeId: string | null }
+const cardWindows = new Map<string, CardState>()
 let pendingDetailId: string | null = null
 let pendingChannelTab: string | null = null
 let dndEnabled = false
@@ -61,15 +59,14 @@ function desiredPetIds(): string[] {
 function reconcilePets(): void {
   const desired = desiredPetIds()
   const want = new Set(desired)
-  for (const id of petChannelIds()) if (!want.has(id)) closePetWindow(id)
+  for (const id of petChannelIds()) if (!want.has(id)) {
+    const cs = cardWindows.get(id)
+    if (cs && !cs.win.isDestroyed()) cs.win.close()
+    closePetWindow(id)
+  }
   desired.forEach((id, index) => {
     if (!getPetWindow(id)) {
-      const win = createPetWindow(id, skinFor(id), index)
-      if (id === 'all') {
-        win.on('closed', () => {
-          if (cardWindow && !cardWindow.isDestroyed()) cardWindow.close()
-        })
-      }
+      createPetWindow(id, skinFor(id), index)
     }
   })
 }
@@ -118,39 +115,40 @@ function openCenter(channelTab?: string): void {
   pushTo(centerWindow, 'open-channel-tab')
 }
 
-function ensureCardWindow(): BrowserWindow {
-  if (cardWindow && !cardWindow.isDestroyed()) return cardWindow
-  cardLoaded = false
-  cardWindow = createCardWindow()
-  cardWindow.webContents.once('did-finish-load', () => {
-    cardLoaded = true
-    flushCard()
+function ensureCard(channelId: string): CardState {
+  const existing = cardWindows.get(channelId)
+  if (existing && !existing.win.isDestroyed()) return existing
+  const win = createCardWindow(channelId)
+  const cs: CardState = { win, loaded: false, pending: null, activeId: null }
+  cardWindows.set(channelId, cs)
+  win.webContents.once('did-finish-load', () => {
+    cs.loaded = true
+    flushCard(channelId)
   })
-  cardWindow.on('closed', () => {
-    cardWindow = null
-    cardLoaded = false
+  win.on('closed', () => {
+    if (cardWindows.get(channelId) === cs) cardWindows.delete(channelId)
   })
-  return cardWindow
+  return cs
 }
 
 // 若卡片可見，依寵物 bounds 重新定位卡片並置頂（兩窗同為 floating，需 moveTop 保證在寵物上）
-function repositionCard(): void {
-  if (!cardWindow || cardWindow.isDestroyed() || !cardWindow.isVisible()) return
-  const all = getPetWindow('all')
-  if (!all) return
-  const pet = all.getBounds()
-  const display = screen.getDisplayMatching(pet)
-  const pos = cardPosition(pet, { width: CARD_W, height: CARD_H }, display.workArea, CARD_GAP)
-  cardWindow.setPosition(pos.x, pos.y)
-  cardWindow.moveTop()
+function repositionCard(channelId: string): void {
+  const cs = cardWindows.get(channelId)
+  const pet = getPetWindow(channelId)
+  if (!cs || cs.win.isDestroyed() || !cs.win.isVisible() || !pet) return
+  const display = screen.getDisplayMatching(pet.getBounds())
+  const pos = cardPosition(pet.getBounds(), { width: CARD_W, height: CARD_H }, display.workArea, CARD_GAP)
+  cs.win.setPosition(pos.x, pos.y)
+  cs.win.moveTop()
 }
 
-function flushCard(): void {
-  if (!pendingCard || !cardWindow || cardWindow.isDestroyed()) return
-  pushTo(cardWindow, 'card-data', pendingCard)
-  cardWindow.showInactive() // 顯示但不搶焦點
-  repositionCard()
-  pendingCard = null
+function flushCard(channelId: string): void {
+  const cs = cardWindows.get(channelId)
+  if (!cs || !cs.pending || cs.win.isDestroyed()) return
+  pushTo(cs.win, 'card-data', cs.pending)
+  cs.win.showInactive() // 顯示但不搶焦點
+  repositionCard(channelId)
+  cs.pending = null
 }
 
 app.whenReady().then(async () => {
@@ -232,31 +230,35 @@ app.whenReady().then(async () => {
     broadcastUnread()
   })
 
-  handleCommand('show-card', (view) => {
-    activeCardId = view.id
-    pendingCard = view
-    ensureCardWindow()
-    if (cardLoaded) flushCard()
+  handleCommand('show-card', ({ channelId, view }) => {
+    const cs = ensureCard(channelId)
+    cs.activeId = view.id
+    cs.pending = view
+    if (cs.loaded) flushCard(channelId)
     // 未載入完成則由 did-finish-load → flushCard 處理
   })
-  handleCommand('hide-card', () => {
-    activeCardId = null
-    pendingCard = null
-    if (cardWindow && !cardWindow.isDestroyed()) cardWindow.hide()
+  handleCommand('hide-card', ({ channelId }) => {
+    const cs = cardWindows.get(channelId)
+    if (!cs) return
+    cs.activeId = null
+    cs.pending = null
+    if (!cs.win.isDestroyed()) cs.win.hide()
   })
-  handleCommand('card-clicked', ({ id }) => {
-    if (id !== activeCardId) return // 舊卡片殘留點擊：忽略
-    activeCardId = null
-    if (cardWindow && !cardWindow.isDestroyed()) cardWindow.hide()
-    pushTo(getPetWindow('all'), 'card-dismissed', { id })
+  handleCommand('card-clicked', ({ channelId, id }) => {
+    const cs = cardWindows.get(channelId)
+    if (!cs || id !== cs.activeId) return
+    cs.activeId = null
+    if (!cs.win.isDestroyed()) cs.win.hide()
+    pushTo(getPetWindow(channelId), 'card-dismissed', { id })
   })
-  handleCommand('card-more', ({ id }) => {
-    if (id !== activeCardId) return
-    activeCardId = null
-    if (cardWindow && !cardWindow.isDestroyed()) cardWindow.hide()
-    pushTo(getPetWindow('all'), 'card-dismissed', { id }) // pet renderer 照常 markRead + 清理
+  handleCommand('card-more', ({ channelId, id }) => {
+    const cs = cardWindows.get(channelId)
+    if (!cs || id !== cs.activeId) return
+    cs.activeId = null
+    if (!cs.win.isDestroyed()) cs.win.hide()
+    pushTo(getPetWindow(channelId), 'card-dismissed', { id })
     pendingDetailId = id
-    openCenter()
+    openCenter(channelId) // 開該頻道分頁 + 詳情
     pushTo(centerWindow, 'open-detail') // 已開窗 → 觸發重查；新開窗靠載入時 query
   })
   handleQuery('get-pending-detail', () => {
@@ -270,8 +272,8 @@ app.whenReady().then(async () => {
     return t
   })
 
-  bus.on('pet-moved', repositionCard) // 拖動 / display-removed 重吸附後同步卡片
-  screen.on('display-metrics-changed', repositionCard) // 解析度 / 排列變更
+  bus.on('pet-moved', (channelId: string) => repositionCard(channelId)) // 拖動 / display-removed 重吸附後同步卡片
+  screen.on('display-metrics-changed', () => { for (const id of cardWindows.keys()) repositionCard(id) }) // 解析度 / 排列變更
 
   bus.on('open-center', (channelId?: string) => openCenter(channelId))
   bus.on('open-settings', () => {
