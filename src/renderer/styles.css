@@ -31,6 +31,25 @@ html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
 
 #pet[data-paused="true"] { animation-play-state: paused; }
 
+#channel-label {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  transform: translateX(-50%);
+  max-width: 90%;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(30, 30, 30, 0.72);
+  color: #fff;
+  font: 600 11px/1.4 -apple-system, 'SF Pro Rounded', system-ui, sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  user-select: none;
+}
+#channel-label[hidden] { display: none; }
+
 /* 寵物右上角的未讀數徽章（疊在 sprite 右上角內） */
 #badge {
   position: absolute;

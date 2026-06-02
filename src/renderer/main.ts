@@ -7,6 +7,7 @@ import { pickWalk, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-pla
 import { resolveAnimation, type AnimationContext } from '../core/anim-resolver'
 import { shouldWalkNow } from '../core/walk-decider'
 import { stripMarkdown } from '../core/markdown-strip'
+import { sanitizeLabelMode, shouldShowLabel, type ChannelLabelMode } from '../core/channel-label'
 import {
   reduce,
   initialInteractionState,
@@ -30,6 +31,39 @@ const petEl = document.querySelector<HTMLDivElement>('#pet')!
 petEl.style.width = `${SPRITE_FORMAT.frameWidth * DISPLAY_SCALE}px`
 petEl.style.height = `${SPRITE_FORMAT.frameHeight * DISPLAY_SCALE}px`
 petEl.style.backgroundSize = `${SPRITE_FORMAT.sheetWidth * DISPLAY_SCALE}px ${SPRITE_FORMAT.sheetHeight * DISPLAY_SCALE}px`
+
+const labelEl = document.querySelector<HTMLDivElement>('#channel-label')!
+let labelMode: ChannelLabelMode = 'hidden'
+let labelHovering = false
+let channelName = myChannel === 'all' ? '全部' : myChannel
+
+function applyLabel(): void {
+  labelEl.textContent = channelName
+  labelEl.hidden = !shouldShowLabel(labelMode, labelHovering)
+}
+
+window.petBridge.getChannels().then((cs) => {
+  if (myChannel !== 'all') {
+    const ch = cs.find((c) => c.id === myChannel)
+    if (ch) channelName = ch.name
+  }
+  applyLabel()
+})
+window.petBridge.onChannelsUpdated((cs) => {
+  if (myChannel !== 'all') {
+    const ch = cs.find((c) => c.id === myChannel)
+    if (ch) channelName = ch.name
+  }
+  applyLabel()
+})
+window.petBridge.getPrefs().then((p) => {
+  labelMode = sanitizeLabelMode(p.channelLabelMode)
+  applyLabel()
+})
+window.petBridge.onPrefsChanged((p) => {
+  labelMode = sanitizeLabelMode(p.channelLabelMode)
+  applyLabel()
+})
 
 function setSkin(id: string): void {
   petEl.style.backgroundImage = `url(pet://${id}/sheet)`
@@ -250,11 +284,17 @@ function bindHover(): void {
   const badge = document.querySelector<HTMLDivElement>('#badge')!
 
   petEl.addEventListener('mouseenter', () => {
+    labelHovering = true
+    applyLabel()
     enableInteractive()
     if (walking) window.petBridge.walkCancel(myChannel) // 走動中被 hover → 立即停
     dispatch({ kind: 'hover' }) // 拖動中／反應中 reducer 自會略過
   })
-  petEl.addEventListener('mouseleave', disableInteractive)
+  petEl.addEventListener('mouseleave', () => {
+    labelHovering = false
+    applyLabel()
+    disableInteractive()
+  })
   badge.addEventListener('mouseenter', enableInteractive)
   badge.addEventListener('mouseleave', disableInteractive)
 }
