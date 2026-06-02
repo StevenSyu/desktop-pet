@@ -76,6 +76,7 @@ declare global {
       onAllEnabledUpdated: (cb: (v: boolean) => void) => void
       onChannelsUpdated: (cb: (channels: Channel[]) => void) => void
       getKnownSources: () => Promise<import('../core/channel').SourceMatch[]>
+      removeKnownSource: (s: import('../core/channel').SourceMatch) => void
       onKnownSourcesUpdated: (cb: (s: import('../core/channel').SourceMatch[]) => void) => void
       getSkins: () => Promise<{
         skins: import('../core/skin-scan').DiscoveredSkin[]

@@ -265,6 +265,12 @@ app.whenReady().then(async () => {
     reconcilePets()
     broadcastUnread()
   })
+  handleCommand('remove-known-source', (s) => {
+    const key = `${s.kind ?? ''} ${s.name ?? ''}`
+    knownSources = knownSources.filter((k) => `${k.kind ?? ''} ${k.name ?? ''}` !== key)
+    persistKnownSources()
+    broadcastKnownSources()
+  })
   handleQuery('get-all-enabled', () => allEnabled)
   handleCommand('set-all-enabled', (v) => applyAllEnabled(v))
   handleCommand('open-skin-picker', ({ channelId }) => bus.emit('open-skins', channelId))

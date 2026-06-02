@@ -89,8 +89,10 @@ function MemberEditor({ ch }: { ch: Channel }): preact.JSX.Element {
         <div class="col-h">已知來源</div>
         <div class="zone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const i = e.dataTransfer?.getData('member-index'); if (i) removeMember(ch, Number(i)) }}>
           {pool.map((s) => (
-            <div class="src" draggable onDragStart={(e) => e.dataTransfer?.setData('src-key', srcKey(s))} onClick={() => addMember(ch, s)} title="點擊或拖到右邊加入">
-              {srcLabel(s)}<span class="add">＋</span>
+            <div class="src" draggable onDragStart={(e) => e.dataTransfer?.setData('src-key', srcKey(s))} onClick={() => addMember(ch, s)} title="點擊或拖到右邊加入此頻道">
+              <span class="src-label">{srcLabel(s)}</span>
+              <span class="add">＋</span>
+              <button class="src-del" title="從已知來源永久移除" onClick={(e) => { e.stopPropagation(); window.channelsBridge.removeKnownSource(s) }}>✕</button>
             </div>
           ))}
           {pool.length === 0 && <div class="ph">（無可加入來源）</div>}
@@ -121,7 +123,7 @@ function App(): preact.JSX.Element {
     <div class="panel">
       <header><div class="title">寵物設定</div><button class="close" onClick={() => window.close()}>×</button></header>
       <div class="hint">把「已知來源」拖或點進某頻道＝該頻道含它（可跨專案合併）。啟用→通知中心多一分頁。</div>
-      <div class="list">
+      <div class={'list' + (sel ? ' compact' : '')}>
         <div class="crow all">
           <div class="crow-top">
             <span class="chev" />

@@ -44,6 +44,7 @@ export interface Commands {
   'card-more': { channelId: string; id: string }
   'channel-upsert': Channel
   'channel-delete': { id: string }
+  'remove-known-source': SourceMatch
   'set-all-enabled': boolean
   'open-skin-picker': { channelId: string }
 }
