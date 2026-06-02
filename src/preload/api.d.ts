@@ -38,8 +38,8 @@ declare global {
       markAllRead: () => void
       clearMessages: () => void
       onMessagesUpdated: (cb: (msgs: StoredMessage[]) => void) => void
-      showCard: (view: CardView) => void
-      hideCard: () => void
+      showCard: (channelId: string, view: CardView) => void
+      hideCard: (channelId: string) => void
       onCardDismissed: (cb: (p: { id: string }) => void) => void
       getPendingDetail: () => Promise<{ id: string | null }>
       onOpenDetail: (cb: () => void) => void
@@ -50,8 +50,8 @@ declare global {
     }
     cardBridge: {
       onCardData: (cb: (view: CardView) => void) => void
-      cardClicked: (id: string) => void
-      cardMore: (id: string) => void
+      cardClicked: (channelId: string, id: string) => void
+      cardMore: (channelId: string, id: string) => void
     }
     channelsBridge: {
       getChannels: () => Promise<Channel[]>

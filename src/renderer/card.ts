@@ -3,6 +3,7 @@
 import type { CardView } from '../core/card-view'
 
 const root = document.querySelector<HTMLDivElement>('#card')!
+const myChannel = new URLSearchParams(location.search).get('c') ?? 'all'
 let currentId: string | null = null
 
 function render(view: CardView): void {
@@ -37,7 +38,7 @@ function render(view: CardView): void {
   close.setAttribute('aria-label', '關閉')
   close.addEventListener('click', (e) => {
     e.stopPropagation()
-    if (currentId) window.cardBridge.cardClicked(currentId)
+    if (currentId) window.cardBridge.cardClicked(myChannel, currentId)
   })
   root.appendChild(close)
 }
@@ -47,5 +48,5 @@ window.cardBridge.onCardData(render)
 // 點卡片本體（除關閉鈕外任意處）→ 開通知中心詳情看完整內容
 root.title = '點開看完整內容'
 root.addEventListener('click', () => {
-  if (currentId) window.cardBridge.cardMore(currentId)
+  if (currentId) window.cardBridge.cardMore(myChannel, currentId)
 })

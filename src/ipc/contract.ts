@@ -37,10 +37,10 @@ export interface Commands {
   'set-walk-bounds': Partial<WalkBounds>
   'set-dnd': boolean
   'open-pets-folder': void
-  'show-card': CardView
-  'hide-card': void
-  'card-clicked': { id: string }
-  'card-more': { id: string }
+  'show-card': { channelId: string; view: CardView }
+  'hide-card': { channelId: string }
+  'card-clicked': { channelId: string; id: string }
+  'card-more': { channelId: string; id: string }
   'channel-upsert': Channel
   'channel-delete': { id: string }
   'set-all-enabled': boolean
