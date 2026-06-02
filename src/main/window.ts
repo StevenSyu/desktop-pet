@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { DEFAULT_SKIN_ID } from '../core/skins'
 import { scanSkins } from './skin-registry'
 import { bus } from './bus'
+import { type ChannelLabelMode } from '../core/channel-label'
 import { defaultPosition, type DisplayInfo } from '../core/window-position'
 import { stackPosition } from '../core/pet-layout'
 import { sanitizeWalkBounds, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
@@ -23,6 +24,7 @@ let prefs: Prefs = {
   autoWalk: true,
   walk: { ...DEFAULT_WALK_BOUNDS },
   skin: DEFAULT_SKIN_ID,
+  channelLabelMode: 'hidden',
   dnd: false,
   allEnabled: true,
   channels: [],
@@ -32,6 +34,9 @@ let skinSheetPaths = new Map<string, string>()
 
 export function getSkinSheetPath(id: string): string | undefined {
   return skinSheetPaths.get(id)
+}
+export function setSkinSheetPaths(paths: Map<string, string>): void {
+  skinSheetPaths = paths
 }
 export function getPetWindow(channelId: string): BrowserWindow | undefined {
   const w = petWindows.get(channelId)
@@ -46,7 +51,7 @@ export function closePetWindow(channelId: string): void {
   petWindows.delete(channelId)
 }
 
-function builtinRoot(): string {
+export function builtinRoot(): string {
   return app.isPackaged ? process.resourcesPath : app.getAppPath()
 }
 
@@ -61,6 +66,11 @@ function endWalk(notify: boolean): void {
   }
   walkSession.cancel()
   if (notify) pushTo(getPetWindow('all'), 'walk-ended')
+}
+
+function setLabelMode(mode: ChannelLabelMode): void {
+  prefs = updatePrefs(app.getPath('userData'), { channelLabelMode: mode })
+  for (const id of petChannelIds()) pushTo(getPetWindow(id), 'prefs-changed', prefs)
 }
 
 export function createPetWindow(channelId: string, requestedSkin: string, index: number): BrowserWindow {
@@ -130,7 +140,15 @@ function registerHandlers(): void {
     const win = getPetWindow(channelId)
     if (!win) return
     const menu = Menu.buildFromTemplate([
-      { label: '更換造型…', click: () => bus.emit('open-skins') },
+      { label: '更換造型…', click: () => bus.emit('open-skins', channelId) },
+      {
+        label: '名稱標籤',
+        submenu: [
+          { label: '隱藏', type: 'radio', checked: prefs.channelLabelMode === 'hidden', click: () => setLabelMode('hidden') },
+          { label: '滑過時顯示', type: 'radio', checked: prefs.channelLabelMode === 'hover', click: () => setLabelMode('hover') },
+          { label: '常態顯示', type: 'radio', checked: prefs.channelLabelMode === 'always', click: () => setLabelMode('always') },
+        ],
+      },
       { label: '頻道…', click: () => bus.emit('open-channels') },
       {
         label: '自動走動',
@@ -220,22 +238,6 @@ function registerHandlers(): void {
   handleCommand('open-center', ({ channelId }) => bus.emit('open-center', channelId))
   handleQuery('get-auto-walk', () => prefs.autoWalk)
   handleQuery('get-prefs', () => prefs)
-  handleQuery('get-skins', () => {
-    const { skins, sheetPaths } = scanSkins(app.getPath('userData'), builtinRoot())
-    skinSheetPaths = sheetPaths
-    const requestedId = prefs.skin
-    return { skins, requestedId, effectiveId: sheetPaths.has(requestedId) ? requestedId : DEFAULT_SKIN_ID }
-  })
-  handleQuery('select-skin', (id) => {
-    const { sheetPaths } = scanSkins(app.getPath('userData'), builtinRoot())
-    skinSheetPaths = sheetPaths
-    if (!sheetPaths.has(id)) {
-      return { ok: false, effectiveId: sheetPaths.has(prefs.skin) ? prefs.skin : DEFAULT_SKIN_ID }
-    }
-    prefs = updatePrefs(app.getPath('userData'), { skin: id })
-    pushTo(getPetWindow('all'), 'set-skin', id) // 「全部」造型
-    return { ok: true, effectiveId: id }
-  })
   handleCommand('open-pets-folder', () => {
     const dir = join(app.getPath('userData'), 'pets')
     mkdirSync(dir, { recursive: true })

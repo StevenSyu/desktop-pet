@@ -1,6 +1,7 @@
 /// <reference path="../preload/api.d.ts" />
 import type { DiscoveredSkin } from '../core/skin-scan'
 
+const myChannel = new URLSearchParams(location.search).get('c') ?? 'all'
 const DISPLAY_SCALE = 0.5 // 縮圖比例（sheet frame 192×208 → 96×104）
 const FRAME_W = 192
 const FRAME_H = 208
@@ -63,7 +64,7 @@ function buildCard(skin: DiscoveredSkin, effectiveId: string): HTMLDivElement {
     btn.className = 'select'
     btn.textContent = '選擇'
     btn.addEventListener('click', async () => {
-      const res = await window.petBridge.selectSkin(skin.id)
+      const res = await window.petBridge.selectSkin(myChannel, skin.id)
       if (res.ok) render()
     })
     card.appendChild(btn)
@@ -72,7 +73,7 @@ function buildCard(skin: DiscoveredSkin, effectiveId: string): HTMLDivElement {
 }
 
 async function render(): Promise<void> {
-  const { skins, requestedId, effectiveId } = await window.petBridge.getSkins()
+  const { skins, requestedId, effectiveId } = await window.petBridge.getSkins(myChannel)
   const validCount = skins.filter((s) => s.valid).length
   countEl.textContent = `· ${skins.length} 個（${validCount} 可用）`
   if (requestedId !== effectiveId) {

@@ -15,5 +15,8 @@ contextBridge.exposeInMainWorld('channelsBridge', {
   onKnownSourcesUpdated: (cb: (s: import('../core/channel').SourceMatch[]) => void) =>
     ipcRenderer.on('known-sources-updated', (_e, s) => cb(s)),
   getSkins: (): Promise<{ skins: DiscoveredSkin[]; requestedId: string; effectiveId: string }> =>
-    ipcRenderer.invoke('get-skins'),
+    ipcRenderer.invoke('get-skins', { channelId: 'all' }),
+  openSkinPicker: (channelId: string) => ipcRenderer.send('open-skin-picker', { channelId }),
+  getDefaultSkin: (): Promise<string> => ipcRenderer.invoke('get-default-skin'),
+  onDefaultSkinUpdated: (cb: (id: string) => void) => ipcRenderer.on('default-skin-updated', (_e, id: string) => cb(id)),
 })

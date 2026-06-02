@@ -21,6 +21,8 @@ header { display: flex; justify-content: space-between; align-items: center; pad
 .crow .all-note { font-size: 10px; color: #ad9f8c; }
 .crow .name { width: 92px; font: 700 11px ui-rounded, system-ui, sans-serif; padding: 3px 5px; border: 1px solid #e3dccf; border-radius: 6px; background: #fff; }
 .crow .skin { font: 600 11px ui-rounded, system-ui, sans-serif; padding: 3px 5px; border: 1px solid #e3dccf; border-radius: 6px; background: #fff; }
+.crow .skin-pick { max-width: 124px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 11px ui-rounded, system-ui, sans-serif; padding: 3px 7px; border: 1px solid #e3dccf; border-radius: 6px; background: #fff; color: #2a2622; cursor: pointer; }
+.crow .skin-pick:hover { background: #efe9df; border-color: #d8cfbe; }
 .crow .count { margin-left: auto; font-size: 10px; color: #8a7f70; background: #ece5d8; border-radius: 9px; padding: 1px 7px; white-space: nowrap; }
 .crow .toggle { border: none; border-radius: 6px; padding: 3px 8px; font: 700 11px ui-rounded, system-ui, sans-serif; cursor: pointer; background: #e3dccf; color: #8a7f70; }
 .crow .toggle.on { background: #2e9e6b; color: #fff; }
