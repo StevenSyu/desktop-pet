@@ -28,12 +28,7 @@ window.petBridge.getPrefs().then((p) => applyBounds(p.walk))
 
 $('save').addEventListener('click', () => {
   window.petBridge.setWalkBounds(readForm())
-  hint.textContent = '已儲存。'
-  hint.className = 'hint ok'
-  setTimeout(() => {
-    hint.textContent = ''
-    hint.className = 'hint'
-  }, 1600)
+  window.close()
 })
 
 $('reset').addEventListener('click', () => {
