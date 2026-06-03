@@ -81,12 +81,21 @@ header { display: flex; justify-content: space-between; align-items: center; pad
 .zone { flex: 1; overflow-y: auto; border: 1px dashed #d8cfbe; border-radius: 8px; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
 .src { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 8px; border-radius: 6px; background: #f3ede2; cursor: pointer; }
 .src .src-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.src .src-kind { flex-shrink: 0; font-size: 9.5px; font-weight: 700; letter-spacing: .02em; padding: 1px 6px; border-radius: 8px; background: #ece5d8; color: #8a7f70; }
+.src .k-claude-code { background: #f0e4d4; color: #a6702a; } /* claude：暖棕 */
+.src .k-codex { background: #dcebe8; color: #2e8b7a; }       /* codex：青綠 */
+.src .k-curl { background: #e6e9f5; color: #5b6280; }        /* curl：藍灰 */
 .src .add { flex-shrink: 0; color: #2e9e6b; font-weight: 800; }
 .src-del { flex-shrink: 0; border: none; background: none; color: #b3a692; cursor: pointer; font-size: 11px; padding: 0 2px; }
 .src-del:hover { color: #d6453d; }
 .src.member { background: #e7f0e9; cursor: grab; }
 .src .rm { margin-left: auto; color: #b3a692; cursor: pointer; }
 .src .rm:hover { color: #d6453d; }
+/* 整類來源（member 只含 kind、無 name）：虛線暖框，明顯表示「整個 kind 的所有來源都進來」；
+   來源池中排在該 kind 精確來源最上方當 group header，組間以 margin 分隔 */
+.src.kind-all { background: #fdf6e8; border: 1px dashed #d8b97a; }
+.src.kind-all .src-label { font-weight: 700; color: #8a6d2f; }
+.zone .src.kind-all:not(:first-child) { margin-top: 8px; }
 .ph { color: #a89c8b; font-size: 12px; text-align: center; padding: 12px 0; }
 
 /* 刪除確認 dialog */

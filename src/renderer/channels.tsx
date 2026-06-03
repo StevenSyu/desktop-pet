@@ -41,6 +41,7 @@ window.channelsBridge.onAllEnabledUpdated((v) => (allEnabled.value = v))
 
 const srcKey = (s: SourceMatch): string => `${s.kind ?? ''} ${s.name ?? ''}`
 const srcLabel = (s: SourceMatch): string => s.name || s.kind || '(unknown)'
+const kindLabel = (kind?: string): string => (kind === 'claude-code' ? 'claude' : kind || '?')
 const skinName = (id: string): string => skins.value.find((s) => s.id === id)?.displayName ?? id
 const upsert = (ch: Channel): void => window.channelsBridge.upsertChannel(ch)
 function createChannel(): void {
@@ -58,7 +59,9 @@ function cancelAdd(): void {
 
 function addMember(ch: Channel, s: SourceMatch): void {
   if (ch.members.some((m) => srcKey(m) === srcKey(s))) return
-  upsert({ ...ch, members: [...ch.members, { ...s }] })
+  // 整類項（全部來源）加入時，吸收掉同 kind 的精確成員——它們已被整類涵蓋，留著冗餘
+  const kept = s.name == null ? ch.members.filter((m) => m.kind !== s.kind) : ch.members
+  upsert({ ...ch, members: [...kept, { ...s }] })
 }
 function removeMember(ch: Channel, i: number): void {
   upsert({ ...ch, members: ch.members.filter((_, idx) => idx !== i) })
@@ -87,15 +90,25 @@ function ChannelRow({ ch }: { ch: Channel }): preact.JSX.Element {
 }
 
 function MemberEditor({ ch }: { ch: Channel }): preact.JSX.Element {
-  const pool = knownSources.value.filter((s) => !matchesSourceAny(ch, s))
+  // 依 kind 分組排序：整類項（全部來源）排在該 kind 精確來源最上方，當 group header 達成視覺分隔
+  const pool = knownSources.value
+    .filter((s) => !matchesSourceAny(ch, s))
+    .sort((a, b) => {
+      const ka = a.kind ?? ''
+      const kb = b.kind ?? ''
+      if (ka !== kb) return ka.localeCompare(kb)
+      if ((a.name == null) !== (b.name == null)) return a.name == null ? -1 : 1
+      return (a.name ?? '').localeCompare(b.name ?? '')
+    })
   return (
     <div class="editor">
       <div class="col">
         <div class="col-h">已知來源</div>
         <div class="zone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const i = e.dataTransfer?.getData('member-index'); if (i) removeMember(ch, Number(i)) }}>
           {pool.map((s) => (
-            <div class="src" draggable onDragStart={(e) => e.dataTransfer?.setData('src-key', srcKey(s))} onClick={() => addMember(ch, s)} title="點擊或拖到右邊加入此頻道">
-              <span class="src-label">{srcLabel(s)}</span>
+            <div class={'src' + (s.name == null ? ' kind-all' : '')} draggable onDragStart={(e) => e.dataTransfer?.setData('src-key', srcKey(s))} onClick={() => addMember(ch, s)} title={s.name == null ? `整個 ${kindLabel(s.kind)} 的所有來源都會進此頻道` : '點擊或拖到右邊加入此頻道'}>
+              <span class="src-label">{s.name == null ? '全部來源' : srcLabel(s)}</span>
+              <span class={'src-kind k-' + (s.kind ?? 'unknown')}>{kindLabel(s.kind)}</span>
               <span class="add">＋</span>
               <button class="src-del" title="從已知來源永久移除" onClick={(e) => { e.stopPropagation(); confirmRemoveSrc.value = s }}>✕</button>
             </div>
@@ -107,8 +120,10 @@ function MemberEditor({ ch }: { ch: Channel }): preact.JSX.Element {
         <div class="col-h">「{ch.name}」成員</div>
         <div class="zone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const key = e.dataTransfer?.getData('src-key'); const s = knownSources.value.find((x) => srcKey(x) === key); if (s) addMember(ch, s) }}>
           {ch.members.map((m, i) => (
-            <div class="src member" draggable onDragStart={(e) => e.dataTransfer?.setData('member-index', String(i))} onClick={() => removeMember(ch, i)} title="點擊或拖回左邊移除">
-              {srcLabel(m)}{m.name == null ? ' (整類)' : ''}<span class="rm">✕</span>
+            <div class={'src member' + (m.name == null ? ' kind-all' : '')} draggable onDragStart={(e) => e.dataTransfer?.setData('member-index', String(i))} onClick={() => removeMember(ch, i)} title="點擊或拖回左邊移除">
+              <span class="src-label">{m.name == null ? '全部來源' : srcLabel(m)}</span>
+              <span class={'src-kind k-' + (m.kind ?? 'unknown')}>{kindLabel(m.kind)}</span>
+              <span class="rm">✕</span>
             </div>
           ))}
           {ch.members.length === 0 && <div class="ph">（拖來源進來）</div>}
