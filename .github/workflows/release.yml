@@ -42,7 +42,14 @@ jobs:
 
       - name: Override version for dispatch validation
         if: ${{ inputs.test_version != '' }}
-        run: npm version --no-git-tag-version "${{ inputs.test_version }}"
+        # input 走 env 間接引用（template 直插 run 會有 script injection）+ 嚴格 semver 驗證
+        env:
+          TEST_VERSION: ${{ inputs.test_version }}
+        run: |
+          if [[ ! "$TEST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]; then
+            echo "invalid test_version: $TEST_VERSION"; exit 1
+          fi
+          npm version --no-git-tag-version "$TEST_VERSION"
         shell: bash
 
       - name: Build and publish draft release
