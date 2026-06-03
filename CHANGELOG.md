@@ -1,11 +1,21 @@
 # Changelog
 
-依 [Keep a Changelog](https://keepachangelog.com/zh-TW/) 形式記錄。本專案尚未發佈正式版本，所有變動列於下方未發佈區段。
+依 [Keep a Changelog](https://keepachangelog.com/zh-TW/) 形式記錄。
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-06-03
+
+首個正式版本。
+
 ### Added
 
+- **新來源自動跳專屬寵物**：autoDetect 建「啟用」精確頻道並立即長出一隻專屬寵物演出首訊息（等視窗載入完成再推，不丟失）；死角兜底處理無 name 來源。
+- **kind 整類來源**：來源池每個 agent kind 有「全部來源」整類項（虛線框、排組首當 group header），一拖即涵蓋整個 kind（含未來新專案）；加入時自動吸收同 kind 精確成員；啟動補齊既有來源缺的整類項。已知來源/成員帶 agent kind 色標（claude／codex／curl）。
+- **通知中心可拖曳＋記住最後位置**：標題列拖曳整窗，move 事件 debounce 寫回 `window-state.json`；儲存位置失效（拔螢幕）自動退回寵物旁。
+- **同一訊息多張卡片連帶關閉**：同訊息在多隻寵物各彈一張卡時，關一張其餘同 event id 的連帶關閉並各自標已讀。
+- **跨平台基礎**：視窗置頂與 endpoint 路徑依平台處理（`win-util` 抽象）、字體 fallback、Windows/Linux packaging targets（`npm run dist:win`／`dist:linux`）；Codex hooks 設定文件（`docs/CODEX-HOOKS.md`）。
+- **頻道目錄（core 純化重構）**：頻道/來源決策（autoDetect、整類吸收、池排序、self-heal、卡片幾何、中心位置）下沉 `src/core/` 純函式，main/renderer 縮成 thin adapter；單元測試 258 → 290。
 - **頻道啟用與寵物顯示解耦（`showPet`）**：`Channel` 新增 `showPet`（預設 true，向後相容舊檔）。頻道可「啟用但隱藏寵物」——通知中心分頁/分類/未讀照常，但桌面不長這隻寵物、不跳它的卡片。頻道管理頁每列加 👁 眼睛開關切換寵物顯示。**連動**：停用整個頻道仍連帶關寵物（實際顯示 = `enabled && showPet`）；reconcile 與防呆改以「實際顯示寵物數」為準。
 - **右鍵快速關閉寵物 + 至少保留一隻防呆**：右鍵選單新增「關閉這隻寵物」（頻道寵物 → 只關 `showPet`、頻道仍啟用；「全部」→ 關閉 `allEnabled`）。為避免「全部寵物被關 → 沒介面叫回」，在**右鍵選單**與**頻道管理頁**（停用 toggle／刪除／眼睛／「全部」開關）**雙重防呆**：當某隻是唯一顯示寵物時，會使其歸零的操作一律 disabled 灰掉並提示「至少保留一隻」（含邊際案例：停用唯一顯示寵物的頻道也會被擋）。新增純函式 `activePetCount`（= `allEnabled?1:0 + count(enabled && showPet)`），與既有 reconcile「≥1 兜底」雙保險。
 
