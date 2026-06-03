@@ -1,18 +1,13 @@
 import { describe, expect, it } from 'vitest'
+import { buildCodexPayload } from '../../hooks/codex-payload.mjs'
 
 type CodexPayload = {
   type: string
   body: string
 }
 
-type CodexNotifyModule = {
-  buildCodexPayload?: (type: string, input?: Record<string, unknown>) => CodexPayload
-}
-
-async function buildPayload(type: string): Promise<CodexPayload> {
-  const mod = await import('../../hooks/codex-notify.mjs') as CodexNotifyModule
-  expect(typeof mod.buildCodexPayload).toBe('function')
-  return mod.buildCodexPayload!(type, { session_id: 's1', cwd: '/Users/x/work/my-proj' })
+function buildPayload(type: string): CodexPayload {
+  return buildCodexPayload(type, { session_id: 's1', cwd: '/Users/x/work/my-proj' })
 }
 
 describe('codex-notify', () => {
@@ -23,8 +18,8 @@ describe('codex-notify', () => {
     ['review', '請看一下'],
     ['working', '處理中…'],
     ['info', ''],
-  ])('uses Claude Code matching Chinese fallback body for %s', async (type, expectedBody) => {
-    await expect(buildPayload(type)).resolves.toMatchObject({
+  ])('uses Claude Code matching Chinese fallback body for %s', (type, expectedBody) => {
+    expect(buildPayload(type)).toMatchObject({
       type,
       body: expectedBody,
     })
