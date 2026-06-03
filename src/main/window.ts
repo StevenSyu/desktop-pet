@@ -63,6 +63,7 @@ export function petChannelIds(): string[] {
   return [...petWindows.keys()]
 }
 export function closePetWindow(channelId: string): void {
+  endWalk(channelId, false)
   const w = petWindows.get(channelId)
   if (w && !w.isDestroyed()) w.close()
   petWindows.delete(channelId)
@@ -72,17 +73,19 @@ export function builtinRoot(): string {
   return app.isPackaged ? process.resourcesPath : app.getAppPath()
 }
 
-// ===== per-pet 拖動狀態；walk 只給 'all' =====
+// ===== per-pet 拖動與走動狀態 =====
 const dragOffsets = new Map<string, { x: number; y: number }>()
-const walkSession = new WalkSession()
-let walkTimer: NodeJS.Timeout | null = null
-function endWalk(notify: boolean): void {
-  if (walkTimer) {
-    clearTimeout(walkTimer)
-    walkTimer = null
-  }
-  walkSession.cancel()
-  if (notify) pushTo(getPetWindow('all'), 'walk-ended')
+const walks = new Map<string, { session: WalkSession; timer: NodeJS.Timeout | null }>()
+function endWalk(channelId: string, notify: boolean): void {
+  const walk = walks.get(channelId)
+  if (!walk) return
+  if (walk.timer) clearTimeout(walk.timer)
+  walk.session.cancel()
+  walks.delete(channelId)
+  if (notify) pushTo(getPetWindow(channelId), 'walk-ended')
+}
+function endAllWalks(notify: boolean): void {
+  for (const id of [...walks.keys()]) endWalk(id, notify)
 }
 
 function setLabelMode(mode: ChannelLabelMode): void {
@@ -189,8 +192,8 @@ function registerHandlers(): void {
         checked: prefs.autoWalk,
         click: (mi) => {
           prefs = updatePrefs(app.getPath('userData'), { autoWalk: mi.checked })
-          pushTo(getPetWindow('all'), 'auto-walk-changed', prefs.autoWalk)
-          if (!prefs.autoWalk) endWalk(true)
+          for (const id of petChannelIds()) pushTo(getPetWindow(id), 'auto-walk-changed', prefs.autoWalk)
+          if (!prefs.autoWalk) endAllWalks(true)
         },
       },
       { label: '勿擾模式', type: 'checkbox', checked: prefs.dnd, click: (mi) => applyDnd(mi.checked) },
@@ -212,7 +215,7 @@ function registerHandlers(): void {
   handleCommand('drag-start', ({ channelId }) => {
     const win = getPetWindow(channelId)
     if (!win) return
-    if (channelId === 'all') endWalk(true) // 只有 'all' 會走動
+    endWalk(channelId, true) // 走動中被拖 → 立即停
     const cursor = screen.getCursorScreenPoint()
     const bounds = win.getBounds()
     dragOffsets.set(channelId, { x: cursor.x - bounds.x, y: cursor.y - bounds.y })
@@ -250,43 +253,44 @@ function registerHandlers(): void {
     bus.emit('pet-moved', channelId, win.getBounds())
   })
 
-  // ===== walk：只給 'all' =====
+  // ===== walk（per-pet）=====
   handleCommand('walk-start', (req) => {
-    if (req.channelId !== 'all') return
-    const win = getPetWindow('all')
+    const { channelId } = req
+    const win = getPetWindow(channelId)
     if (!win) return
-    endWalk(false)
-    const [startX, startY] = win.getPosition()
+    endWalk(channelId, false)
+    const { x: startX, y: startY, width: winWidth } = win.getBounds()
     const display = screen.getDisplayNearestPoint({ x: startX, y: startY })
-    const res = walkSession.start(
-      { startX, requestedDirection: req.direction, distance: req.distance, duration: req.duration, workArea: display.workArea, petWidth: PET_WIDTH },
+    const walk = { session: new WalkSession(), timer: null as NodeJS.Timeout | null }
+    const res = walk.session.start(
+      // petWidth 用實際視窗寬（含 scale），固定 PET_WIDTH 會讓放大的寵物走出螢幕右緣被切
+      { startX, requestedDirection: req.direction, distance: req.distance, duration: req.duration, workArea: display.workArea, petWidth: winWidth },
       Date.now(),
     )
     if (!res.ok) {
       pushTo(win, 'walk-ended')
       return
     }
+    walks.set(channelId, walk)
     if (res.flippedTo) pushTo(win, 'walk-direction', res.flippedTo)
     const step = (): void => {
-      const w = getPetWindow('all')
+      const w = getPetWindow(channelId)
       if (!w) {
-        endWalk(false)
+        endWalk(channelId, false)
         return
       }
-      const frame = walkSession.step(Date.now())
+      const frame = walk.session.step(Date.now())
       if (!frame) return
       w.setPosition(frame.x, startY)
       if (frame.done) {
-        endWalk(true)
+        endWalk(channelId, true)
         return
       }
-      walkTimer = setTimeout(step, 16)
+      walk.timer = setTimeout(step, 16)
     }
     step()
   })
-  handleCommand('walk-cancel', ({ channelId }) => {
-    if (channelId === 'all') endWalk(true)
-  })
+  handleCommand('walk-cancel', ({ channelId }) => endWalk(channelId, true))
 
   // ===== 全域命令 / 查詢（不分 pet）=====
   handleCommand('open-center', ({ channelId }) => bus.emit('open-center', channelId))
@@ -300,7 +304,7 @@ function registerHandlers(): void {
   handleCommand('set-walk-bounds', (partial) => {
     const next = sanitizeWalkBounds({ ...prefs.walk, ...partial })
     prefs = updatePrefs(app.getPath('userData'), { walk: next })
-    pushTo(getPetWindow('all'), 'prefs-changed', prefs)
+    for (const id of petChannelIds()) pushTo(getPetWindow(id), 'prefs-changed', prefs)
   })
 
   function applyDnd(enabled: boolean): void {

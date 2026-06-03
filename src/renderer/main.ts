@@ -21,7 +21,6 @@ import type { CardView } from '../core/card-view'
 import { cardSummary } from '../core/card-summary'
 
 const myChannel = new URLSearchParams(location.search).get('c') ?? 'all'
-const isAllPet = myChannel === 'all'
 const DISPLAY_SCALE = 0.7
 const BASE_W = 135
 const BASE_H = 146
@@ -246,7 +245,6 @@ function tick(): void {
 
   // 自走觸發（idle 且未走動、未隱藏、自動走動開啟、到時間；有卡片時暫停自走）
   if (
-    isAllPet &&
     !currentEvent &&
     shouldWalkNow({ autoWalkEnabled, walking, animation: view.animation, hidden: document.hidden, now, nextWalkAt })
   ) {
