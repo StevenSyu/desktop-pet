@@ -64,7 +64,9 @@ Push a `v*` tag and GitHub Actions builds all three platforms and uploads to a *
 3. Wait for the Release workflow (macos / windows / ubuntu matrix; each runner gates on typecheck + unit tests before packaging).
 4. Open the draft Release, paste the CHANGELOG section as release notes, verify artifacts (dmg / nsis exe / AppImage / deb), then publish.
 
-To validate pipeline changes without a tag, trigger the Release workflow via `workflow_dispatch` with the optional `test_version` input (e.g. `0.0.0-ci-test`) so the draft does not collide with a real version — then delete the draft afterwards.
+Publish only after all three platforms' assets are present. If one platform fails, re-run it **while the Release is still a draft** — electron-publish silently skips uploading to an already-published release (the job stays green but the asset never lands).
+
+To validate pipeline changes without a tag, trigger the Release workflow via `workflow_dispatch` with the required `test_version` input (e.g. `0.0.0-ci-test`) so the draft does not collide with a real version — then delete the draft afterwards.
 
 All artifacts are **unsigned**: macOS users may need right-click → Open on first launch (Gatekeeper); Windows SmartScreen will warn on the nsis installer.
 

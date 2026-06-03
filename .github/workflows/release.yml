@@ -6,9 +6,10 @@ on:
   workflow_dispatch:
     inputs:
       test_version:
-        description: '手動驗證用版本號（留空則用 package.json version）'
-        required: false
-        default: ''
+        # 必填且須用「尚未發布」的版本（如 0.0.0-ci-test）：與既有已發布 release 撞名時
+        # electron-publish 會「skipped publishing」靜默跳過、job 仍綠（假陽性）
+        description: '驗證用版本號（必填，用尚未發布的版本如 0.0.0-ci-test）'
+        required: true
 
 permissions:
   contents: write # 建 draft release + 上傳 artifacts
