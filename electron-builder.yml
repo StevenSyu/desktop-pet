@@ -1,3 +1,6 @@
+publish:
+  provider: github
+  releaseType: draft
 appId: com.stevensyu.desktop-notify
 productName: desktop-notify
 directories:
