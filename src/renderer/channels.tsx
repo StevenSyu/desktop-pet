@@ -3,6 +3,7 @@ import { render } from 'preact'
 import { signal } from '@preact/signals'
 import { activePetCount, absorbMember, sourcePool, sourceKey, type Channel, type SourceMatch } from '../core/channel'
 import type { DiscoveredSkin } from '../core/skin-scan'
+import { liveQuery } from '../core/live-query'
 
 const channels = signal<Channel[]>([])
 const allEnabled = signal(true)
@@ -21,23 +22,35 @@ function scrollSelectedToTop(): void {
   requestAnimationFrame(() => document.querySelector('.crow.sel')?.scrollIntoView({ block: 'start', behavior: 'smooth' }))
 }
 
-window.channelsBridge.getChannels().then((cs) => (channels.value = cs))
-window.channelsBridge.onChannelsUpdated((cs) => {
-  channels.value = cs
-  if (pendingSelectNew) {
-    pendingSelectNew = false
-    const last = cs[cs.length - 1]
-    if (last) selectedId.value = last.id // 自動選中剛新增的頻道 → 展開來源編輯區
-    scrollSelectedToTop()
-  }
-})
-window.channelsBridge.getKnownSources().then((s) => (knownSources.value = s))
-window.channelsBridge.onKnownSourcesUpdated((s) => (knownSources.value = s))
+void liveQuery(
+  () => window.channelsBridge.getChannels(),
+  (cb) => window.channelsBridge.onChannelsUpdated(cb),
+  (cs) => {
+    channels.value = cs
+    if (pendingSelectNew) {
+      pendingSelectNew = false
+      const last = cs[cs.length - 1]
+      if (last) selectedId.value = last.id // 自動選中剛新增的頻道 → 展開來源編輯區
+      scrollSelectedToTop()
+    }
+  },
+)
+void liveQuery(
+  () => window.channelsBridge.getKnownSources(),
+  (cb) => window.channelsBridge.onKnownSourcesUpdated(cb),
+  (s) => (knownSources.value = s),
+)
 window.channelsBridge.getSkins().then((r) => (skins.value = r.skins))
-window.channelsBridge.getDefaultSkin().then((id) => (defaultSkin.value = id))
-window.channelsBridge.onDefaultSkinUpdated((id) => (defaultSkin.value = id))
-window.channelsBridge.getAllEnabled().then((v) => (allEnabled.value = v))
-window.channelsBridge.onAllEnabledUpdated((v) => (allEnabled.value = v))
+void liveQuery(
+  () => window.channelsBridge.getDefaultSkin(),
+  (cb) => window.channelsBridge.onDefaultSkinUpdated(cb),
+  (id) => (defaultSkin.value = id),
+)
+void liveQuery(
+  () => window.channelsBridge.getAllEnabled(),
+  (cb) => window.channelsBridge.onAllEnabledUpdated(cb),
+  (v) => (allEnabled.value = v),
+)
 
 const srcLabel = (s: SourceMatch): string => s.name || s.kind || '(unknown)'
 const kindLabel = (kind?: string): string => (kind === 'claude-code' ? 'claude' : kind || '?')

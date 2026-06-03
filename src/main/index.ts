@@ -1,13 +1,17 @@
 import { app, BrowserWindow, screen } from 'electron'
 import { createPetWindow, getSkinSheetPath, getPetWindow, petChannelIds, closePetWindow, builtinRoot, setSkinSheetPaths } from './window'
-import { createCenterWindow, CENTER_W, CENTER_H } from './center-window'
-import { createCardWindow, CARD_W, CARD_H, CARD_GAP, CARD_SHADOW_PAD } from './card-window'
-import { createSettingsWindow } from './settings-window'
-import { createSkinWindow } from './skin-window'
-import { createChannelsWindow } from './channels-window'
+import {
+  makeOpener,
+  createCenterWindow, CENTER_W, CENTER_H,
+  createCardWindow, CARD_W, CARD_H, CARD_GAP, CARD_SHADOW_PAD,
+  createSettingsWindow,
+  createSkinWindow,
+  createChannelsWindow,
+} from './window-factory'
 import { loadWindowStates, saveWindowState } from './window-state'
-import type { CardView } from '../core/card-view'
+import { cardReduce, initialCardState, type CardEvent, type CardCommand, type CardLifecycleState } from '../core/card-lifecycle'
 import { matchingChannels, unreadByChannel, activePetCount, applySourceEvent, healKnownKinds, healSkins, type Channel, type SourceMatch } from '../core/channel'
+import { desiredPetIds, diffFleet } from '../core/pet-fleet'
 import { cardWindowBounds } from '../core/card-layout'
 import { resolveCenterPos } from '../core/center-pos'
 import { DEFAULT_SKIN_ID } from '../core/skins'
@@ -16,7 +20,7 @@ import { findFreePort, generateToken, writeEndpointFile } from './endpoint'
 import { startIngestServer } from './ingest'
 import { MessageStore } from '../core/message-store'
 import { bus } from './bus'
-import { loadPrefs, updatePrefs } from './prefs'
+import { getPrefs, updatePrefsStore, subscribePrefs } from './prefs-store'
 import { handleCommand, handleQuery, pushTo } from '../ipc/main-helpers'
 import type { AppEvent } from '../core/events'
 import { scanSkins } from './skin-registry'
@@ -26,26 +30,28 @@ registerPetScheme()
 
 const store = new MessageStore()
 let centerWindow: BrowserWindow | null = null
-let settingsWindow: BrowserWindow | null = null
-let skinWindow: BrowserWindow | null = null
-let channelsWindow: BrowserWindow | null = null
+// 單例工具窗：已開則 focus；造型挑選改關舊開新（頻道參數可能不同）
+const settingsOpener = makeOpener(createSettingsWindow)
+const skinOpener = makeOpener(createSkinWindow, { replace: true })
+const channelsOpener = makeOpener(createChannelsWindow)
 interface CardState {
   win: BrowserWindow
-  loaded: boolean
-  pending: CardView | null
-  activeId: string | null
+  state: CardLifecycleState // show/loaded/hide/dismiss 時序決策在 core 的 cardReduce
   dragOffset: { x: number; y: number } | null
 }
 type PetBounds = { x: number; y: number; width: number; height: number }
 const cardWindows = new Map<string, CardState>()
 let pendingDetailId: string | null = null
 let pendingChannelTab: string | null = null
-let dndEnabled = false
-let allEnabled = true
-let channels: Channel[] = []
-let knownSources: SourceMatch[] = []
-let defaultSkin = DEFAULT_SKIN_ID // 啟動時快取，供自動建 channel 預設造型（避免每次讀 prefs）
 let channelSeq = 0
+
+// 頻道目錄無鏡像 globals：讀走 getPrefs()、寫走 updatePrefsStore，
+// persist+broadcast 配對由此訂閱統一處理（與 window.ts 的 prefs-changed 訂閱同模式）
+subscribePrefs((p, changed) => {
+  if (changed.has('channels')) broadcastChannels()
+  if (changed.has('knownSources')) broadcastKnownSources()
+  if (changed.has('allEnabled')) pushTo(channelsOpener.current(), 'all-enabled-updated', p.allEnabled)
+})
 // 上限：外部 POST 的 source.name 可變 → 防 channel / 來源池無限長 + 寫檔放大
 const MAX_AUTO_CHANNELS = 64
 const MAX_KNOWN_SOURCES = 200
@@ -55,42 +61,32 @@ function nextChannelId(): string {
 }
 
 function skinFor(channelId: string): string {
-  if (channelId === 'all') return loadPrefs(app.getPath('userData')).skin
-  const ch = channels.find((c) => c.id === channelId)
+  if (channelId === 'all') return getPrefs().skin
+  const ch = getPrefs().channels.find((c) => c.id === channelId)
   return ch ? ch.skin : DEFAULT_SKIN_ID
 }
 
-// 應存在的寵物集合：allEnabled?'all' + 啟用 channel；空則強制留 'all'（≥1 防鎖死）
-function desiredPetIds(): string[] {
-  const ids = [...(allEnabled ? ['all'] : []), ...channels.filter((c) => c.enabled && c.showPet).map((c) => c.id)]
-  return ids.length > 0 ? ids : ['all']
-}
-
 function reconcilePets(): void {
-  const desired = desiredPetIds()
-  const want = new Set(desired)
-  for (const id of petChannelIds()) if (!want.has(id)) {
+  // 差集決策在 core 的 desiredPetIds/diffFleet，此處只執行視窗開關副作用
+  const d = diffFleet(petChannelIds(), desiredPetIds(getPrefs().channels, getPrefs().allEnabled))
+  for (const id of d.close) {
     const cs = cardWindows.get(id)
     if (cs && !cs.win.isDestroyed()) cs.win.close()
     closePetWindow(id)
   }
-  desired.forEach((id, index) => {
-    if (!getPetWindow(id)) {
-      createPetWindow(id, skinFor(id), index)
-    }
-  })
+  for (const { id, index } of d.create) {
+    createPetWindow(id, skinFor(id), index)
+  }
 }
 
 function applyAllEnabled(v: boolean): void {
-  allEnabled = v
-  updatePrefs(app.getPath('userData'), { allEnabled })
-  pushTo(channelsWindow, 'all-enabled-updated', allEnabled)
+  updatePrefsStore({ allEnabled: v }) // all-enabled-updated push 由訂閱處理
   reconcilePets()
   broadcastUnread()
 }
 
 function broadcastUnread(): void {
-  const counts = unreadByChannel(store.list(), channels)
+  const counts = unreadByChannel(store.list(), getPrefs().channels)
   for (const id of petChannelIds()) {
     pushTo(getPetWindow(id), 'unread-count', id === 'all' ? counts.all : (counts[id] ?? 0))
   }
@@ -99,14 +95,10 @@ function broadcastMessages(): void {
   pushTo(centerWindow, 'messages-updated', store.list())
 }
 function broadcastChannels(): void {
-  pushTo(centerWindow, 'channels-updated', channels)
-  pushTo(channelsWindow, 'channels-updated', channels)
+  pushTo(centerWindow, 'channels-updated', getPrefs().channels)
+  pushTo(channelsOpener.current(), 'channels-updated', getPrefs().channels)
 }
-function broadcastKnownSources() { pushTo(channelsWindow, 'known-sources-updated', knownSources) }
-function persistChannels(): void {
-  updatePrefs(app.getPath('userData'), { channels }) // 合併寫入，不覆蓋 window.ts 的欄位
-}
-function persistKnownSources() { updatePrefs(app.getPath('userData'), { knownSources }) }
+function broadcastKnownSources() { pushTo(channelsOpener.current(), 'known-sources-updated', getPrefs().knownSources) }
 
 function scanAvailableSkins(): ReturnType<typeof scanSkins> {
   const result = scanSkins(app.getPath('userData'), builtinRoot())
@@ -119,36 +111,24 @@ function scanAvailableSkins(): ReturnType<typeof scanSkins> {
 // 確保「設定頁顯示」與「桌面實際」一致。
 function healInvalidSkins(): void {
   const { sheetPaths } = scanAvailableSkins()
-  const healed = healSkins(channels, new Set(sheetPaths.keys()), DEFAULT_SKIN_ID)
-  if (healed) {
-    channels = healed
-    persistChannels()
-    broadcastChannels()
-  }
-  if (!sheetPaths.has(defaultSkin)) {
-    defaultSkin = DEFAULT_SKIN_ID
-    updatePrefs(app.getPath('userData'), { skin: DEFAULT_SKIN_ID })
-  }
+  const healed = healSkins(getPrefs().channels, new Set(sheetPaths.keys()), DEFAULT_SKIN_ID)
+  if (healed) updatePrefsStore({ channels: healed })
+  if (!sheetPaths.has(getPrefs().skin)) updatePrefsStore({ skin: DEFAULT_SKIN_ID })
 }
 
 function healKnownKindSources(): void {
   // 啟動時補齊既有來源缺的 kind 整類項（決策在 core 的 healKnownKinds）
-  const healed = healKnownKinds(knownSources, MAX_KNOWN_SOURCES)
-  if (healed) {
-    knownSources = healed
-    persistKnownSources()
-    broadcastKnownSources()
-  }
+  const healed = healKnownKinds(getPrefs().knownSources, MAX_KNOWN_SOURCES)
+  if (healed) updatePrefsStore({ knownSources: healed })
 }
 
 function upsertChannel(ch: Channel): Channel {
   // 空 id → 新建（main 指派 id，renderer 不產 id）；否則依 id 覆蓋
   const withId: Channel = ch.id ? ch : { ...ch, id: nextChannelId() }
+  const channels = getPrefs().channels
   const i = channels.findIndex((c) => c.id === withId.id)
-  if (i >= 0) channels[i] = withId
-  else channels = [...channels, withId]
-  persistChannels()
-  broadcastChannels()
+  const next = i >= 0 ? channels.map((c, idx) => (idx === i ? withId : c)) : [...channels, withId]
+  updatePrefsStore({ channels: next }) // channels-updated broadcast 由訂閱處理
   broadcastMessages() // 讓中心分頁重算
   reconcilePets()
   pushTo(getPetWindow(withId.id), 'set-skin', withId.skin) // 既有寵物的造型即時更新（新建的由 did-finish-load 推）
@@ -202,16 +182,38 @@ function ensureCard(channelId: string): CardState {
   const existing = cardWindows.get(channelId)
   if (existing && !existing.win.isDestroyed()) return existing
   const win = createCardWindow(channelId)
-  const cs: CardState = { win, loaded: false, pending: null, activeId: null, dragOffset: null }
+  const cs: CardState = { win, state: { ...initialCardState }, dragOffset: null }
   cardWindows.set(channelId, cs)
-  win.webContents.once('did-finish-load', () => {
-    cs.loaded = true
-    flushCard(channelId)
-  })
+  win.webContents.once('did-finish-load', () => dispatchCard(channelId, { kind: 'loaded' }))
   win.on('closed', () => {
     if (cardWindows.get(channelId) === cs) cardWindows.delete(channelId)
   })
   return cs
+}
+
+function execCardCommand(channelId: string, cs: CardState, cmd: CardCommand): void {
+  switch (cmd.type) {
+    case 'flush':
+      if (cs.win.isDestroyed()) return
+      pushTo(cs.win, 'card-data', cmd.view)
+      cs.win.showInactive() // 顯示但不搶焦點
+      repositionCard(channelId)
+      break
+    case 'hide':
+      if (!cs.win.isDestroyed()) cs.win.hide()
+      break
+    case 'notifyDismissed':
+      pushTo(getPetWindow(channelId), 'card-dismissed', { id: cmd.id })
+      break
+  }
+}
+
+function dispatchCard(channelId: string, event: CardEvent): void {
+  const cs = cardWindows.get(channelId)
+  if (!cs) return
+  const r = cardReduce(cs.state, event)
+  cs.state = r.state
+  for (const cmd of r.commands) execCardCommand(channelId, cs, cmd)
 }
 
 // 若卡片可見，依寵物 bounds 重新定位卡片並置頂（兩窗同為 floating，需 moveTop 保證在寵物上）
@@ -247,40 +249,17 @@ function endCardDragSync(channelId: string): void {
   cs.dragOffset = null
 }
 
-function flushCard(channelId: string): void {
-  const cs = cardWindows.get(channelId)
-  if (!cs || !cs.pending || cs.win.isDestroyed()) return
-  pushTo(cs.win, 'card-data', cs.pending)
-  cs.win.showInactive() // 顯示但不搶焦點
-  repositionCard(channelId)
-  cs.pending = null
-}
-
 // 關閉所有顯示同一訊息（同 event id）的卡片：同訊息可能在多隻寵物各彈一張，
-// 點關一張即連帶關掉其餘同 id 的，並通知各自寵物標已讀。
+// 點關一張即連帶關掉其餘同 id 的，並通知各自寵物標已讀（id 比對在 cardReduce）。
 function dismissCardsById(id: string): void {
-  for (const [cid, cs] of cardWindows) {
-    if (cs.activeId !== id) continue
-    cs.activeId = null
-    if (!cs.win.isDestroyed()) cs.win.hide()
-    pushTo(getPetWindow(cid), 'card-dismissed', { id })
-  }
+  for (const cid of cardWindows.keys()) dispatchCard(cid, { kind: 'dismiss', id })
 }
 
 app.whenReady().then(async () => {
   registerPetProtocol(getSkinSheetPath) // 在任何載入 pet: 的視窗前
-  const startupPrefs = loadPrefs(app.getPath('userData'))
-  dndEnabled = startupPrefs.dnd
-  allEnabled = startupPrefs.allEnabled
-  channels = startupPrefs.channels
-  knownSources = startupPrefs.knownSources
-  defaultSkin = startupPrefs.skin
   healInvalidSkins() // 失效造型回正成預設，避免桌面 fallback 與設定頁顯示不一致（#7）
   healKnownKindSources() // 補齊既有來源缺的 kind 整類項（早於整類邏輯記錄的舊來源）
   reconcilePets()
-  bus.on('dnd-changed', (enabled: boolean) => {
-    dndEnabled = enabled
-  })
 
   const port = await findFreePort()
   const token = generateToken()
@@ -294,8 +273,9 @@ app.whenReady().then(async () => {
       autoDetectChannel(event.source)
       broadcastUnread()
       broadcastMessages()
-      if (dndEnabled) return // 勿擾模式：不彈卡片、不演反應動畫
-      const targets = new Set<string>([...(allEnabled ? ['all'] : []), ...matchingChannels(event.source, channels)])
+      const p = getPrefs()
+      if (p.dnd) return // 勿擾模式：不彈卡片、不演反應動畫
+      const targets = new Set<string>([...(p.allEnabled ? ['all'] : []), ...matchingChannels(event.source, p.channels)])
       for (const id of targets) {
         const win = getPetWindow(id)
         if (!win || win.isDestroyed()) continue
@@ -340,66 +320,52 @@ app.whenReady().then(async () => {
       return { ok: false, effectiveId: sheetPaths.has(cur) ? cur : DEFAULT_SKIN_ID }
     }
     if (channelId === 'all') {
-      const nextPrefs = updatePrefs(app.getPath('userData'), { skin: id })
-      defaultSkin = id
+      updatePrefsStore({ skin: id }) // prefs-changed broadcast 由 window.ts 的 subscribePrefs 統一處理
       pushTo(getPetWindow('all'), 'set-skin', id)
-      for (const petId of petChannelIds()) pushTo(getPetWindow(petId), 'prefs-changed', nextPrefs)
-      pushTo(channelsWindow, 'default-skin-updated', id)
+      pushTo(channelsOpener.current(), 'default-skin-updated', id)
     } else {
-      const ch = channels.find((c) => c.id === channelId)
+      const ch = getPrefs().channels.find((c) => c.id === channelId)
       if (ch) upsertChannel({ ...ch, skin: id })
     }
     return { ok: true, effectiveId: id }
   })
-  handleQuery('get-default-skin', () => loadPrefs(app.getPath('userData')).skin)
-  handleQuery('get-channels', () => channels)
-  handleQuery('get-known-sources', () => knownSources)
+  handleQuery('get-default-skin', () => getPrefs().skin)
+  handleQuery('get-channels', () => getPrefs().channels)
+  handleQuery('get-known-sources', () => getPrefs().knownSources)
   handleCommand('channel-upsert', (ch) => {
     upsertChannel(ch)
   })
   handleCommand('channel-delete', ({ id }) => {
-    channels = channels.filter((c) => c.id !== id)
-    persistChannels()
-    broadcastChannels()
+    updatePrefsStore({ channels: getPrefs().channels.filter((c) => c.id !== id) })
     broadcastMessages()
     reconcilePets()
     broadcastUnread()
   })
   handleCommand('remove-known-source', (s) => {
     const key = `${s.kind ?? ''} ${s.name ?? ''}`
-    knownSources = knownSources.filter((k) => `${k.kind ?? ''} ${k.name ?? ''}` !== key)
-    persistKnownSources()
-    broadcastKnownSources()
+    updatePrefsStore({ knownSources: getPrefs().knownSources.filter((k) => `${k.kind ?? ''} ${k.name ?? ''}` !== key) })
   })
-  handleQuery('get-all-enabled', () => allEnabled)
+  handleQuery('get-all-enabled', () => getPrefs().allEnabled)
   handleCommand('set-all-enabled', (v) => applyAllEnabled(v))
   handleCommand('open-skin-picker', ({ channelId }) => bus.emit('open-skins', channelId))
   // 快速關閉目前頻道的寵物（右鍵選單）：停用該頻道（'all' → allEnabled false）。
   // 防呆保險：至少保留一隻（選單項已 disable，這裡再擋一次避免 race）。
   bus.on('close-pet', (channelId: string) => {
-    if (activePetCount(channels, allEnabled) <= 1) return
+    const p = getPrefs()
+    if (activePetCount(p.channels, p.allEnabled) <= 1) return
     if (channelId === 'all') {
       applyAllEnabled(false)
     } else {
-      const ch = channels.find((c) => c.id === channelId)
+      const ch = p.channels.find((c) => c.id === channelId)
       if (ch) upsertChannel({ ...ch, showPet: false }) // 只關寵物顯示，頻道仍啟用（分頁/分類照常）
     }
   })
 
   handleCommand('show-card', ({ channelId, view }) => {
-    const cs = ensureCard(channelId)
-    cs.activeId = view.id
-    cs.pending = view
-    if (cs.loaded) flushCard(channelId)
-    // 未載入完成則由 did-finish-load → flushCard 處理
+    ensureCard(channelId) // 未載入完成 → reducer 暫存 pending，loaded 事件補 flush
+    dispatchCard(channelId, { kind: 'show', view })
   })
-  handleCommand('hide-card', ({ channelId }) => {
-    const cs = cardWindows.get(channelId)
-    if (!cs) return
-    cs.activeId = null
-    cs.pending = null
-    if (!cs.win.isDestroyed()) cs.win.hide()
-  })
+  handleCommand('hide-card', ({ channelId }) => dispatchCard(channelId, { kind: 'hide' }))
   handleCommand('card-clicked', ({ id }) => {
     dismissCardsById(id) // 點關一張 → 連帶關掉所有顯示同一訊息的卡片
   })
@@ -427,38 +393,9 @@ app.whenReady().then(async () => {
   screen.on('display-metrics-changed', () => { for (const id of cardWindows.keys()) repositionCard(id) }) // 解析度 / 排列變更
 
   bus.on('open-center', (channelId?: string) => openCenter(channelId))
-  bus.on('open-settings', () => {
-    if (settingsWindow && !settingsWindow.isDestroyed()) {
-      settingsWindow.focus()
-      return
-    }
-    settingsWindow = createSettingsWindow()
-    settingsWindow.on('closed', () => {
-      settingsWindow = null
-    })
-  })
-  bus.on('open-skins', (channelId: string = 'all') => {
-    if (skinWindow && !skinWindow.isDestroyed()) {
-      const oldWindow = skinWindow
-      skinWindow = null
-      oldWindow.close()
-    }
-    skinWindow = createSkinWindow(channelId)
-    const currentWindow = skinWindow
-    currentWindow.on('closed', () => {
-      if (skinWindow === currentWindow) skinWindow = null
-    })
-  })
-  bus.on('open-channels', () => {
-    if (channelsWindow && !channelsWindow.isDestroyed()) {
-      channelsWindow.focus()
-      return
-    }
-    channelsWindow = createChannelsWindow()
-    channelsWindow.on('closed', () => {
-      channelsWindow = null
-    })
-  })
+  bus.on('open-settings', () => settingsOpener.open())
+  bus.on('open-skins', (channelId: string = 'all') => skinOpener.open(channelId))
+  bus.on('open-channels', () => channelsOpener.open())
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) reconcilePets()
@@ -468,21 +405,16 @@ app.whenReady().then(async () => {
 function autoDetectChannel(source: { kind: string; name?: string }): void {
   // 決策全在 core 的 applySourceEvent（已知來源補登／自動建啟用頻道跳專屬寵物／死角兜底），
   // 此處只套用結果並依 flags 執行副作用。
+  const p = getPrefs()
   const r = applySourceEvent(
-    { channels, knownSources, allEnabled },
+    { channels: p.channels, knownSources: p.knownSources, allEnabled: p.allEnabled },
     source,
-    { defaultSkin, nextId: nextChannelId, maxKnown: MAX_KNOWN_SOURCES, maxAuto: MAX_AUTO_CHANNELS },
+    { defaultSkin: p.skin, nextId: nextChannelId, maxKnown: MAX_KNOWN_SOURCES, maxAuto: MAX_AUTO_CHANNELS },
   )
-  channels = r.state.channels
-  knownSources = r.state.knownSources
-  if (r.knownChanged) {
-    persistKnownSources()
-    broadcastKnownSources()
-  }
-  if (r.channelsChanged) {
-    persistChannels()
-    broadcastChannels()
-  }
+  const partial: { channels?: Channel[]; knownSources?: SourceMatch[] } = {}
+  if (r.knownChanged) partial.knownSources = r.state.knownSources
+  if (r.channelsChanged) partial.channels = r.state.channels
+  if (partial.channels || partial.knownSources) updatePrefsStore(partial) // broadcast 由訂閱處理
   if (r.petsChanged) {
     reconcilePets() // 立刻長出該寵物，當下訊息隨後（onEvent 路由）演到它身上
     broadcastUnread()

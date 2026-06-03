@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   defaultPosition,
   clampToValidPosition,
+  isWithinAnyDisplay,
   type DisplayInfo,
   type WindowState,
 } from '../../src/core/window-position'
@@ -57,5 +58,25 @@ describe('clampToValidPosition', () => {
       x: 1440 - 280,
       y: 900 - 300,
     })
+  })
+})
+
+describe('isWithinAnyDisplay', () => {
+  const wa1 = { x: 0, y: 0, width: 1440, height: 900 }
+  const wa2 = { x: 1440, y: 0, width: 1920, height: 1080 }
+
+  it('完整落在某一工作區內 → true', () => {
+    expect(isWithinAnyDisplay({ x: 100, y: 100, width: 135, height: 146 }, [wa1, wa2])).toBe(true)
+    expect(isWithinAnyDisplay({ x: 1500, y: 0, width: 135, height: 146 }, [wa1, wa2])).toBe(true)
+  })
+  it('貼齊邊緣 → true;超出 1px → false', () => {
+    expect(isWithinAnyDisplay({ x: 1440 - 135, y: 900 - 146, width: 135, height: 146 }, [wa1])).toBe(true)
+    expect(isWithinAnyDisplay({ x: 1440 - 134, y: 0, width: 135, height: 146 }, [wa1])).toBe(false)
+  })
+  it('跨兩個工作區（任一皆不完整包含）→ false', () => {
+    expect(isWithinAnyDisplay({ x: 1400, y: 0, width: 135, height: 146 }, [wa1, wa2])).toBe(false)
+  })
+  it('無工作區 → false', () => {
+    expect(isWithinAnyDisplay({ x: 0, y: 0, width: 1, height: 1 }, [])).toBe(false)
   })
 })

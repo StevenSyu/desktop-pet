@@ -19,6 +19,24 @@ export interface Point {
   y: number
 }
 
+export interface Bounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/** 視窗 bounds 是否完整落在任一 display 工作區內（display-removed 重吸附 / 已存座標驗證共用）。 */
+export function isWithinAnyDisplay(bounds: Bounds, workAreas: Bounds[]): boolean {
+  return workAreas.some(
+    (wa) =>
+      bounds.x >= wa.x &&
+      bounds.y >= wa.y &&
+      bounds.x + bounds.width <= wa.x + wa.width &&
+      bounds.y + bounds.height <= wa.y + wa.height,
+  )
+}
+
 /** 給定 display 的工作區與視窗尺寸，回傳右下角座標。 */
 export function defaultPosition(primary: DisplayInfo, win: WinSize, margin: number): Point {
   const { x, y, width, height } = primary.workArea

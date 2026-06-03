@@ -3,9 +3,8 @@
 import { SPRITE_FORMAT } from '../core/sprite-format'
 import { PetController } from '../core/pet-fsm'
 import { DEFAULT_SKIN_ID } from '../core/skins'
-import { pickWalk, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
 import { resolveAnimation, type AnimationContext } from '../core/anim-resolver'
-import { shouldWalkNow } from '../core/walk-decider'
+import { initialWalkEngineState, walkEngineReduce, type WalkCommand, type WalkEngineEvent } from '../core/walk-engine'
 import { stripMarkdown } from '../core/markdown-strip'
 import { sanitizeLabelMode, shouldShowLabel, type ChannelLabelMode } from '../core/channel-label'
 import { clampScale, scaleFromDrag } from '../core/pet-scale'
@@ -19,6 +18,7 @@ import {
 import type { AppEvent, NotifyType } from '../core/events'
 import type { CardView } from '../core/card-view'
 import { cardSummary } from '../core/card-summary'
+import { liveQuery } from '../core/live-query'
 
 const myChannel = new URLSearchParams(location.search).get('c') ?? 'all'
 const DISPLAY_SCALE = 0.7
@@ -49,28 +49,25 @@ function applyLabel(): void {
   labelEl.hidden = !shouldShowLabel(labelMode, labelHovering)
 }
 
-window.petBridge.getChannels().then((cs) => {
-  if (myChannel !== 'all') {
-    const ch = cs.find((c) => c.id === myChannel)
-    if (ch) channelName = ch.name
-  }
-  applyLabel()
-})
-window.petBridge.onChannelsUpdated((cs) => {
-  if (myChannel !== 'all') {
-    const ch = cs.find((c) => c.id === myChannel)
-    if (ch) channelName = ch.name
-  }
-  applyLabel()
-})
-window.petBridge.getPrefs().then((p) => {
-  labelMode = sanitizeLabelMode(p.channelLabelMode)
-  applyLabel()
-})
-window.petBridge.onPrefsChanged((p) => {
-  labelMode = sanitizeLabelMode(p.channelLabelMode)
-  applyLabel()
-})
+void liveQuery(
+  () => window.petBridge.getChannels(),
+  (cb) => window.petBridge.onChannelsUpdated(cb),
+  (cs) => {
+    if (myChannel !== 'all') {
+      const ch = cs.find((c) => c.id === myChannel)
+      if (ch) channelName = ch.name
+    }
+    applyLabel()
+  },
+)
+void liveQuery(
+  () => window.petBridge.getPrefs(),
+  (cb) => window.petBridge.onPrefsChanged(cb),
+  (p) => {
+    labelMode = sanitizeLabelMode(p.channelLabelMode)
+    applyLabel()
+  },
+)
 
 function setSkin(id: string): void {
   petEl.style.backgroundImage = `url(pet://${id}/sheet)`
@@ -142,7 +139,7 @@ function stopReplay(): void {
 
 function applyEvent(event: AppEvent): void {
   pet.onEvent(event, performance.now())
-  if (walking) window.petBridge.walkCancel(myChannel)
+  walkDispatch({ kind: 'interrupt' }) // 走動中收到通知 → 立即停
 }
 
 function startReplay(event: AppEvent): void {
@@ -198,29 +195,35 @@ function buildCardView(e: AppEvent): CardView {
   }
 }
 
+// ===== 自走狀態機（core walk-engine）：adapter 只轉事件、執行 start/cancel 指令 =====
+let walkState = initialWalkEngineState(Math.random, performance.now())
+
+function applyWalkCommand(cmd: WalkCommand): void {
+  if (cmd.type === 'start') {
+    window.petBridge.walkStart(myChannel, { direction: cmd.direction, distance: cmd.distance, duration: cmd.duration })
+  } else {
+    window.petBridge.walkCancel(myChannel)
+  }
+}
+
+function walkDispatch(event: WalkEngineEvent, now = performance.now()): void {
+  const r = walkEngineReduce(walkState, event, { now, rng: Math.random })
+  walkState = r.state
+  for (const cmd of r.commands) applyWalkCommand(cmd)
+}
+
+void liveQuery(
+  () => window.petBridge.getPrefs(),
+  (cb) => window.petBridge.onPrefsChanged(cb),
+  (p) => walkDispatch({ kind: 'prefs', autoWalk: p.autoWalk, bounds: p.walk }),
+)
+window.petBridge.onAutoWalkChanged((enabled) => walkDispatch({ kind: 'autoWalk', enabled }))
+window.petBridge?.onWalkEnded?.(() => walkDispatch({ kind: 'walkEnded' }))
+// main 端方向反轉（撞牆 → 改向對面）時同步 direction
+window.petBridge?.onWalkDirection?.((direction) => walkDispatch({ kind: 'direction', direction }))
+
 // ===== 動畫驅動：setInterval 輪詢 FSM + 互動 reducer，切 #pet[data-anim] =====
 let currentAnim: string | null = null
-let walking = false
-let autoWalkEnabled = true
-let walkBounds: WalkBounds = { ...DEFAULT_WALK_BOUNDS }
-let nextWalkAt = pickWalk(Math.random, performance.now(), walkBounds).nextWalkAt
-let walkDirection: 'left' | 'right' | null = null
-
-window.petBridge.getPrefs().then((p) => {
-  autoWalkEnabled = p.autoWalk
-  walkBounds = p.walk
-  nextWalkAt = pickWalk(Math.random, performance.now(), walkBounds).nextWalkAt
-})
-window.petBridge.onAutoWalkChanged((enabled) => {
-  autoWalkEnabled = enabled
-  if (!enabled && walking) window.petBridge.walkCancel(myChannel)
-  if (enabled) nextWalkAt = pickWalk(Math.random, performance.now(), walkBounds).nextWalkAt
-})
-window.petBridge.onPrefsChanged((p) => {
-  autoWalkEnabled = p.autoWalk
-  walkBounds = p.walk
-  nextWalkAt = pickWalk(Math.random, performance.now(), walkBounds).nextWalkAt
-})
 
 function setAnim(name: string): void {
   if (currentAnim === name) return
@@ -238,45 +241,21 @@ function tick(): void {
     dragMoved: interactionState.drag?.moved ?? false,
     dragDirection: interactionState.drag?.direction ?? null,
     userAnim: interactionState.userAnim?.name ?? null,
-    walking,
-    walkDirection,
+    walking: walkState.walking,
+    walkDirection: walkState.direction,
   }
   setAnim(resolveAnimation(ctx))
 
-  // 自走觸發（idle 且未走動、未隱藏、自動走動開啟、到時間；有卡片時暫停自走）
-  if (
-    !currentEvent &&
-    shouldWalkNow({ autoWalkEnabled, walking, animation: view.animation, hidden: document.hidden, now, nextWalkAt })
-  ) {
-    const w = pickWalk(Math.random, now, walkBounds)
-    nextWalkAt = w.nextWalkAt
-    walking = true
-    walkDirection = w.direction
-    window.petBridge.walkStart(myChannel, { direction: w.direction, distance: w.distance, duration: w.duration })
-  }
+  // 自走觸發（條件齊備時 engine 回傳 start 指令；有卡片時暫停自走）
+  walkDispatch({ kind: 'tick', animation: view.animation, hidden: document.hidden, hasCard: !!currentEvent }, now)
 }
-
-window.petBridge?.onWalkEnded?.(() => {
-  walking = false
-  walkDirection = null
-  nextWalkAt = pickWalk(Math.random, performance.now(), walkBounds).nextWalkAt
-})
-
-// main 端方向反轉（撞牆 → 改向對面）時同步 walkDirection
-window.petBridge?.onWalkDirection?.((direction) => {
-  if (walking) walkDirection = direction
-})
 
 let tickTimer: ReturnType<typeof setInterval> | null = setInterval(tick, 100)
 
 document.addEventListener('visibilitychange', () => {
   petEl.removeAttribute('data-paused')
   if (!tickTimer) tickTimer = setInterval(tick, 100)
-  if (document.hidden) {
-    if (walking) window.petBridge.walkCancel(myChannel)
-  } else {
-    nextWalkAt = pickWalk(Math.random, performance.now(), walkBounds).nextWalkAt
-  }
+  walkDispatch({ kind: document.hidden ? 'hidden' : 'visible' })
 })
 
 function bindHover(): void {
@@ -291,7 +270,7 @@ function bindHover(): void {
     applyLabel()
     handleEl.hidden = false
     enableInteractive()
-    if (walking) window.petBridge.walkCancel(myChannel) // 走動中被 hover → 立即停
+    walkDispatch({ kind: 'interrupt' }) // 走動中被 hover → 立即停
     dispatch({ kind: 'hover' }) // 拖動中／反應中 reducer 自會略過
   })
   shellEl.addEventListener('mouseleave', () => {

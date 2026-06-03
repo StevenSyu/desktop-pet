@@ -36,3 +36,35 @@ payload 為 `void` 表示該 channel 不帶資料；helper 的型別會讓對應
 **整類項**＝member 只有 `kind`、無 `name` 的來源（UI 顯示「全部來源」），命中該 kind 全部來源（含未來新專案）。
 
 同樣模式的純化：卡片視窗幾何在 `src/core/card-layout.ts`（`cardWindowBounds`：drag 偏移／可見卡翻轉＋陰影外擴），通知中心開窗位置在 `src/core/center-pos.ts`（`resolveCenterPos`：記住的位置失效時退回寵物旁）。
+
+## Walk Engine（自走狀態機）
+
+renderer 端自走的完整生命週期（何時走、走哪邊、何時取消、何時重排）集中在 `src/core/walk-engine.ts` 的 reducer：`walkEngineReduce(state, event, ctx) → { state, commands }`。adapter（`renderer/main.ts`）只把 DOM/IPC 事件轉成 `WalkEngineEvent`、把 `start`/`cancel` 指令轉成 `petBridge.walkStart/walkCancel`。
+
+**取消語意**：engine 只發 `cancel` 指令，`walking` 不就地清掉——等 main 推 `walkEnded` 才轉 false，與位移實況（main 的 `walk-session`）保持單一事實來源。位移本身（clamp／step／撞牆反轉）仍在 main 的 per-channel `WalkSession`；邊界 clamp 用實際視窗寬（含 scale）。
+
+## Prefs Store（單一寫入 seam）
+
+main process 的 prefs 讀寫只走 `src/main/prefs-store.ts`：`getPrefs()`（首讀後常駐記憶體）＋ `updatePrefsStore(partial)`（合併寫檔＋通知訂閱者帶 changed keys）。`prefs-changed` 推播由 `window.ts` 的訂閱統一處理，且只在 renderer 在乎的欄位（`channelLabelMode`/`walk`/`skin`）變更時才推——`channels`/`knownSources` 高頻 persist 不推，避免洗掉 renderer 的走動排程。
+
+**單一狀態源**：`index.ts` 沒有任何 prefs 欄位的鏡像 globals（channels／knownSources／allEnabled／dnd／defaultSkin 皆已移除）。讀走 `getPrefs()`、寫走 `updatePrefsStore`；頻道目錄的 persist＋broadcast 配對由 `index.ts` 的 `subscribePrefs` 依 changed keys 統一處理。
+
+## Card Lifecycle（卡片生命週期狀態機）
+
+單一卡片視窗的 show／loaded／hide／dismiss 時序決策在 `src/core/card-lifecycle.ts` 的 `cardReduce`：事件進、`flush`／`hide`／`notifyDismissed` 指令出。adapter（`index.ts`）持有 BrowserWindow 與 per-channel 狀態並執行指令；幾何（`cardWindowBounds`）與拖動同步留在 adapter。**dismiss 會一併清 pending**：載入中被關掉的卡片不得在 loaded 後復活（ghost card）。
+
+## Center State（通知中心狀態機）
+
+通知中心的 list／detail 模式、頻道分頁、type／session 篩選、scroll／flash 還原全部在 `src/core/center-state.ts`：`centerReduce`（含**扶正**——分頁指向已停用頻道退回 all、session 消失退回 all、詳情訊息被清空 fallback 回列表）＋ `centerView`（純投影：tabs／items／unreadTotal）。adapter（`renderer/center.ts`）只 dispatch 事件、把 view 畫成 DOM。
+
+## Pet Fleet（寵物艦隊差集）
+
+「該存在哪些寵物」與現況差集是純函式：`src/core/pet-fleet.ts` 的 `desiredPetIds(channels, allEnabled)` 與 `diffFleet(current, desired) → { close, create[index] }`；`index.ts` 的 `reconcilePets` 只執行視窗開關副作用。推播給全部寵物用 `window.ts` 的 `broadcastToPets(channel, payload)`，不再各處手寫 loop。
+
+## liveQuery（Query＋Push 訂閱 race 修補）
+
+renderer「初查＋訂閱更新」一律走 `src/core/live-query.ts` 的 `liveQuery(query, subscribe, onData)`：訂閱先行、push 先到者勝（query 結果只在尚未收到 push 時套用）。回傳 query 完成的 promise 供初載後續動作（如 pending detail 消費）。
+
+## 工具視窗工廠
+
+通知中心／卡片／進階設定／造型挑選／寵物設定的視窗建立集中在 `src/main/window-factory.ts`；單例開窗（已開則 focus、或關舊開新）用 `makeOpener(create, { replace? })`，推播端以 `opener.current()` 取窗（未開 → null，`pushTo` 自 no-op）。

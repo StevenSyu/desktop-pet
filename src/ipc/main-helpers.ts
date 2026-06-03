@@ -2,7 +2,7 @@
 import { ipcMain, type BrowserWindow } from 'electron'
 import type { Commands, Queries, Pushes } from './contract'
 
-type PushArgs<K extends keyof Pushes> = Pushes[K] extends void ? [] : [Pushes[K]]
+export type PushArgs<K extends keyof Pushes> = Pushes[K] extends void ? [] : [Pushes[K]]
 
 /** 註冊 renderer → main 單向命令 handler。void payload 的 handler 不收引數。 */
 export function handleCommand<K extends keyof Commands>(

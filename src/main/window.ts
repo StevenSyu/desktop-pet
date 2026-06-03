@@ -6,14 +6,16 @@ import { scanSkins } from './skin-registry'
 import { bus } from './bus'
 import { isMac, isWindows, pinWindow } from './win-util'
 import { type ChannelLabelMode } from '../core/channel-label'
-import { defaultPosition, type DisplayInfo } from '../core/window-position'
+import { defaultPosition, isWithinAnyDisplay } from '../core/window-position'
 import { stackPosition } from '../core/pet-layout'
 import { clampScale } from '../core/pet-scale'
-import { sanitizeWalkBounds, DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
+import { sanitizeWalkBounds } from '../core/walk-planner'
 import { WalkSession } from '../core/walk-session'
 import { loadWindowStates, saveWindowState } from './window-state'
-import { loadPrefs, updatePrefs, type Prefs } from './prefs'
-import { handleCommand, handleQuery, pushTo } from '../ipc/main-helpers'
+import { type Prefs } from './prefs'
+import { getPrefs, updatePrefsStore, subscribePrefs } from './prefs-store'
+import { handleCommand, handleQuery, pushTo, type PushArgs } from '../ipc/main-helpers'
+import type { Pushes } from '../ipc/contract'
 
 const PET_WIDTH = 135
 const PET_HEIGHT = 146
@@ -22,17 +24,15 @@ const GAP = 12
 
 let handlersRegistered = false
 const petWindows = new Map<string, BrowserWindow>() // channelId → window；'all' = 全部
-let prefs: Prefs = {
-  autoWalk: true,
-  walk: { ...DEFAULT_WALK_BOUNDS },
-  skin: DEFAULT_SKIN_ID,
-  channelLabelMode: 'hidden',
-  dnd: false,
-  allEnabled: true,
-  channels: [],
-  knownSources: [],
-}
 let skinSheetPaths = new Map<string, string>()
+
+// renderer 的 prefs-changed 只在這些欄位變更時才推（高頻 persist 的 channels/knownSources
+// 不推，否則 renderer 每次通知都會重設走動排程）
+const PET_PREFS_KEYS: readonly (keyof Prefs)[] = ['channelLabelMode', 'walk', 'skin']
+subscribePrefs((p, changed) => {
+  if (!PET_PREFS_KEYS.some((k) => changed.has(k))) return
+  broadcastToPets('prefs-changed', p)
+})
 
 function petWindowSize(scale: number): { width: number; height: number } {
   return {
@@ -62,6 +62,10 @@ export function getPetWindow(channelId: string): BrowserWindow | undefined {
 export function petChannelIds(): string[] {
   return [...petWindows.keys()]
 }
+/** 推播給所有寵物視窗（取代各處手寫 for-of pushTo loop）。 */
+export function broadcastToPets<K extends keyof Pushes>(channel: K, ...args: PushArgs<K>): void {
+  for (const w of petWindows.values()) pushTo(w, channel, ...args)
+}
 export function closePetWindow(channelId: string): void {
   endWalk(channelId, false)
   const w = petWindows.get(channelId)
@@ -89,8 +93,7 @@ function endAllWalks(notify: boolean): void {
 }
 
 function setLabelMode(mode: ChannelLabelMode): void {
-  prefs = updatePrefs(app.getPath('userData'), { channelLabelMode: mode })
-  for (const id of petChannelIds()) pushTo(getPetWindow(id), 'prefs-changed', prefs)
+  updatePrefsStore({ channelLabelMode: mode }) // broadcast 由 subscribePrefs 統一處理
 }
 
 function setPetInteractive(win: BrowserWindow, interactive: boolean): void {
@@ -102,7 +105,6 @@ function setPetInteractive(win: BrowserWindow, interactive: boolean): void {
 }
 
 export function createPetWindow(channelId: string, requestedSkin: string, index: number): BrowserWindow {
-  prefs = loadPrefs(app.getPath('userData'))
   skinSheetPaths = scanSkins(app.getPath('userData'), builtinRoot()).sheetPaths
 
   const states = loadWindowStates(app.getPath('userData'))
@@ -110,8 +112,8 @@ export function createPetWindow(channelId: string, requestedSkin: string, index:
   const scale = clampScale(saved?.scale)
   const { width: winW, height: winH } = petWindowSize(scale)
   let pos: { x: number; y: number }
-  const displays: DisplayInfo[] = screen.getAllDisplays().map((d) => ({ id: d.id, workArea: d.workArea }))
-  const validSaved = saved && displays.some((d) => saved.x >= d.workArea.x && saved.y >= d.workArea.y && saved.x + winW <= d.workArea.x + d.workArea.width && saved.y + winH <= d.workArea.y + d.workArea.height)
+  const workAreas = screen.getAllDisplays().map((d) => d.workArea)
+  const validSaved = saved && isWithinAnyDisplay({ x: saved.x, y: saved.y, width: winW, height: winH }, workAreas)
   if (validSaved && saved) {
     pos = { x: saved.x, y: saved.y }
   } else if (channelId === 'all') {
@@ -176,6 +178,7 @@ function registerHandlers(): void {
   handleCommand('show-context-menu', ({ channelId }) => {
     const win = getPetWindow(channelId)
     if (!win) return
+    const prefs = getPrefs()
     const menu = Menu.buildFromTemplate([
       {
         label: '名稱標籤',
@@ -191,9 +194,9 @@ function registerHandlers(): void {
         type: 'checkbox',
         checked: prefs.autoWalk,
         click: (mi) => {
-          prefs = updatePrefs(app.getPath('userData'), { autoWalk: mi.checked })
-          for (const id of petChannelIds()) pushTo(getPetWindow(id), 'auto-walk-changed', prefs.autoWalk)
-          if (!prefs.autoWalk) endAllWalks(true)
+          const next = updatePrefsStore({ autoWalk: mi.checked })
+          broadcastToPets('auto-walk-changed', next.autoWalk)
+          if (!next.autoWalk) endAllWalks(true)
         },
       },
       { label: '勿擾模式', type: 'checkbox', checked: prefs.dnd, click: (mi) => applyDnd(mi.checked) },
@@ -294,40 +297,33 @@ function registerHandlers(): void {
 
   // ===== 全域命令 / 查詢（不分 pet）=====
   handleCommand('open-center', ({ channelId }) => bus.emit('open-center', channelId))
-  handleQuery('get-auto-walk', () => prefs.autoWalk)
-  handleQuery('get-prefs', () => prefs)
+  handleQuery('get-auto-walk', () => getPrefs().autoWalk)
+  handleQuery('get-prefs', () => getPrefs())
   handleCommand('open-pets-folder', () => {
     const dir = join(app.getPath('userData'), 'pets')
     mkdirSync(dir, { recursive: true })
     shell.openPath(dir)
   })
   handleCommand('set-walk-bounds', (partial) => {
-    const next = sanitizeWalkBounds({ ...prefs.walk, ...partial })
-    prefs = updatePrefs(app.getPath('userData'), { walk: next })
-    for (const id of petChannelIds()) pushTo(getPetWindow(id), 'prefs-changed', prefs)
+    const next = sanitizeWalkBounds({ ...getPrefs().walk, ...partial })
+    updatePrefsStore({ walk: next }) // broadcast 由 subscribePrefs 統一處理
   })
 
   function applyDnd(enabled: boolean): void {
-    prefs = updatePrefs(app.getPath('userData'), { dnd: enabled })
-    bus.emit('dnd-changed', enabled)
-    for (const w of petWindows.values()) {
-      if (enabled) pushTo(w, 'dnd-on')
-      pushTo(w, 'dnd-changed', enabled)
-    }
+    updatePrefsStore({ dnd: enabled })
+    if (enabled) broadcastToPets('dnd-on')
+    broadcastToPets('dnd-changed', enabled)
   }
   handleCommand('set-dnd', (enabled) => applyDnd(enabled))
-  handleQuery('get-dnd', () => prefs.dnd)
+  handleQuery('get-dnd', () => getPrefs().dnd)
 
   // ===== display-removed：每隻寵物各自失效重吸附 =====
   screen.on('display-removed', () => {
-    const displays = screen.getAllDisplays()
+    const workAreas = screen.getAllDisplays().map((d) => d.workArea)
     for (const [channelId, win] of petWindows) {
       if (win.isDestroyed()) continue
       const b = win.getBounds()
-      const inside = displays.some(
-        (d) => b.x >= d.workArea.x && b.y >= d.workArea.y && b.x + b.width <= d.workArea.x + d.workArea.width && b.y + b.height <= d.workArea.y + d.workArea.height,
-      )
-      if (!inside) {
+      if (!isWithinAnyDisplay(b, workAreas)) {
         const primary = screen.getPrimaryDisplay()
         const pos = defaultPosition({ id: primary.id, workArea: primary.workArea }, { width: PET_WIDTH, height: PET_HEIGHT }, MARGIN)
         win.setPosition(pos.x, pos.y)
