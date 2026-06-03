@@ -40,13 +40,13 @@ jobs:
       - name: Unit tests (Vitest)
         run: npm test
 
+      - name: Override version for dispatch validation
+        if: ${{ inputs.test_version != '' }}
+        run: npm version --no-git-tag-version "${{ inputs.test_version }}"
+        shell: bash
+
       - name: Build and publish draft release
-        run: |
-          if [ -n "${{ inputs.test_version }}" ]; then
-            npm run dist -- --publish always --extraMetadata.version="${{ inputs.test_version }}"
-          else
-            npm run dist -- --publish always
-          fi
+        run: npm run dist -- --publish always
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
