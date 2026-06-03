@@ -3,7 +3,6 @@ import {
   matchesSource,
   channelMatches,
   matchingChannels,
-  needsAutoChannel,
   filterByChannel,
   unreadByChannel,
   sanitizeChannels,
@@ -62,17 +61,6 @@ describe('matchingChannels', () => {
   ]
   it('啟用過濾、多 channel 可同時命中', () => {
     expect(matchingChannels({ kind: 'claude-code', name: 'desktop-notify' }, channels).sort()).toEqual(['c1', 'c2'])
-  })
-})
-
-describe('needsAutoChannel', () => {
-  it('無任何 channel 命中才 true', () => {
-    expect(needsAutoChannel({ kind: 'claude-code', name: 'desktop-notify' }, [])).toBe(true)
-  })
-  it('停用 channel 命中也算，不需自動建', () => {
-    expect(needsAutoChannel({ kind: 'claude-code', name: 'desktop-notify' }, [
-      ch('disabled', [{ kind: 'claude-code' }], false),
-    ])).toBe(false)
   })
 })
 

@@ -1,7 +1,7 @@
 /// <reference path="../preload/api.d.ts" />
 import { render } from 'preact'
 import { signal } from '@preact/signals'
-import { matchesSource, activePetCount, type Channel, type SourceMatch } from '../core/channel'
+import { activePetCount, absorbMember, sourcePool, sourceKey, type Channel, type SourceMatch } from '../core/channel'
 import type { DiscoveredSkin } from '../core/skin-scan'
 
 const channels = signal<Channel[]>([])
@@ -39,7 +39,6 @@ window.channelsBridge.onDefaultSkinUpdated((id) => (defaultSkin.value = id))
 window.channelsBridge.getAllEnabled().then((v) => (allEnabled.value = v))
 window.channelsBridge.onAllEnabledUpdated((v) => (allEnabled.value = v))
 
-const srcKey = (s: SourceMatch): string => `${s.kind ?? ''} ${s.name ?? ''}`
 const srcLabel = (s: SourceMatch): string => s.name || s.kind || '(unknown)'
 const kindLabel = (kind?: string): string => (kind === 'claude-code' ? 'claude' : kind || '?')
 const skinName = (id: string): string => skins.value.find((s) => s.id === id)?.displayName ?? id
@@ -58,10 +57,9 @@ function cancelAdd(): void {
 }
 
 function addMember(ch: Channel, s: SourceMatch): void {
-  if (ch.members.some((m) => srcKey(m) === srcKey(s))) return
-  // 整類項（全部來源）加入時，吸收掉同 kind 的精確成員——它們已被整類涵蓋，留著冗餘
-  const kept = s.name == null ? ch.members.filter((m) => m.kind !== s.kind) : ch.members
-  upsert({ ...ch, members: [...kept, { ...s }] })
+  // 吸收規則在 core 的 absorbMember（整類項吸收同 kind 精確成員；已存在 → null 不動作）
+  const next = absorbMember(ch.members, s)
+  if (next) upsert({ ...ch, members: next })
 }
 function removeMember(ch: Channel, i: number): void {
   upsert({ ...ch, members: ch.members.filter((_, idx) => idx !== i) })
@@ -90,23 +88,15 @@ function ChannelRow({ ch }: { ch: Channel }): preact.JSX.Element {
 }
 
 function MemberEditor({ ch }: { ch: Channel }): preact.JSX.Element {
-  // 依 kind 分組排序：整類項（全部來源）排在該 kind 精確來源最上方，當 group header 達成視覺分隔
-  const pool = knownSources.value
-    .filter((s) => !matchesSourceAny(ch, s))
-    .sort((a, b) => {
-      const ka = a.kind ?? ''
-      const kb = b.kind ?? ''
-      if (ka !== kb) return ka.localeCompare(kb)
-      if ((a.name == null) !== (b.name == null)) return a.name == null ? -1 : 1
-      return (a.name ?? '').localeCompare(b.name ?? '')
-    })
+  // 池內容與排序在 core 的 sourcePool：排除已涵蓋來源、依 kind 分組、整類項排組首當 group header
+  const pool = sourcePool(knownSources.value, ch)
   return (
     <div class="editor">
       <div class="col">
         <div class="col-h">已知來源</div>
         <div class="zone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const i = e.dataTransfer?.getData('member-index'); if (i) removeMember(ch, Number(i)) }}>
           {pool.map((s) => (
-            <div class={'src' + (s.name == null ? ' kind-all' : '')} draggable onDragStart={(e) => e.dataTransfer?.setData('src-key', srcKey(s))} onClick={() => addMember(ch, s)} title={s.name == null ? `整個 ${kindLabel(s.kind)} 的所有來源都會進此頻道` : '點擊或拖到右邊加入此頻道'}>
+            <div class={'src' + (s.name == null ? ' kind-all' : '')} draggable onDragStart={(e) => e.dataTransfer?.setData('src-key', sourceKey(s))} onClick={() => addMember(ch, s)} title={s.name == null ? `整個 ${kindLabel(s.kind)} 的所有來源都會進此頻道` : '點擊或拖到右邊加入此頻道'}>
               <span class="src-label">{s.name == null ? '全部來源' : srcLabel(s)}</span>
               <span class={'src-kind k-' + (s.kind ?? 'unknown')}>{kindLabel(s.kind)}</span>
               <span class="add">＋</span>
@@ -118,7 +108,7 @@ function MemberEditor({ ch }: { ch: Channel }): preact.JSX.Element {
       </div>
       <div class="col">
         <div class="col-h">「{ch.name}」成員</div>
-        <div class="zone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const key = e.dataTransfer?.getData('src-key'); const s = knownSources.value.find((x) => srcKey(x) === key); if (s) addMember(ch, s) }}>
+        <div class="zone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const key = e.dataTransfer?.getData('src-key'); const s = knownSources.value.find((x) => sourceKey(x) === key); if (s) addMember(ch, s) }}>
           {ch.members.map((m, i) => (
             <div class={'src member' + (m.name == null ? ' kind-all' : '')} draggable onDragStart={(e) => e.dataTransfer?.setData('member-index', String(i))} onClick={() => removeMember(ch, i)} title="點擊或拖回左邊移除">
               <span class="src-label">{m.name == null ? '全部來源' : srcLabel(m)}</span>
@@ -131,10 +121,6 @@ function MemberEditor({ ch }: { ch: Channel }): preact.JSX.Element {
       </div>
     </div>
   )
-}
-
-function matchesSourceAny(ch: Channel, s: SourceMatch): boolean {
-  return ch.members.some((m) => matchesSource(m, { kind: s.kind ?? '', name: s.name }))
 }
 
 function App(): preact.JSX.Element {

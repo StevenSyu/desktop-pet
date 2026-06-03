@@ -15,10 +15,6 @@ export function channelMatches(channel: Channel, source: NotifySource): boolean 
 export function matchingChannels(source: NotifySource, channels: Channel[]): string[] {
   return channels.filter((c) => c.enabled && channelMatches(c, source)).map((c) => c.id)
 }
-/** 沒有任何既有 channel（含停用）的 members 命中此 source → 需自動建。 */
-export function needsAutoChannel(source: NotifySource, channels: Channel[]): boolean {
-  return !channels.some((c) => channelMatches(c, source))
-}
 export function filterByChannel<T extends { source: NotifySource }>(messages: T[], channelId: string, channels: Channel[]): T[] {
   if (channelId === 'all') return messages
   const ch = channels.find((c) => c.id === channelId)
@@ -71,4 +67,119 @@ export function sanitizeChannels(raw: unknown): Channel[] {
  *  用於「至少保留一隻顯示在外」防呆。停用頻道連帶關寵物，故只算 enabled && showPet。 */
 export function activePetCount(channels: Channel[], allEnabled: boolean): number {
   return (allEnabled ? 1 : 0) + channels.filter((c) => c.enabled && c.showPet).length
+}
+
+// ──────────────── 頻道目錄：來源池 / 成員編輯 / 自動偵測決策（純函式） ────────────────
+
+/** 來源唯一鍵（kind+name 串接），池與成員去重用。整類項（無 name）鍵尾為空。 */
+export const sourceKey = (s: SourceMatch): string => `${s.kind ?? ''} ${s.name ?? ''}`
+
+/** 來源加入頻道成員的結果：
+ * - 已存在（同 sourceKey）→ null（呼叫端不動作）
+ * - 整類項（無 name）→ 先吸收同 kind 精確成員（已被整類涵蓋、留著冗餘）再加入
+ * - 精確項 → 直接加入
+ */
+export function absorbMember(members: SourceMatch[], toAdd: SourceMatch): SourceMatch[] | null {
+  if (members.some((m) => sourceKey(m) === sourceKey(toAdd))) return null
+  const kept = toAdd.name == null ? members.filter((m) => m.kind !== toAdd.kind) : members
+  return [...kept, { ...toAdd }]
+}
+
+/** 已知來源池（成員編輯左欄）：
+ * - 排除已被頻道成員涵蓋的來源（精確命中或被整類涵蓋）
+ * - 依 kind 分組排序；同 kind 內整類項排最前（group header）、精確項依名稱
+ */
+export function sourcePool(known: SourceMatch[], ch: Channel): SourceMatch[] {
+  return known
+    .filter((s) => !ch.members.some((m) => matchesSource(m, { kind: s.kind ?? '', name: s.name })))
+    .sort((a, b) => {
+      const ka = a.kind ?? ''
+      const kb = b.kind ?? ''
+      if (ka !== kb) return ka.localeCompare(kb)
+      if ((a.name == null) !== (b.name == null)) return a.name == null ? -1 : 1
+      return (a.name ?? '').localeCompare(b.name ?? '')
+    })
+}
+
+/** 頻道目錄狀態：一筆來源事件決策的輸入/輸出單位。 */
+export interface ChannelState {
+  channels: Channel[]
+  knownSources: SourceMatch[]
+  allEnabled: boolean
+}
+export interface SourceEventOpts {
+  defaultSkin: string
+  nextId: () => string
+  maxKnown: number
+  maxAuto: number
+}
+export interface SourceEventResult {
+  state: ChannelState
+  knownChanged: boolean
+  channelsChanged: boolean
+  petsChanged: boolean
+}
+
+/** 一筆來源事件對頻道目錄的全部影響（純決策；persist/broadcast/reconcile 由呼叫端依 flags 執行）：
+ * 1. 已知來源池補登：精確項（kind+name）+ 該 kind 整類項（各自去重、上限 maxKnown）
+ * 2. 自動建頻道：只建「啟用」的精確 source 頻道 → 新來源即跳一隻專屬寵物；
+ *    kind 整類不自動建頻道（否則新 kind+新來源一次冒兩頻道兩寵物），由使用者從來源池拖出
+ * 3. 死角兜底：當下無任何「顯示中」寵物能接到此來源（allEnabled 關 + 無命中的顯示頻道）
+ *    → 啟用第一個命中的頻道（有 name 的來源已由 2 涵蓋，此處主要處理無 name 來源）
+ */
+export function applySourceEvent(state: ChannelState, source: NotifySource, opts: SourceEventOpts): SourceEventResult {
+  let { channels, knownSources } = state
+  const { allEnabled } = state
+  const addKnown = (sm: SourceMatch): boolean => {
+    const k = sourceKey(sm)
+    if (knownSources.length >= opts.maxKnown || knownSources.some((s) => sourceKey(s) === k)) return false
+    knownSources = [...knownSources, sm]
+    return true
+  }
+  let knownChanged = addKnown(source.name ? { kind: source.kind, name: source.name } : { kind: source.kind })
+  if (source.name && addKnown({ kind: source.kind })) knownChanged = true
+
+  let channelsChanged = false
+  let petsChanged = false
+  const hasMember = (pred: (m: SourceMatch) => boolean): boolean => channels.some((c) => c.members.some(pred))
+  if (source.name && channels.length < opts.maxAuto && !hasMember((m) => m.kind === source.kind && m.name === source.name)) {
+    channels = [...channels, { id: opts.nextId(), name: source.name, skin: opts.defaultSkin, enabled: true, showPet: true, members: [{ kind: source.kind, name: source.name }] }]
+    channelsChanged = true
+    petsChanged = true
+  }
+
+  const covered = allEnabled || channels.some((c) => c.enabled && c.showPet && channelMatches(c, source))
+  if (!covered) {
+    const target = channels.find((c) => channelMatches(c, source))
+    if (target && !(target.enabled && target.showPet)) {
+      channels = channels.map((c) => (c.id === target.id ? { ...c, enabled: true, showPet: true } : c))
+      channelsChanged = true
+      petsChanged = true
+    }
+  }
+  return { state: { channels, knownSources, allEnabled }, knownChanged, channelsChanged, petsChanged }
+}
+
+/** 啟動 self-heal：補齊既有來源各 kind 缺的整類項（早於整類邏輯記錄的舊來源不會有）。無變 → null。 */
+export function healKnownKinds(known: SourceMatch[], maxKnown: number): SourceMatch[] | null {
+  const kinds = new Set(known.map((s) => s.kind).filter((k): k is string => !!k))
+  let out = known
+  for (const kind of kinds) {
+    if (out.length >= maxKnown) break
+    if (!out.some((s) => s.kind === kind && s.name == null)) out = [...out, { kind }]
+  }
+  return out === known ? null : out
+}
+
+/** 啟動 self-heal：指向不存在造型的頻道回正成 fallback。無變 → null。 */
+export function healSkins(channels: Channel[], valid: Set<string>, fallback: string): Channel[] | null {
+  let changed = false
+  const out = channels.map((c) => {
+    if (c.skin && !valid.has(c.skin)) {
+      changed = true
+      return { ...c, skin: fallback }
+    }
+    return c
+  })
+  return changed ? out : null
 }

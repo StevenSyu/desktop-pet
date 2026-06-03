@@ -5,10 +5,11 @@ import { createCardWindow, CARD_W, CARD_H, CARD_GAP, CARD_SHADOW_PAD } from './c
 import { createSettingsWindow } from './settings-window'
 import { createSkinWindow } from './skin-window'
 import { createChannelsWindow } from './channels-window'
-import { cardPosition } from '../core/card-position'
 import { loadWindowStates, saveWindowState } from './window-state'
 import type { CardView } from '../core/card-view'
-import { matchingChannels, channelMatches, unreadByChannel, activePetCount, type Channel, type SourceMatch } from '../core/channel'
+import { matchingChannels, unreadByChannel, activePetCount, applySourceEvent, healKnownKinds, healSkins, type Channel, type SourceMatch } from '../core/channel'
+import { cardWindowBounds } from '../core/card-layout'
+import { resolveCenterPos } from '../core/center-pos'
 import { DEFAULT_SKIN_ID } from '../core/skins'
 import { registerPetScheme, registerPetProtocol } from './pet-protocol'
 import { findFreePort, generateToken, writeEndpointFile } from './endpoint'
@@ -118,15 +119,9 @@ function scanAvailableSkins(): ReturnType<typeof scanSkins> {
 // 確保「設定頁顯示」與「桌面實際」一致。
 function healInvalidSkins(): void {
   const { sheetPaths } = scanAvailableSkins()
-  let channelsChanged = false
-  channels = channels.map((c) => {
-    if (c.skin && !sheetPaths.has(c.skin)) {
-      channelsChanged = true
-      return { ...c, skin: DEFAULT_SKIN_ID }
-    }
-    return c
-  })
-  if (channelsChanged) {
+  const healed = healSkins(channels, new Set(sheetPaths.keys()), DEFAULT_SKIN_ID)
+  if (healed) {
+    channels = healed
     persistChannels()
     broadcastChannels()
   }
@@ -137,19 +132,10 @@ function healInvalidSkins(): void {
 }
 
 function healKnownKindSources(): void {
-  // 補齊既有來源各 kind 的「整類」項：早於整類邏輯記錄的舊來源（如 punchline/PunchLine）
-  // 不會有整類項，且只在該來源「再次發訊息」時才會補登；啟動時主動掃一遍補齊，
-  // 讓每個出現過的 kind 都能在來源池選整類。
-  const kinds = new Set(knownSources.map((s) => s.kind).filter((k): k is string => !!k))
-  let changed = false
-  for (const kind of kinds) {
-    if (knownSources.length >= MAX_KNOWN_SOURCES) break
-    if (!knownSources.some((s) => s.kind === kind && s.name == null)) {
-      knownSources = [...knownSources, { kind }]
-      changed = true
-    }
-  }
-  if (changed) {
+  // 啟動時補齊既有來源缺的 kind 整類項（決策在 core 的 healKnownKinds）
+  const healed = healKnownKinds(knownSources, MAX_KNOWN_SOURCES)
+  if (healed) {
+    knownSources = healed
     persistKnownSources()
     broadcastKnownSources()
   }
@@ -170,29 +156,17 @@ function upsertChannel(ch: Channel): Channel {
   return withId
 }
 
-// 上次關閉時記住的通知中心位置（須仍落在某顯示器 workArea 內才採用）
-function savedCenterPos(): { x: number; y: number } | undefined {
-  const saved = loadWindowStates(app.getPath('userData'))['center']
-  if (!saved) return undefined
-  const ok = screen.getAllDisplays().some(
-    (d) =>
-      saved.x >= d.workArea.x &&
-      saved.y >= d.workArea.y &&
-      saved.x + CENTER_W <= d.workArea.x + d.workArea.width &&
-      saved.y + CENTER_H <= d.workArea.y + d.workArea.height,
-  )
-  return ok ? { x: saved.x, y: saved.y } : undefined
-}
-
 function computeCenterPos(): { x: number; y: number } | undefined {
-  // 優先沿用記住的位置；否則開在「全部」寵物那一側
-  const saved = savedCenterPos()
-  if (saved) return saved
+  // 決策在 core 的 resolveCenterPos：記住的位置仍有效則沿用，否則開在「全部」寵物那一側
+  const saved = loadWindowStates(app.getPath('userData'))['center']
   const all = getPetWindow('all')
-  if (!all) return undefined
-  const pet = all.getBounds()
-  const display = screen.getDisplayMatching(pet)
-  return cardPosition(pet, { width: CENTER_W, height: CENTER_H }, display.workArea, 8)
+  const pet = all ? { bounds: all.getBounds(), workArea: screen.getDisplayMatching(all.getBounds()).workArea } : undefined
+  return resolveCenterPos(
+    saved,
+    { width: CENTER_W, height: CENTER_H },
+    screen.getAllDisplays().map((d) => d.workArea),
+    pet,
+  )
 }
 
 let centerSaveTimer: ReturnType<typeof setTimeout> | null = null
@@ -246,28 +220,12 @@ function repositionCard(channelId: string, bringToFront = true, movedBounds?: Pe
   const pet = getPetWindow(channelId)
   if (!cs || cs.win.isDestroyed() || !cs.win.isVisible() || !pet) return
   const petBounds = movedBounds ?? pet.getBounds()
-  if (cs.dragOffset) {
-    cs.win.setBounds({
-      x: Math.round(petBounds.x + cs.dragOffset.x),
-      y: Math.round(petBounds.y + cs.dragOffset.y),
-      width: CARD_W,
-      height: CARD_H,
-    })
-    return
-  }
-  const display = screen.getDisplayMatching(petBounds)
-  const visibleCard = {
-    width: CARD_W - CARD_SHADOW_PAD * 2,
-    height: CARD_H - CARD_SHADOW_PAD * 2,
-  }
-  const pos = cardPosition(petBounds, visibleCard, display.workArea, CARD_GAP)
-  cs.win.setBounds({
-    x: Math.round(pos.x - CARD_SHADOW_PAD),
-    y: Math.round(pos.y - CARD_SHADOW_PAD),
-    width: CARD_W,
-    height: CARD_H,
-  })
-  if (bringToFront) cs.win.moveTop()
+  const workArea = screen.getDisplayMatching(petBounds).workArea
+  // 幾何決策在 core 的 cardWindowBounds（drag 同步偏移 / 可見卡翻轉定位 + 陰影外擴）
+  cs.win.setBounds(
+    cardWindowBounds(petBounds, workArea, { width: CARD_W, height: CARD_H, shadowPad: CARD_SHADOW_PAD, gap: CARD_GAP }, cs.dragOffset),
+  )
+  if (!cs.dragOffset && bringToFront) cs.win.moveTop()
 }
 
 function startCardDragSync(channelId: string): void {
@@ -508,42 +466,26 @@ app.whenReady().then(async () => {
 })
 
 function autoDetectChannel(source: { kind: string; name?: string }): void {
-  // 已知來源池（去重）：精確 source（kind+name）+ 該 kind 整類項（member 只 kind，無 name），
-  // 讓使用者可把「整個 kind」當一個來源拖進頻道（該 kind 所有來源都會進那隻寵物）。
-  const addKnown = (sm: SourceMatch): boolean => {
-    const k = `${sm.kind ?? ''} ${sm.name ?? ''}`
-    if (knownSources.length >= MAX_KNOWN_SOURCES || knownSources.some((s) => `${s.kind ?? ''} ${s.name ?? ''}` === k)) return false
-    knownSources = [...knownSources, sm]
-    return true
-  }
-  let knownChanged = addKnown(source.name ? { kind: source.kind, name: source.name } : { kind: source.kind })
-  if (source.name && addKnown({ kind: source.kind })) knownChanged = true
-  if (knownChanged) {
+  // 決策全在 core 的 applySourceEvent（已知來源補登／自動建啟用頻道跳專屬寵物／死角兜底），
+  // 此處只套用結果並依 flags 執行副作用。
+  const r = applySourceEvent(
+    { channels, knownSources, allEnabled },
+    source,
+    { defaultSkin, nextId: nextChannelId, maxKnown: MAX_KNOWN_SOURCES, maxAuto: MAX_AUTO_CHANNELS },
+  )
+  channels = r.state.channels
+  knownSources = r.state.knownSources
+  if (r.knownChanged) {
     persistKnownSources()
     broadcastKnownSources()
   }
-  // 自動建頻道：只建精確 source 頻道，並「啟用」→ 新來源即跳一隻專屬寵物（醒目）。kind 整類不自動
-  // 建頻道（否則新 kind+新來源會一次冒兩頻道兩寵物）；整類由使用者自行從來源池拖出建立。
-  const hasMember = (pred: (m: SourceMatch) => boolean): boolean => channels.some((c) => c.members.some(pred))
-  if (source.name && channels.length < MAX_AUTO_CHANNELS && !hasMember((m) => m.kind === source.kind && m.name === source.name)) {
-    channels = [...channels, { id: nextChannelId(), name: source.name, skin: defaultSkin, enabled: true, showPet: true, members: [{ kind: source.kind, name: source.name }] }]
+  if (r.channelsChanged) {
     persistChannels()
     broadcastChannels()
-    reconcilePets() // 立刻長出該寵物，當下訊息隨後（onEvent 路由）演到它身上
   }
-  // 兜底：有 name 的來源上面已建啟用精確頻道、必有寵物可演；此處主要處理「無 name 來源」等邊界——
-  // 當下無任何顯示寵物能接到、卻有命中的停用頻道時，自動啟用它把訊息演出來。
-  const ns = { kind: source.kind, name: source.name }
-  const covered = allEnabled || channels.some((c) => c.enabled && c.showPet && channelMatches(c, ns))
-  if (!covered) {
-    const target = channels.find((c) => channelMatches(c, ns))
-    if (target && !(target.enabled && target.showPet)) {
-      channels = channels.map((c) => (c.id === target.id ? { ...c, enabled: true, showPet: true } : c))
-      persistChannels()
-      broadcastChannels()
-      reconcilePets()
-      broadcastUnread()
-    }
+  if (r.petsChanged) {
+    reconcilePets() // 立刻長出該寵物，當下訊息隨後（onEvent 路由）演到它身上
+    broadcastUnread()
   }
 }
 
