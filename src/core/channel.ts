@@ -136,13 +136,15 @@ export function applySourceEvent(state: ChannelState, source: NotifySource, opts
     knownSources = [...knownSources, sm]
     return true
   }
-  let knownChanged = addKnown(source.name ? { kind: source.kind, name: source.name } : { kind: source.kind })
+  const namedSource = source.name ? { kind: source.kind, name: source.name } : null
+  const addedNamedSource = namedSource ? addKnown(namedSource) : false
+  let knownChanged = source.name ? addedNamedSource : addKnown({ kind: source.kind })
   if (source.name && addKnown({ kind: source.kind })) knownChanged = true
 
   let channelsChanged = false
   let petsChanged = false
   const hasMember = (pred: (m: SourceMatch) => boolean): boolean => channels.some((c) => c.members.some(pred))
-  if (source.name && channels.length < opts.maxAuto && !hasMember((m) => m.kind === source.kind && m.name === source.name)) {
+  if (source.name && addedNamedSource && channels.length < opts.maxAuto && !hasMember((m) => m.kind === source.kind && m.name === source.name)) {
     channels = [...channels, { id: opts.nextId(), name: source.name, skin: opts.defaultSkin, enabled: true, showPet: true, members: [{ kind: source.kind, name: source.name }] }]
     channelsChanged = true
     petsChanged = true

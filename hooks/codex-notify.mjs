@@ -2,18 +2,19 @@
 import { appendFileSync, existsSync, readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { homedir } from 'node:os'
+import { pathToFileURL } from 'node:url'
 
 const type = process.argv[2] ?? 'info'
 const knownTypes = new Set(['done', 'attention', 'error', 'review', 'working', 'info'])
 const normalizedType = knownTypes.has(type) ? type : 'info'
 
 const fallbackBody = {
-  done: 'Codex turn finished.',
-  attention: 'Codex needs attention.',
-  error: 'Codex reported an error.',
-  review: 'Codex has something to review.',
-  working: 'Codex is working.',
-  info: 'Codex session event.',
+  done: '這一輪完成了',
+  attention: '需要你回覆或授權',
+  error: '回應失敗（API 錯誤）',
+  review: '請看一下',
+  working: '處理中…',
+  info: '',
 }
 
 function userDataDir() {
@@ -69,9 +70,20 @@ function titleFor(input, name) {
   return event ? `Codex - ${event} - ${name}` : `Codex - ${name}`
 }
 
+export function buildCodexPayload(inputType, input = {}) {
+  const t = knownTypes.has(inputType) ? inputType : 'info'
+  const name = sourceName(input)
+  return {
+    source: { kind: 'codex', name },
+    sessionId: sessionId(input),
+    type: t,
+    title: titleFor(input, name),
+    body: textField(input.message) || textField(input.summary) || fallbackBody[t],
+  }
+}
+
 async function main() {
   const input = await readStdinJson()
-  const name = sourceName(input)
   trace(`fired type=${normalizedType} session=${sessionId(input)} cwd=${input.cwd ?? process.cwd()}`)
 
   if (!existsSync(endpointPath)) {
@@ -87,13 +99,7 @@ async function main() {
     return
   }
 
-  const payload = {
-    source: { kind: 'codex', name },
-    sessionId: sessionId(input),
-    type: normalizedType,
-    title: titleFor(input, name),
-    body: textField(input.message) || textField(input.summary) || fallbackBody[normalizedType],
-  }
+  const payload = buildCodexPayload(type, input)
 
   try {
     await fetch(`http://127.0.0.1:${endpoint.port}/notify`, {
@@ -107,4 +113,6 @@ async function main() {
   }
 }
 
-main()
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main()
+}

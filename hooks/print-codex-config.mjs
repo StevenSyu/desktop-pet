@@ -10,33 +10,6 @@ function command(type) {
 
 console.log(JSON.stringify({
   hooks: {
-    SessionStart: [
-      {
-        matcher: 'startup|resume|clear|compact',
-        hooks: [
-          {
-            type: 'command',
-            command: command('info'),
-            commandWindows: command('info'),
-            timeout: 10,
-            statusMessage: 'Notifying desktop pet',
-          },
-        ],
-      },
-    ],
-    UserPromptSubmit: [
-      {
-        hooks: [
-          {
-            type: 'command',
-            command: command('working'),
-            commandWindows: command('working'),
-            timeout: 10,
-            statusMessage: 'Notifying desktop pet',
-          },
-        ],
-      },
-    ],
     PermissionRequest: [
       {
         matcher: '.*',

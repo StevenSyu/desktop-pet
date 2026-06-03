@@ -116,6 +116,16 @@ describe('applySourceEvent', () => {
     expect(r.state.knownSources).toEqual(first.state.knownSources)
   })
 
+  it('已知來源的預設頻道被刪除後再進來：不重建自動頻道', () => {
+    const known: SourceMatch[] = [{ kind: 'gemini', name: 'myapp' }, { kind: 'gemini' }]
+    const r = applySourceEvent(state([], known, true), { kind: 'gemini', name: 'myapp' }, opts())
+    expect(r.knownChanged).toBe(false)
+    expect(r.channelsChanged).toBe(false)
+    expect(r.petsChanged).toBe(false)
+    expect(r.state.channels).toEqual([])
+    expect(r.state.knownSources).toEqual(known)
+  })
+
   it('無 name 來源：只補整類項、不自動建頻道', () => {
     const r = applySourceEvent(state([], [], true), { kind: 'curl' }, opts())
     expect(r.state.knownSources).toEqual([{ kind: 'curl' }])

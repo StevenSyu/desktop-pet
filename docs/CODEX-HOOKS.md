@@ -16,8 +16,6 @@ The hook events are mapped like this:
 
 | Codex event | Pet notification type | Meaning |
 | --- | --- | --- |
-| `SessionStart` | `info` | Codex session started, resumed, cleared, or compacted |
-| `UserPromptSubmit` | `working` | A prompt was submitted to Codex |
 | `PermissionRequest` | `attention` | Codex needs approval or attention |
 | `Stop` | `done` | The Codex turn finished |
 
