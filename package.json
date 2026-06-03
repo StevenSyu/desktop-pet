@@ -2,7 +2,10 @@
   "name": "desktop-notify",
   "version": "1.0.0",
   "description": "A desktop pet notification companion for AI coding agents.",
-  "author": "StevenSyu",
+  "author": {
+    "name": "StevenSyu",
+    "email": "stevenHsu@jrsys.com.tw"
+  },
   "private": true,
   "type": "module",
   "main": "./out/main/index.js",
