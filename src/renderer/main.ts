@@ -89,7 +89,7 @@ function renderPomoBar(): void {
 }
 
 function syncPomoTicker(): void {
-  const need = pomoVisible() && pomoSnap.phase !== 'idle' && !pomoSnap.paused
+  const need = pomoVisible() && pomoHovering && pomoSnap.phase !== 'idle' && !pomoSnap.paused
   if (need && !pomoTickTimer) pomoTickTimer = setInterval(renderPomoBar, 1000)
   if (!need && pomoTickTimer) {
     clearInterval(pomoTickTimer)
@@ -331,6 +331,7 @@ function bindHover(): void {
     walkDispatch({ kind: 'interrupt' }) // 走動中被 hover → 立即停
     dispatch({ kind: 'hover' }) // 拖動中／反應中 reducer 自會略過
     pomoHovering = true
+    syncPomoTicker()
     renderPomoBar()
   })
   shellEl.addEventListener('mouseleave', () => {
@@ -341,6 +342,7 @@ function bindHover(): void {
       disableInteractive()
     }
     pomoHovering = false
+    syncPomoTicker()
     renderPomoBar()
   })
 }
@@ -447,6 +449,8 @@ const applyPomoChannels = (chs: { id: string; enabled: boolean; pomodoroEnabled:
 }
 void window.petBridge.getChannels().then(applyPomoChannels)
 window.petBridge.onChannelsUpdated(applyPomoChannels)
+
+pomoBarEl.addEventListener('pointerdown', (e) => e.stopPropagation())
 
 pomoToggleEl.addEventListener('click', (e) => {
   e.stopPropagation()

@@ -94,6 +94,7 @@ html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; w
   color: #fff;
   font-size: 16px;
   line-height: 1;
+  z-index: 10;
 }
 #resize-handle::before { content: "⤡"; }
 #resize-handle:hover { background: rgba(40, 38, 34, .92); }
