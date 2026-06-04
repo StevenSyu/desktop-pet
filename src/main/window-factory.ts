@@ -112,7 +112,7 @@ export function createCardWindow(channelId: string): BrowserWindow {
 
 // ===== 進階設定 =====
 const SETTINGS_W = 340
-const SETTINGS_H = 400
+const SETTINGS_H = 620
 
 export function createSettingsWindow(): BrowserWindow {
   const win = new BrowserWindow({

@@ -8,7 +8,7 @@
   <body>
     <div class="panel">
       <header>
-        <div class="title">進階設定 · 走動參數</div>
+        <div class="title">進階設定</div>
         <button id="close" class="x" aria-label="關閉">×</button>
       </header>
 
@@ -31,6 +31,30 @@
         </div>
         <div class="row">
           <label>最長</label><input id="tMax" type="number" min="0" step="0.1" /><span class="unit">秒</span>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="g-title">蕃茄鐘</div>
+        <div class="g-desc">啟用後，hover 寵物會顯示倒數與控制按鈕。</div>
+        <div class="row">
+          <label>啟用蕃茄鐘</label><input id="pomoEnabled" type="checkbox" />
+        </div>
+        <div class="row">
+          <label>顯示於「全部」</label><input id="pomoShowOnAll" type="checkbox" />
+        </div>
+        <div class="row">
+          <label>工作時間</label><input id="pomoWork" type="number" min="1" max="180" step="1" /><span class="unit">分</span>
+        </div>
+        <div class="row">
+          <label>休息時間</label><input id="pomoBreak" type="number" min="1" max="180" step="1" /><span class="unit">分</span>
+        </div>
+        <div class="row">
+          <label>休息結束後</label>
+          <select id="pomoAfterBreak">
+            <option value="loop">自動開始下一輪</option>
+            <option value="pause">暫停等待</option>
+          </select>
         </div>
       </section>
 
