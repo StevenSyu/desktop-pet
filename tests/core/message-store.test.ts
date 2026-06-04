@@ -49,14 +49,6 @@ describe('MessageStore', () => {
     expect(s.list().map((m) => m.id)).toEqual(['c', 'b'])
   })
 
-  it('clear 清空', () => {
-    const s = new MessageStore({ now: () => 0 })
-    s.push(ev('done', 'a'))
-    s.clear()
-    expect(s.list()).toEqual([])
-    expect(s.unreadCount()).toBe(0)
-  })
-
   it('markRead 對不存在 id 不報錯', () => {
     const s = new MessageStore({ now: () => 0 })
     expect(() => s.markRead('nope')).not.toThrow()

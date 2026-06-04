@@ -425,6 +425,11 @@ window.petBridge?.onUnreadCount?.((n) => {
 })
 
 // ===== 蕃茄鐘 hover bar 事件接線 =====
+void window.petBridge.getPomodoro().then((s) => {
+  pomoSnap = s
+  syncPomoTicker()
+  renderPomoBar()
+})
 window.petBridge.onPomodoroChanged((s) => {
   pomoSnap = s
   syncPomoTicker()
@@ -432,9 +437,9 @@ window.petBridge.onPomodoroChanged((s) => {
 })
 
 // prefs（pomodoro key 在 PET_PREFS_KEYS，enabled/showOnAll 變化會推）
-const applyPomoPrefs = (p: { pomodoro: { enabled: boolean; showOnAll: boolean } }): void => {
+const applyPomoPrefs = (p: { pomodoro: { enabled: boolean; showOnAll: boolean }; allEnabled: boolean }): void => {
   pomoEnabledGlobal = p.pomodoro.enabled
-  pomoShowOnAll = p.pomodoro.showOnAll
+  pomoShowOnAll = p.pomodoro.showOnAll && p.allEnabled
   syncPomoTicker()
   renderPomoBar()
 }

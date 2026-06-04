@@ -49,6 +49,7 @@ declare global {
       pomodoroResume: () => void
       pomodoroStop: () => void
       setPomodoroPrefs: (p: Partial<BridgePrefs['pomodoro']>) => void
+      getPomodoro: () => Promise<{ phase: 'idle' | 'work' | 'break'; paused: boolean; startedAt: number; durationMs: number; elapsedMs: number }>
       onPomodoroChanged: (
         cb: (s: { phase: 'idle' | 'work' | 'break'; paused: boolean; startedAt: number; durationMs: number; elapsedMs: number }) => void,
       ) => void

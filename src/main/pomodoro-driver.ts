@@ -13,7 +13,7 @@ import type { CardView } from '../core/card-view'
 import { getPrefs, updatePrefsStore, subscribePrefs } from './prefs-store'
 import { sanitizePomodoro } from './prefs'
 import { broadcastToPets, getPetWindow } from './window'
-import { handleCommand } from '../ipc/main-helpers'
+import { handleCommand, handleQuery } from '../ipc/main-helpers'
 
 interface PomodoroDeps {
   /** 顯示一張卡片（index.ts 的 ensureCard + dispatchCard 包裝）。 */
@@ -85,6 +85,7 @@ export function initPomodoro(deps: PomodoroDeps): void {
   state = initialPomodoroState(getPrefs().pomodoro)
   if (getPrefs().pomodoro.enabled) startInterval(deps)
 
+  handleQuery('get-pomodoro', () => toSnapshot(state))
   handleCommand('pomodoro-start', () => dispatch(deps, { type: 'START', now: Date.now() }))
   handleCommand('pomodoro-pause', () => dispatch(deps, { type: 'PAUSE', now: Date.now() }))
   handleCommand('pomodoro-resume', () => dispatch(deps, { type: 'RESUME', now: Date.now() }))

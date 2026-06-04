@@ -69,6 +69,7 @@ export interface Queries {
   'get-channels': { args: void; result: Channel[] }
   'get-known-sources': { args: void; result: SourceMatch[] }
   'get-all-enabled': { args: void; result: boolean }
+  'get-pomodoro': { args: void; result: PomodoroSnapshot }
 }
 
 /** main → renderer，單向推播。 */

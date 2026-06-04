@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('petBridge', {
   pomodoroResume: () => sendCommand('pomodoro-resume'),
   pomodoroStop: () => sendCommand('pomodoro-stop'),
   setPomodoroPrefs: (p: Partial<PomodoroPrefs>) => sendCommand('set-pomodoro-prefs', p),
+  getPomodoro: () => invokeQuery('get-pomodoro'),
   onPomodoroChanged: (cb: (s: PomodoroSnapshot) => void) => subscribePush('pomodoro-changed', cb),
   onPrefsChanged: (cb: (prefs: Prefs) => void) => subscribePush('prefs-changed', cb),
   setDnd: (enabled: boolean) => sendCommand('set-dnd', enabled),

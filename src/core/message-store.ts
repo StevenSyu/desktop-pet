@@ -51,10 +51,6 @@ export class MessageStore {
     return this.items.reduce((n, m) => (m.read ? n : n + 1), 0)
   }
 
-  clear(): void {
-    this.items = []
-  }
-
   /** 刪除指定 ids 的訊息（不存在的 id 忽略）。 */
   removeByIds(ids: string[]): void {
     if (ids.length === 0) return
