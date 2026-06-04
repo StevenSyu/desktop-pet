@@ -1,4 +1,5 @@
 import { BrowserWindow, screen } from 'electron'
+import { CARD_W, CARD_H } from '../core/card-layout'
 import { join } from 'node:path'
 import { pinWindow, toolWindowChrome } from './win-util'
 
@@ -80,11 +81,7 @@ export function createCenterWindow(pos?: { x: number; y: number }): BrowserWindo
   return win
 }
 
-// ===== 桌面卡片（無框透明，定位由 main 的 repositionCard 控制）=====
-export const CARD_W = 264
-export const CARD_H = 148
-export const CARD_GAP = 8
-export const CARD_SHADOW_PAD = 14 // 含透明邊距給 CSS 陰影；定位以視窗 bounds 計
+// ===== 桌面卡片（無框透明，定位由 card-manager 控制；幾何常數在 core/card-layout）=====
 
 export function createCardWindow(channelId: string): BrowserWindow {
   const { x, y } = screen.getPrimaryDisplay().workArea

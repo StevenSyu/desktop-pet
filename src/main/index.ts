@@ -3,23 +3,22 @@ import { createPetWindow, getSkinSheetPath, getPetWindow, petChannelIds, closePe
 import {
   makeOpener,
   createCenterWindow, CENTER_W, CENTER_H,
-  createCardWindow, CARD_W, CARD_H, CARD_GAP, CARD_SHADOW_PAD,
+  createCardWindow,
   createSettingsWindow,
   createSkinWindow,
   createChannelsWindow,
 } from './window-factory'
 import { loadWindowStates, saveWindowState } from './window-state'
-import { cardReduce, initialCardState, type CardEvent, type CardCommand, type CardLifecycleState } from '../core/card-lifecycle'
+import { initCardManager, type CardManager } from './card-manager'
 import { matchingChannels, unreadByChannel, activePetCount, applySourceEvent, healKnownKinds, healSkins, type Channel, type SourceMatch } from '../core/channel'
 import { desiredPetIds, diffFleet } from '../core/pet-fleet'
-import { cardWindowBounds } from '../core/card-layout'
 import { resolveCenterPos } from '../core/center-pos'
 import { DEFAULT_SKIN_ID } from '../core/skins'
 import { registerPetScheme, registerPetProtocol } from './pet-protocol'
 import { findFreePort, generateToken, writeEndpointFile } from './endpoint'
 import { startIngestServer } from './ingest'
 import { MessageStore } from '../core/message-store'
-import { busEmit, busOn, type PetBounds } from './bus'
+import { busEmit, busOn } from './bus'
 import { getPrefs, updatePrefsStore, subscribePrefs } from './prefs-store'
 import { handleCommand, handleQuery, pushTo } from '../ipc/main-helpers'
 import type { AppEvent } from '../core/events'
@@ -35,13 +34,8 @@ let centerWindow: BrowserWindow | null = null
 const settingsOpener = makeOpener(createSettingsWindow)
 const skinOpener = makeOpener(createSkinWindow, { replace: true })
 const channelsOpener = makeOpener(createChannelsWindow)
-interface CardState {
-  win: BrowserWindow
-  state: CardLifecycleState // show/loaded/hide/dismiss 時序決策在 core 的 cardReduce
-  dragOffset: { x: number; y: number } | null
-}
-
-const cardWindows = new Map<string, CardState>()
+// 卡片視窗管理在 card-manager.ts；app ready 時 init（deps 注入 electron 能力）
+let cardManager: CardManager
 let pendingDetailId: string | null = null
 let pendingChannelTab: string | null = null
 let channelSeq = 0
@@ -71,8 +65,7 @@ function reconcilePets(): void {
   // 差集決策在 core 的 desiredPetIds/diffFleet，此處只執行視窗開關副作用
   const d = diffFleet(petChannelIds(), desiredPetIds(getPrefs().channels, getPrefs().allEnabled))
   for (const id of d.close) {
-    const cs = cardWindows.get(id)
-    if (cs && !cs.win.isDestroyed()) cs.win.close()
+    cardManager.closeFor(id) // 頻道寵物收掉 → 連帶收卡片
     closePetWindow(id)
   }
   for (const { id, index } of d.create) {
@@ -179,86 +172,20 @@ function openCenter(channelTab?: string): void {
   centerWindow.webContents.once('did-finish-load', () => broadcastMessages())
   pushTo(centerWindow, 'open-channel-tab')
 }
-
-function ensureCard(channelId: string): CardState {
-  const existing = cardWindows.get(channelId)
-  if (existing && !existing.win.isDestroyed()) return existing
-  const win = createCardWindow(channelId)
-  const cs: CardState = { win, state: { ...initialCardState }, dragOffset: null }
-  cardWindows.set(channelId, cs)
-  win.webContents.once('did-finish-load', () => dispatchCard(channelId, { kind: 'loaded' }))
-  win.on('closed', () => {
-    if (cardWindows.get(channelId) === cs) cardWindows.delete(channelId)
-  })
-  return cs
-}
-
-function execCardCommand(channelId: string, cs: CardState, cmd: CardCommand): void {
-  switch (cmd.type) {
-    case 'flush':
-      if (cs.win.isDestroyed()) return
-      pushTo(cs.win, 'card-data', cmd.view)
-      cs.win.showInactive() // 顯示但不搶焦點
-      repositionCard(channelId)
-      break
-    case 'hide':
-      if (!cs.win.isDestroyed()) cs.win.hide()
-      break
-    case 'notifyDismissed':
-      pushTo(getPetWindow(channelId), 'card-dismissed', { id: cmd.id })
-      break
-  }
-}
-
-function dispatchCard(channelId: string, event: CardEvent): void {
-  const cs = cardWindows.get(channelId)
-  if (!cs) return
-  const r = cardReduce(cs.state, event)
-  cs.state = r.state
-  for (const cmd of r.commands) execCardCommand(channelId, cs, cmd)
-}
-
-// 若卡片可見，依寵物 bounds 重新定位卡片並置頂（兩窗同為 floating，需 moveTop 保證在寵物上）
-function repositionCard(channelId: string, bringToFront = true, movedBounds?: PetBounds): void {
-  const cs = cardWindows.get(channelId)
-  const pet = getPetWindow(channelId)
-  if (!cs || cs.win.isDestroyed() || !cs.win.isVisible() || !pet) return
-  const petBounds = movedBounds ?? pet.getBounds()
-  const workArea = screen.getDisplayMatching(petBounds).workArea
-  // 幾何決策在 core 的 cardWindowBounds（drag 同步偏移 / 可見卡翻轉定位 + 陰影外擴）
-  cs.win.setBounds(
-    cardWindowBounds(petBounds, workArea, { width: CARD_W, height: CARD_H, shadowPad: CARD_SHADOW_PAD, gap: CARD_GAP }, cs.dragOffset),
-  )
-  if (!cs.dragOffset && bringToFront) cs.win.moveTop()
-}
-
-function startCardDragSync(channelId: string): void {
-  const cs = cardWindows.get(channelId)
-  const pet = getPetWindow(channelId)
-  if (!cs || cs.win.isDestroyed() || !cs.win.isVisible() || !pet) return
-  repositionCard(channelId, false)
-  const cardBounds = cs.win.getBounds()
-  const petBounds = pet.getBounds()
-  cs.dragOffset = {
-    x: cardBounds.x - petBounds.x,
-    y: cardBounds.y - petBounds.y,
-  }
-}
-
-function endCardDragSync(channelId: string): void {
-  const cs = cardWindows.get(channelId)
-  if (!cs) return
-  cs.dragOffset = null
-}
-
-// 關閉所有顯示同一訊息（同 event id）的卡片：同訊息可能在多隻寵物各彈一張，
-// 點關一張即連帶關掉其餘同 id 的，並通知各自寵物標已讀（id 比對在 cardReduce）。
-function dismissCardsById(id: string): void {
-  for (const cid of cardWindows.keys()) dispatchCard(cid, { kind: 'dismiss', id })
-}
-
 app.whenReady().then(async () => {
   registerPetProtocol(getSkinSheetPath) // 在任何載入 pet: 的視窗前
+  // 卡片視窗管理：electron 能力以 deps 注入；card domain 的 IPC/bus 接線在 init 內自訂閱
+  cardManager = initCardManager({
+    createWindow: createCardWindow,
+    getPetWindow,
+    workAreaFor: (b) => screen.getDisplayMatching(b).workArea,
+    onDisplayChange: (cb) => screen.on('display-metrics-changed', cb),
+    onMore: (channelId, id) => {
+      pendingDetailId = id
+      openCenter(channelId) // 開該頻道分頁 + 詳情
+      pushTo(centerWindow, 'open-detail') // 已開窗 → 觸發重查；新開窗靠載入時 query
+    },
+  })
   healInvalidSkins() // 失效造型回正成預設，避免桌面 fallback 與設定頁顯示不一致（#7）
   healKnownKindSources() // 補齊既有來源缺的 kind 整類項（早於整類邏輯記錄的舊來源）
   reconcilePets()
@@ -363,27 +290,7 @@ app.whenReady().then(async () => {
     }
   })
 
-  handleCommand('show-card', ({ channelId, view }) => {
-    ensureCard(channelId) // 未載入完成 → reducer 暫存 pending，loaded 事件補 flush
-    dispatchCard(channelId, { kind: 'show', view })
-  })
-  handleCommand('hide-card', ({ channelId }) => dispatchCard(channelId, { kind: 'hide' }))
-
-  initPomodoro({
-    showCard: (channelId, view) => {
-      ensureCard(channelId)
-      dispatchCard(channelId, { kind: 'show', view })
-    },
-  })
-  handleCommand('card-clicked', ({ id }) => {
-    dismissCardsById(id) // 點關一張 → 連帶關掉所有顯示同一訊息的卡片
-  })
-  handleCommand('card-more', ({ channelId, id }) => {
-    dismissCardsById(id) // 同上：開詳情前先關掉所有同 id 卡片
-    pendingDetailId = id
-    openCenter(channelId) // 開該頻道分頁 + 詳情
-    pushTo(centerWindow, 'open-detail') // 已開窗 → 觸發重查；新開窗靠載入時 query
-  })
+  initPomodoro({ showCard: (channelId, view) => cardManager.show(channelId, view) })
   handleQuery('get-pending-detail', () => {
     const id = pendingDetailId
     pendingDetailId = null
@@ -394,12 +301,6 @@ app.whenReady().then(async () => {
     pendingChannelTab = null
     return t
   })
-
-  busOn('pet-drag-start', (channelId: string) => startCardDragSync(channelId))
-  busOn('pet-drag-end', (channelId: string) => endCardDragSync(channelId))
-
-  busOn('pet-moved', (channelId: string, bounds?: PetBounds) => repositionCard(channelId, false, bounds)) // 拖動 / display-removed 重吸附後同步卡片
-  screen.on('display-metrics-changed', () => { for (const id of cardWindows.keys()) repositionCard(id) }) // 解析度 / 排列變更
 
   busOn('open-center', (channelId?: string) => openCenter(channelId))
   busOn('open-settings', () => settingsOpener.open())
