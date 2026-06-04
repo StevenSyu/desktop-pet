@@ -1,5 +1,5 @@
 import { app, BrowserWindow, screen } from 'electron'
-import { createPetWindow, getSkinSheetPath, getPetWindow, petChannelIds, closePetWindow, builtinRoot, setSkinSheetPaths } from './window'
+import { createPetWindow, getSkinSheetPath, getPetWindow, petChannelIds, closePetWindow, builtinRoot, setSkinSheetPaths, broadcastToPets } from './window'
 import {
   makeOpener,
   createCenterWindow, CENTER_W, CENTER_H,
@@ -98,6 +98,7 @@ function broadcastMessages(): void {
 function broadcastChannels(): void {
   pushTo(centerWindow, 'channels-updated', getPrefs().channels)
   pushTo(channelsOpener.current(), 'channels-updated', getPrefs().channels)
+  broadcastToPets('channels-updated', getPrefs().channels)
 }
 function broadcastKnownSources() { pushTo(channelsOpener.current(), 'known-sources-updated', getPrefs().knownSources) }
 
