@@ -5,8 +5,15 @@ import type { CardView } from '../core/card-view'
 const root = document.querySelector<HTMLDivElement>('#card')!
 const myChannel = new URLSearchParams(location.search).get('c') ?? 'all'
 let currentId: string | null = null
+let dismissTimer: ReturnType<typeof setTimeout> | null = null
 
 function render(view: CardView): void {
+  // 換卡先清舊 timer，避免舊 transient timer 關掉新卡
+  if (dismissTimer) {
+    clearTimeout(dismissTimer)
+    dismissTimer = null
+  }
+
   currentId = view.id
   root.dataset.type = view.type // CSS 依此上狀態色
   root.replaceChildren()
@@ -41,6 +48,14 @@ function render(view: CardView): void {
     if (currentId) window.cardBridge.cardClicked(myChannel, currentId)
   })
   root.appendChild(close)
+
+  if (view.transient) {
+    const id = view.id // 捕捉 render 當下的 id
+    dismissTimer = setTimeout(() => {
+      dismissTimer = null
+      window.cardBridge.cardClicked(myChannel, id) // 走現有點關路徑：dismissCardsById 連帶關所有同 id 卡
+    }, view.transient.dismissMs)
+  }
 }
 
 window.cardBridge.onCardData(render)

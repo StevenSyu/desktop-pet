@@ -12,4 +12,6 @@ export interface CardView {
   source: string
   /** 內文是否被精簡（截斷/多行）→ 卡片顯示「更多」入口。 */
   hasMore: boolean
+  /** 即時通知（transient notice）：自動消失毫秒數。undefined = 持久訊息（進通知中心那類）。 */
+  transient?: { dismissMs: number }
 }
