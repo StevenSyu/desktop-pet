@@ -272,6 +272,20 @@ Settings window 目前 340×400，新增區段後評估是否需加高或加 scr
 
 ---
 
+## 行為決策（grill 確認）
+
+| 情境 | 行為 |
+|------|------|
+| App 重啟時 timer 運行中 | 重置回 idle，不持久化 timer 狀態（中斷即作廢） |
+| Timer 運行中改 work/break 時間 | 當前 phase 用舊值跑完，下一 phase 才生效（CONFIGURE 不碰 elapsedMs/phase） |
+| Timer 運行中關全域 enabled | 立即停止回 idle、hover bar 消失、driver interval 清掉 |
+| DND 期間 phase 結束 | Transient card 被吞（與現有 DND 一致），timer 照走；hover bar 顏色變化仍可見狀態 |
+| Transient card 點擊 | 走現有 `card-clicked` → `dismissCardsById`，點擊即關；`hasMore: false` |
+| 設定輸入驗證 | work/break clamp 1–180 分鐘（照現有 `applyBounds` 模式） |
+| 多 pet 控制 | 通用 UI：所有 enabled pet 顯示同一 global timer，任一 pet 操作全體同步；▶ 雙語意（idle=START、paused=RESUME） |
+
+---
+
 ## Testing
 
 `tests/core/pomodoro-timer.test.ts`（Vitest）覆蓋：
@@ -280,7 +294,7 @@ Settings window 目前 340×400，新增區段後評估是否需加高或加 scr
 - break 結束 + `afterBreak:'pause'` → 切 idle
 - PAUSE 凍結 elapsedMs；RESUME 繼續累加
 - STOP 任意 phase → idle
-- CONFIGURE 更新 workMs/breakMs
+- CONFIGURE 更新 workMs/breakMs；運行中 CONFIGURE 不影響當前 phase（下一 phase 生效）
 
 ---
 
