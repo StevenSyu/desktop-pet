@@ -19,6 +19,7 @@ import type { AppEvent, NotifyType } from '../core/events'
 import type { CardView } from '../core/card-view'
 import { cardSummary } from '../core/card-summary'
 import { liveQuery } from '../core/live-query'
+import { initPomodoroBar } from './pomodoro-bar'
 
 const myChannel = new URLSearchParams(location.search).get('c') ?? 'all'
 const DISPLAY_SCALE = 0.7
@@ -35,67 +36,12 @@ petEl.style.width = `${SPRITE_FORMAT.frameWidth * DISPLAY_SCALE}px`
 petEl.style.height = `${SPRITE_FORMAT.frameHeight * DISPLAY_SCALE}px`
 petEl.style.backgroundSize = `${SPRITE_FORMAT.sheetWidth * DISPLAY_SCALE}px ${SPRITE_FORMAT.sheetHeight * DISPLAY_SCALE}px`
 const handleEl = document.querySelector<HTMLDivElement>('#resize-handle')!
-const pomoBarEl = document.querySelector<HTMLDivElement>('#pomodoro-bar')!
-const pomoTimeEl = document.querySelector<HTMLSpanElement>('#pomo-time')!
-const pomoToggleEl = document.querySelector<HTMLButtonElement>('#pomo-toggle')!
-const pomoStopEl = document.querySelector<HTMLButtonElement>('#pomo-stop')!
 let scale = 1
 function applyScale(): void { shellEl.style.transform = `scale(${scale})` }
 window.petBridge.onSetScale((s) => { scale = clampScale(s); applyScale() })
 
-// ===== 蕃茄鐘 hover bar 狀態 =====
-type PomoSnapshot = { phase: 'idle' | 'work' | 'break'; paused: boolean; startedAt: number; durationMs: number; elapsedMs: number }
-let pomoSnap: PomoSnapshot = { phase: 'idle', paused: false, startedAt: 0, durationMs: 0, elapsedMs: 0 }
-let pomoEnabledGlobal = false  // prefs.pomodoro.enabled
-let pomoShowOnAll = true       // prefs.pomodoro.showOnAll
-let pomoChannelOn = false      // 此 channel 的 pomodoroEnabled（自訂 channel 用）
-let pomoHovering = false
-let pomoTickTimer: ReturnType<typeof setInterval> | null = null
-
-function pomoVisible(): boolean {
-  if (!pomoEnabledGlobal) return false
-  return myChannel === 'all' ? pomoShowOnAll : pomoChannelOn
-}
-
-function pomoRemainingMs(): number {
-  if (pomoSnap.phase === 'idle') return 0
-  const run = pomoSnap.paused ? 0 : Date.now() - pomoSnap.startedAt
-  return Math.max(0, pomoSnap.durationMs - pomoSnap.elapsedMs - run)
-}
-
-function fmtMmSs(ms: number): string {
-  const s = Math.ceil(ms / 1000)
-  const mm = String(Math.floor(s / 60)).padStart(2, '0')
-  const ss = String(s % 60).padStart(2, '0')
-  return `${mm}:${ss}`
-}
-
-function renderPomoBar(): void {
-  pomoBarEl.hidden = !(pomoVisible() && pomoHovering)
-  if (pomoBarEl.hidden) return
-  pomoBarEl.dataset.phase = pomoSnap.phase
-  pomoBarEl.dataset.paused = String(pomoSnap.paused)
-  if (pomoSnap.phase === 'idle') {
-    pomoTimeEl.textContent = '--:--'
-    pomoToggleEl.textContent = '▶'
-    pomoToggleEl.title = '開始'
-    pomoStopEl.disabled = true
-  } else {
-    pomoTimeEl.textContent = fmtMmSs(pomoRemainingMs())
-    pomoToggleEl.textContent = pomoSnap.paused ? '▶' : '⏸'
-    pomoToggleEl.title = pomoSnap.paused ? '繼續' : '暫停'
-    pomoStopEl.disabled = false
-  }
-}
-
-function syncPomoTicker(): void {
-  const need = pomoVisible() && pomoHovering && pomoSnap.phase !== 'idle' && !pomoSnap.paused
-  if (need && !pomoTickTimer) pomoTickTimer = setInterval(renderPomoBar, 1000)
-  if (!need && pomoTickTimer) {
-    clearInterval(pomoTickTimer)
-    pomoTickTimer = null
-  }
-}
+// 蕃茄鐘 hover 控制列：自包含 widget（顯示規則/倒數/控制全在 pomodoro-bar.ts）
+const pomodoroBar = initPomodoroBar(window.petBridge, myChannel)
 
 const labelEl = document.querySelector<HTMLDivElement>('#channel-label')!
 let labelMode: ChannelLabelMode = 'hidden'
@@ -331,9 +277,7 @@ function bindHover(): void {
     enableInteractive()
     walkDispatch({ kind: 'interrupt' }) // 走動中被 hover → 立即停
     dispatch({ kind: 'hover' }) // 拖動中／反應中 reducer 自會略過
-    pomoHovering = true
-    syncPomoTicker()
-    renderPomoBar()
+    pomodoroBar.setHovering(true)
   })
   document.body.addEventListener('mouseleave', () => {
     labelHovering = false
@@ -342,9 +286,7 @@ function bindHover(): void {
       handleEl.hidden = true
       disableInteractive()
     }
-    pomoHovering = false
-    syncPomoTicker()
-    renderPomoBar()
+    pomodoroBar.setHovering(false)
   })
 }
 
@@ -425,46 +367,3 @@ window.petBridge?.onUnreadCount?.((n) => {
   refreshBadge()
 })
 
-// ===== 蕃茄鐘 hover bar 事件接線 =====
-void window.petBridge.getPomodoro().then((s) => {
-  pomoSnap = s
-  syncPomoTicker()
-  renderPomoBar()
-})
-window.petBridge.onPomodoroChanged((s) => {
-  pomoSnap = s
-  syncPomoTicker()
-  renderPomoBar()
-})
-
-// prefs（pomodoro key 在 PET_PREFS_KEYS，enabled/showOnAll 變化會推）
-const applyPomoPrefs = (p: { pomodoro: { enabled: boolean; showOnAll: boolean }; allEnabled: boolean }): void => {
-  pomoEnabledGlobal = p.pomodoro.enabled
-  pomoShowOnAll = p.pomodoro.showOnAll && p.allEnabled
-  syncPomoTicker()
-  renderPomoBar()
-}
-void window.petBridge.getPrefs().then(applyPomoPrefs)
-window.petBridge.onPrefsChanged(applyPomoPrefs)
-
-// channels（per-channel pomodoroEnabled；broadcastChannels 修好後 pets 會收到）
-const applyPomoChannels = (chs: { id: string; enabled: boolean; pomodoroEnabled: boolean }[]): void => {
-  pomoChannelOn = chs.some((c) => c.id === myChannel && c.enabled && c.pomodoroEnabled)
-  syncPomoTicker()
-  renderPomoBar()
-}
-void window.petBridge.getChannels().then(applyPomoChannels)
-window.petBridge.onChannelsUpdated(applyPomoChannels)
-
-pomoBarEl.addEventListener('pointerdown', (e) => e.stopPropagation())
-
-pomoToggleEl.addEventListener('click', (e) => {
-  e.stopPropagation()
-  if (pomoSnap.phase === 'idle') window.petBridge.pomodoroStart()
-  else if (pomoSnap.paused) window.petBridge.pomodoroResume()
-  else window.petBridge.pomodoroPause()
-})
-pomoStopEl.addEventListener('click', (e) => {
-  e.stopPropagation()
-  window.petBridge.pomodoroStop()
-})
