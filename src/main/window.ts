@@ -28,7 +28,7 @@ let skinSheetPaths = new Map<string, string>()
 
 // renderer 的 prefs-changed 只在這些欄位變更時才推（高頻 persist 的 channels/knownSources
 // 不推，否則 renderer 每次通知都會重設走動排程）
-const PET_PREFS_KEYS: readonly (keyof Prefs)[] = ['channelLabelMode', 'walk', 'skin']
+const PET_PREFS_KEYS: readonly (keyof Prefs)[] = ['channelLabelMode', 'walk', 'skin', 'pomodoro']
 subscribePrefs((p, changed) => {
   if (!PET_PREFS_KEYS.some((k) => changed.has(k))) return
   broadcastToPets('prefs-changed', p)

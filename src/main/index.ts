@@ -24,6 +24,7 @@ import { getPrefs, updatePrefsStore, subscribePrefs } from './prefs-store'
 import { handleCommand, handleQuery, pushTo } from '../ipc/main-helpers'
 import type { AppEvent } from '../core/events'
 import { scanSkins } from './skin-registry'
+import { initPomodoro } from './pomodoro-driver'
 
 // pet: scheme 必須在 app ready 前註冊（一次）
 registerPetScheme()
@@ -366,6 +367,13 @@ app.whenReady().then(async () => {
     dispatchCard(channelId, { kind: 'show', view })
   })
   handleCommand('hide-card', ({ channelId }) => dispatchCard(channelId, { kind: 'hide' }))
+
+  initPomodoro({
+    showCard: (channelId, view) => {
+      ensureCard(channelId)
+      dispatchCard(channelId, { kind: 'show', view })
+    },
+  })
   handleCommand('card-clicked', ({ id }) => {
     dismissCardsById(id) // 點關一張 → 連帶關掉所有顯示同一訊息的卡片
   })
