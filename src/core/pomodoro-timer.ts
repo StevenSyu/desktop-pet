@@ -49,6 +49,11 @@ export interface PomodoroSnapshot {
   paused: boolean
   startedAt: number
   durationMs: number
+  /**
+   * 已完成計時段的累計（不含運行中的當前段）。
+   * Renderer 計算剩餘：paused ? durationMs - elapsedMs
+   *                    : durationMs - elapsedMs - (Date.now() - startedAt)
+   */
   elapsedMs: number
 }
 
@@ -86,7 +91,7 @@ export function pomodoroReducer(
     case 'PAUSE': {
       if (state.phase === 'idle' || state.paused) return { state, effect: NONE }
       return {
-        state: { ...state, paused: true, elapsedMs: state.elapsedMs + (action.now - state.startedAt) },
+        state: { ...state, paused: true, elapsedMs: state.elapsedMs + Math.max(0, action.now - state.startedAt) },
         effect: NONE,
       }
     }
@@ -103,7 +108,7 @@ export function pomodoroReducer(
     }
     case 'TICK': {
       if (state.phase === 'idle' || state.paused) return { state, effect: NONE }
-      const total = state.elapsedMs + (action.now - state.startedAt)
+      const total = state.elapsedMs + Math.max(0, action.now - state.startedAt)
       if (total < state.phaseDurationMs) return { state, effect: NONE }
       if (state.phase === 'work') {
         return {

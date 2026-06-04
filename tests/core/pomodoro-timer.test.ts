@@ -106,4 +106,21 @@ describe('pomodoroReducer', () => {
     const s = startedState(1000)
     expect(pomodoroReducer(s, { type: 'START', now: 2000 }).state).toBe(s)
   })
+
+  it('STOP 保留 workMs/breakMs/afterBreak 設定（重 START 沿用）', () => {
+    let s = startedState(0)
+    s = pomodoroReducer(s, { type: 'CONFIGURE', prefs: { workMs: 60_000, breakMs: 1_000, afterBreak: 'pause' } }).state
+    s = pomodoroReducer(s, { type: 'STOP' }).state
+    expect(s.workMs).toBe(60_000)
+    expect(s.breakMs).toBe(1_000)
+    expect(s.afterBreak).toBe('pause')
+    const restarted = pomodoroReducer(s, { type: 'START', now: 5000 }).state
+    expect(restarted.phaseDurationMs).toBe(60_000)
+  })
+
+  it('CONFIGURE 相同值回同參照（no-op fast path）', () => {
+    const s = startedState(0)
+    const r = pomodoroReducer(s, { type: 'CONFIGURE', prefs: { workMs: s.workMs, breakMs: s.breakMs, afterBreak: s.afterBreak } })
+    expect(r.state).toBe(s)
+  })
 })
