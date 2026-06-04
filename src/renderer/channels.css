@@ -34,8 +34,15 @@ header { display: flex; justify-content: space-between; align-items: center; pad
 }
 .crow .skin-pick:hover { background: #efe9df; border-color: #d8cfbe; }
 .crow .count { font-size: 10.5px; color: #8a7f70; white-space: nowrap; }
+.crow .pomo {
+  flex-shrink: 0; width: 26px; height: 26px; padding: 0; cursor: pointer; border: none;
+  background-color: transparent; font-size: 18px; display: flex; align-items: center; justify-content: center;
+  opacity: 0.35; transition: opacity .15s;
+}
+.crow .pomo.on { opacity: 1; }
+.crow .pomo:disabled { cursor: not-allowed; opacity: 0.2; }
 .crow .eye {
-  margin-left: auto; flex-shrink: 0; width: 26px; height: 26px; padding: 0; cursor: pointer; border: none;
+  flex-shrink: 0; width: 26px; height: 26px; padding: 0; cursor: pointer; border: none;
   background-color: transparent; background-repeat: no-repeat; background-position: center;
   background-size: 22px 22px; background-image: url(./ic_eyes_close.webp);
 }
