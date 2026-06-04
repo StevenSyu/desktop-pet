@@ -19,6 +19,7 @@ export interface BusEvents {
 }
 
 const bus = new EventEmitter()
+bus.setMaxListeners(50) // 多 module 訂閱 + 測試多 instance，避免 MaxListenersExceededWarning
 
 export function busEmit<K extends keyof BusEvents>(event: K, ...args: BusEvents[K]): void {
   bus.emit(event, ...args)
