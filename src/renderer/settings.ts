@@ -1,5 +1,6 @@
 /// <reference path="../preload/api.d.ts" />
 import { DEFAULT_WALK_BOUNDS, type WalkBounds } from '../core/walk-planner'
+import { DEFAULT_POMODORO_PREFS, type PomodoroPrefs } from '../core/pomodoro-timer'
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
 const iMin = $<HTMLInputElement>('iMin')
@@ -13,11 +14,7 @@ const pomoWork = $<HTMLInputElement>('pomoWork')
 const pomoBreak = $<HTMLInputElement>('pomoBreak')
 const pomoAfterBreak = $<HTMLSelectElement>('pomoAfterBreak')
 
-type PomoPrefs = { enabled: boolean; workMs: number; breakMs: number; afterBreak: 'loop' | 'pause'; showOnAll: boolean }
-
-const DEFAULT_POMO: PomoPrefs = { enabled: false, workMs: 25 * 60_000, breakMs: 5 * 60_000, afterBreak: 'loop', showOnAll: true }
-
-function applyPomodoro(p: PomoPrefs): void {
+function applyPomodoro(p: PomodoroPrefs): void {
   pomoEnabled.checked = p.enabled
   pomoShowOnAll.checked = p.showOnAll
   pomoWork.value = String(Math.round(p.workMs / 60_000))
@@ -26,7 +23,7 @@ function applyPomodoro(p: PomoPrefs): void {
   syncPomoDisabled()
 }
 
-function readPomodoro(): PomoPrefs {
+function readPomodoro(): PomodoroPrefs {
   const clampMin = (v: string): number => Math.min(180, Math.max(1, Math.round(Number(v) || 0)))
   return {
     enabled: pomoEnabled.checked,
@@ -72,7 +69,7 @@ $('save').addEventListener('click', () => {
 
 $('reset').addEventListener('click', () => {
   applyBounds(DEFAULT_WALK_BOUNDS)
-  applyPomodoro(DEFAULT_POMO)
+  applyPomodoro(DEFAULT_POMODORO_PREFS)
   hint.textContent = '已恢復預設（尚未儲存）。'
   hint.className = 'hint'
 })
