@@ -1,12 +1,15 @@
 # Pomodoro Timer — Design Spec
 
-Date: 2026-06-04
+Date: 2026-06-04  
+Updated: 2026-06-04 (post Codex review)
 
 ## Overview
 
-在 desktop-notify 桌面寵物 app 中加入蕃茄鐘功能。功能以 **per-channel opt-in** 方式整合，蕃茄鐘視為一種內建的 notification source，提醒走現有 card pipeline，不增加新架構複雜度。
+在 desktop-notify 桌面寵物 app 中加入蕃茄鐘功能。功能以 **per-channel opt-in** 方式整合。蕃茄鐘是內建 notification source——**繞過 HTTP ingest pipeline**，由 `pomodoro-driver` 直接呼叫 `showInternalCard()` 顯示 card，不走 `autoDetectChannel`，不污染 channel/source 管理系統。
 
-同時擴充通知系統支援 **Toast TTL**（自動消失時間），作為蕃茄鐘提醒的前置需求。
+同時擴充通知系統支援 **Toast TTL**（auto-dismiss），作為蕃茄鐘提醒的前置需求。
+
+另包含一個獨立 UX 修正：**清空按鈕語意對齊**（見末節）。
 
 ---
 
@@ -14,15 +17,20 @@ Date: 2026-06-04
 
 ### 功能 1：Toast TTL（通知自動消失）
 
-`AppEvent` 加選用 `ttl?: number`（毫秒）。
+現有 `AppEvent.ttlMs` 已存在且為必填。調整語意：
 
-- `ttl` 未定義 → persistent（現有預設行為，backward compat 零破壞）
-- `ttl: 5000` → 5 秒後 card 自動 dismiss
-- Card renderer 收到有 `ttl` 的 event → `setTimeout(ttl)` 後自動關閉
+- `ttlMs: 0`（或目前預設值）→ persistent（現有行為）
+- `ttlMs > 0` → 倒數後 card 自動 dismiss，**並標已讀**
+
+理由：TTL 訊息是即時性通知（蕃茄鐘、系統提示），消失即完成，無需保留未讀狀態。
+
+`CardView` 加 `ttlMs?: number`，card renderer 收到後啟動 `setTimeout(ttlMs)` → 觸發與手動 dismiss 相同的路徑（標已讀 + `card-dismissed` push）。
+
+現有通知：`ttlMs` 維持現有值，行為不變（backward compat）。
 
 ### 功能 2：蕃茄鐘
 
-使用者可啟用蕃茄鐘功能，在選定的 channel pet 上 hover 顯示控制列（倒數 + 按鈕），phase 結束時以 card 通知提醒。
+使用者啟用後，在選定 pet 上 hover 顯示控制列（倒數 + 按鈕），phase 結束時 card 通知提醒，5 秒後自動消失並標已讀。
 
 ---
 
@@ -30,12 +38,12 @@ Date: 2026-06-04
 
 ```
 src/core/pomodoro-timer.ts     ← pure reducer，平台中立，unit testable
-src/main/pomodoro-driver.ts    ← setInterval 驅動 reducer；fire AppEvent；處理 IPC
-src/renderer/main.ts           ← 接 push，渲染 hover bar
+src/main/pomodoro-driver.ts    ← setInterval 驅動 reducer；showInternalCard；IPC handler
+src/main/prefs.ts              ← Prefs 加 PomodoroPrefs（注意：在 main 非 core）
+src/renderer/main.ts           ← 接 pomodoro-changed push，渲染 hover bar
 src/ipc/contract.ts            ← 新增 Commands + Pushes
 src/renderer/settings.html/ts  ← 新增「蕃茄鐘」設定區段
-src/core/events.ts             ← AppEvent 加 ttl 欄位
-src/core/prefs.ts              ← Prefs 加 PomodoroPrefs
+src/core/events.ts             ← CardView 加 ttlMs 欄位
 ```
 
 ### 資料流
@@ -45,10 +53,11 @@ src/core/prefs.ts              ← Prefs 加 PomodoroPrefs
   → renderer IPC Command: pomodoro-start
   → pomodoro-driver dispatch(START)
   → setInterval 每秒 TICK
-  → phase 切換 → push pomodoro-changed { phase, paused, startedAt, durationMs }
-  → renderer 計算剩餘秒，自行 setInterval 更新倒數顯示
-  → phase elapsed 歸零 → reducer 回傳 effect
-  → driver inject AppEvent (ttl:5000) → 現有 message-store → card
+  → phase 切換 → push pomodoro-changed { phase, paused, startedAt, durationMs, elapsedMs }
+  → renderer 用 elapsedMs + startedAt 算剩餘秒，自行 setInterval 更新顯示
+  → reducer 回傳 effect notify-work-end / notify-break-end
+  → driver 呼叫 showInternalCard({ title, ttlMs: 5000 })
+  → card 顯示 → 5s 後自動 dismiss → 標已讀
 ```
 
 ---
@@ -64,8 +73,8 @@ type PomodoroPhase = 'idle' | 'work' | 'break'
 
 interface PomodoroState {
   phase: PomodoroPhase
-  startedAt: number       // phase 開始的 now()（by caller 注入）
-  elapsed: number         // ms，paused 時凍結
+  startedAt: number       // phase 開始的 now()（由 caller 注入）
+  elapsedMs: number       // 已計時 ms，paused 時凍結
   paused: boolean
   workMs: number
   breakMs: number
@@ -96,29 +105,29 @@ type PomodoroEffect =
 
 `pomodoroReducer(state, action): { state: PomodoroState; effect: PomodoroEffect }`
 
-Reducer 處理所有 phase 邊界判斷，driver 只讀 effect 決定是否發通知，不自行判斷邊界。
+Reducer 處理所有 phase 邊界判斷，driver 只讀 effect，不自行判斷邊界。
 
 ### State Machine
 
 ```
-idle ──START──→ work ──elapsed≥workMs──→ break ──elapsed≥breakMs──→ work (loop)
-                                                                  └──→ idle (pause mode)
-work / break ──PAUSE──→ paused（phase 不變，elapsed 凍結）
+idle ──START──→ work ──elapsedMs≥workMs──→ break ──elapsedMs≥breakMs──→ work (loop)
+                                                                      └──→ idle (pause mode)
+work / break ──PAUSE──→ paused（phase 不變，elapsedMs 凍結）
 paused ──RESUME──→ 繼續計時
 any ──STOP──→ idle
 ```
 
 ---
 
-## Prefs 擴充
+## Prefs 擴充（`src/main/prefs.ts`）
 
 ```typescript
-// src/core/prefs.ts
 interface PomodoroPrefs {
-  enabled: boolean               // 全域開關，預設 false
-  workMs: number                 // 預設 25 * 60 * 1000
-  breakMs: number                // 預設 5 * 60 * 1000
-  afterBreak: 'loop' | 'pause'  // 預設 'loop'
+  enabled:    boolean               // 全域開關，預設 false
+  workMs:     number                // 預設 25 * 60 * 1000
+  breakMs:    number                // 預設 5 * 60 * 1000
+  afterBreak: 'loop' | 'pause'     // 預設 'loop'
+  showOnAll:  boolean               // 「全部」channel pet 顯示控制列，預設 true
 }
 
 interface Prefs {
@@ -127,11 +136,18 @@ interface Prefs {
 }
 ```
 
-Channel 設定（`src/core/channel.ts`）加 `pomodoroEnabled: boolean`。預設值依 channel 類型：「全部」(default channel) 預設 `true`，自訂 channel 預設 `false`。`PomodoroPrefs.enabled` 為全域開關，二者皆 true 才顯示 hover bar。
+**Per-channel opt-in（自訂 channel）：**  
+`Channel`（`src/core/channel.ts`）加 `pomodoroEnabled: boolean`，預設 `false`。
+
+**顯示規則：**
+- 「全部」pet：`PomodoroPrefs.enabled && PomodoroPrefs.showOnAll`
+- 自訂 channel pet：`PomodoroPrefs.enabled && channel.pomodoroEnabled`
 
 ---
 
 ## IPC Contract 新增（`src/ipc/contract.ts`）
+
+Timer 為 global（單一實例），Commands 不帶 `channelId`。
 
 ```typescript
 // Commands（renderer → main）
@@ -144,10 +160,13 @@ Channel 設定（`src/core/channel.ts`）加 `pomodoroEnabled: boolean`。預設
 'pomodoro-changed': {
   phase:      'idle' | 'work' | 'break'
   paused:     boolean
-  startedAt:  number   // ms timestamp
+  startedAt:  number   // phase 開始的 ms timestamp
   durationMs: number   // 當前 phase 總長
+  elapsedMs:  number   // 已計時 ms（paused 狀態下正確計算剩餘需要此值）
 }
 ```
+
+注意：contract 改動需同步更新 preload bridge（`src/preload/`）及 `api.d.ts`。
 
 ---
 
@@ -155,28 +174,37 @@ Channel 設定（`src/core/channel.ts`）加 `pomodoroEnabled: boolean`。預設
 
 - App 啟動時 init，從 prefs 建初始 `PomodoroState`
 - `setInterval(1000)` 每秒 `dispatch({ type: 'TICK', now: Date.now() })`
-- Effect 處理：
-  - `notify-work-end` → inject `AppEvent { title: '🍅 休息一下！', body: '工作時間結束，好好休息。', ttl: 5000 }`
-  - `notify-break-end` → inject `AppEvent { title: '⏰ 繼續工作！', body: '休息結束，下一個蕃茄開始。', ttl: 5000 }`
-- Phase 切換時 `pushTo(win, 'pomodoro-changed', { phase, paused, startedAt, durationMs })`
+- Effect 處理（**繞過 ingest pipeline**，直接顯示 card）：
+  - `notify-work-end` → `showInternalCard({ title: '🍅 休息一下！', body: '工作時間結束，好好休息。', ttlMs: 5000 })`
+  - `notify-break-end` → `showInternalCard({ title: '⏰ 繼續工作！', body: '休息結束，下一個蕃茄開始。', ttlMs: 5000 })`
+- Phase 切換時 push `pomodoro-changed` 給所有 pet windows
 - 監聽 Commands → 對應 dispatch
-- `PomodoroPrefs.enabled = false` 時不啟動 driver
+- `PomodoroPrefs.enabled = false` 時不啟動 driver，不建 interval
+
+**`showInternalCard()`**：單一共用 fn，未來若有其他內建通知可直接複用，屆時再視需要提取 interface。
 
 ---
 
 ## Renderer Hover Bar（`src/renderer/main.ts`）
 
-顯示條件：`PomodoroPrefs.enabled && channel.pomodoroEnabled`
+**顯示條件**（依上述顯示規則）
 
 **視覺：**
+- Idle：▶（讓用戶直接從 hover 啟動）
 - 工作中：橘色倒數 `MM:SS` + ⏸ + ■
-- 休息中：藍/綠色倒數 + ⏸ + ■
+- 休息中：藍色倒數 + ⏸ + ■
 - 暫停中：灰色凍結倒數 + ▶ + ■
-- Idle：顯示 ▶（讓用戶直接從 hover bar 啟動，不需進設定）
 
 **倒數計算（無秒級 IPC）：**
-收到 `pomodoro-changed` → 存 `{ startedAt, durationMs }`  
-本地 `setInterval(1000)` → `remaining = durationMs - (Date.now() - startedAt) - elapsed`
+```
+收到 pomodoro-changed → 存 { startedAt, durationMs, elapsedMs, paused }
+本地 setInterval(1000)：
+  if paused → 顯示凍結值 (durationMs - elapsedMs)
+  else → remaining = durationMs - elapsedMs - (Date.now() - startedAt)
+```
+
+**視窗尺寸注意**：pet window 目前 135×146，CSS `overflow: hidden`。  
+Hover bar 需設計為 overlay（absolute/fixed 於 pet 下方），不撐大視窗；需確認與 resize handle、badge、label 無重疊。實作時確認 hover bar 高度與 window 底部邊界，必要時調整 window 高度。
 
 ---
 
@@ -187,12 +215,15 @@ Channel 設定（`src/core/channel.ts`）加 `pomodoroEnabled: boolean`。預設
 ```
 蕃茄鐘設定
 ├── [toggle] 啟用蕃茄鐘         ← 全域開關，預設 off；off 時以下欄位 disabled
+├── [toggle] 顯示於「全部」      ← showOnAll，預設 on
 ├── 工作時間：[25] 分鐘
 ├── 休息時間：[ 5] 分鐘
 └── 休息結束後：● 自動開始下一輪  ○ 暫停等待
 ```
 
-Channels 設定頁已有 per-channel UI，加一個 toggle：`顯示蕃茄鐘控制列`（`pomodoroEnabled`）。
+Channels 設定頁（已有 per-channel UI）加 toggle：`顯示蕃茄鐘控制列`（`channel.pomodoroEnabled`）。
+
+Settings window 目前 340×400，新增區段後評估是否需加高或加 scroll。
 
 ---
 
@@ -202,9 +233,9 @@ Channels 設定頁已有 per-channel UI，加一個 toggle：`顯示蕃茄鐘控
 |------|------|------|
 | idle | 初始 / 停止後 | 無 |
 | 工作中 | 按 ▶ | hover bar 橘色倒數（視覺狀態） |
-| **工作結束** | elapsed ≥ workMs | Card：「🍅 休息一下！」ttl=5s |
+| **工作結束** | elapsedMs ≥ workMs | Card：「🍅 休息一下！」ttlMs=5000，5s 後自動消失並標已讀 |
 | 休息中 | 自動接續 | hover bar 藍色倒數 |
-| **休息結束** | elapsed ≥ breakMs | Card：「⏰ 繼續工作！」ttl=5s |
+| **休息結束** | elapsedMs ≥ breakMs | Card：「⏰ 繼續工作！」ttlMs=5000，5s 後自動消失並標已讀 |
 | 暫停中 | 按 ⏸ | 無（hover bar 倒數靜止） |
 | 停止 | 按 ■ | 無，回 idle |
 
@@ -216,9 +247,19 @@ Channels 設定頁已有 per-channel UI，加一個 toggle：`顯示蕃茄鐘控
 - work phase 結束 → effect `notify-work-end` + 切 break
 - break 結束 + `afterBreak:'loop'` → 切 work
 - break 結束 + `afterBreak:'pause'` → 切 idle
-- PAUSE 凍結 elapsed；RESUME 繼續
+- PAUSE 凍結 elapsedMs；RESUME 繼續累加
 - STOP 任意 phase → idle
 - CONFIGURE 更新 workMs/breakMs
+
+---
+
+## UX 修正：清空按鈕語意對齊
+
+**現況**：通知中心「全部已讀」旁的清空按鈕，語意與範圍不一致（全部已讀 = 當前 channel；清空 = 不明確）。
+
+**修正**：清空按鈕語意改為「僅清空當前 channel 的訊息」，行為與「全部已讀」範圍一致。
+
+實作：`'clear-messages'` IPC command 加 `channelId` 參數，main handler 只刪除對應 channel 訊息。
 
 ---
 
@@ -227,4 +268,5 @@ Channels 設定頁已有 per-channel UI，加一個 toggle：`顯示蕃茄鐘控
 - Rounds 計數（e.g., 4 個蕃茄後長休息）
 - 音效
 - 桌面寵物動畫與蕃茄鐘 phase 連動
-- 多 channel 蕃茄鐘同步運行（目前單一 global timer）
+- 多 channel 獨立蕃茄鐘（目前 global single timer）
+- Internal notification interface 抽象化（待第二個 use case 出現再提取）
