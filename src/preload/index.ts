@@ -5,6 +5,7 @@ import type { WalkBounds } from '../core/walk-planner'
 import type { Prefs } from '../main/prefs'
 import type { CardView } from '../core/card-view'
 import type { Channel } from '../core/channel'
+import type { PomodoroPrefs, PomodoroSnapshot } from '../core/pomodoro-timer'
 import { sendCommand, invokeQuery, subscribePush } from '../ipc/preload-helpers'
 
 contextBridge.exposeInMainWorld('petBridge', {
@@ -32,6 +33,12 @@ contextBridge.exposeInMainWorld('petBridge', {
   selectSkin: (channelId: string, id: string) => invokeQuery('select-skin', { channelId, id }),
   openPetsFolder: () => sendCommand('open-pets-folder'),
   setWalkBounds: (bounds: Partial<WalkBounds>) => sendCommand('set-walk-bounds', bounds),
+  pomodoroStart: () => sendCommand('pomodoro-start'),
+  pomodoroPause: () => sendCommand('pomodoro-pause'),
+  pomodoroResume: () => sendCommand('pomodoro-resume'),
+  pomodoroStop: () => sendCommand('pomodoro-stop'),
+  setPomodoroPrefs: (p: Partial<PomodoroPrefs>) => sendCommand('set-pomodoro-prefs', p),
+  onPomodoroChanged: (cb: (s: PomodoroSnapshot) => void) => subscribePush('pomodoro-changed', cb),
   onPrefsChanged: (cb: (prefs: Prefs) => void) => subscribePush('prefs-changed', cb),
   setDnd: (enabled: boolean) => sendCommand('set-dnd', enabled),
   getDnd: () => invokeQuery('get-dnd'),

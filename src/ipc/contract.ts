@@ -20,6 +20,7 @@ import type { DiscoveredSkin } from '../core/skin-scan'
 import type { CardView } from '../core/card-view'
 import type { Prefs } from '../main/prefs'
 import type { Channel, SourceMatch } from '../core/channel'
+import type { PomodoroPrefs, PomodoroSnapshot } from '../core/pomodoro-timer'
 
 /** renderer → main，單向命令。 */
 export interface Commands {
@@ -47,6 +48,11 @@ export interface Commands {
   'remove-known-source': SourceMatch
   'set-all-enabled': boolean
   'open-skin-picker': { channelId: string }
+  'pomodoro-start': void
+  'pomodoro-pause': void
+  'pomodoro-resume': void
+  'pomodoro-stop': void
+  'set-pomodoro-prefs': Partial<PomodoroPrefs>
 }
 
 /** renderer → main，往返查詢。 */
@@ -86,4 +92,5 @@ export interface Pushes {
   'known-sources-updated': SourceMatch[]
   'all-enabled-updated': boolean
   'default-skin-updated': string
+  'pomodoro-changed': PomodoroSnapshot
 }

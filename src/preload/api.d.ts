@@ -44,6 +44,14 @@ declare global {
       selectSkin: (channelId: string, id: string) => Promise<{ ok: boolean; effectiveId: string }>
       openPetsFolder: () => void
       setWalkBounds: (bounds: Partial<WalkBounds>) => void
+      pomodoroStart: () => void
+      pomodoroPause: () => void
+      pomodoroResume: () => void
+      pomodoroStop: () => void
+      setPomodoroPrefs: (p: Partial<BridgePrefs['pomodoro']>) => void
+      onPomodoroChanged: (
+        cb: (s: { phase: 'idle' | 'work' | 'break'; paused: boolean; startedAt: number; durationMs: number; elapsedMs: number }) => void,
+      ) => void
       onPrefsChanged: (cb: (prefs: BridgePrefs) => void) => void
       setDnd: (enabled: boolean) => void
       getDnd: () => Promise<boolean>
