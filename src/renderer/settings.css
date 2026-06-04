@@ -1,10 +1,15 @@
-html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; height: 100%; }
 body {
   font-family: ui-rounded, "SF Pro Rounded", -apple-system, "Segoe UI", system-ui, sans-serif;
   color: #2a2622;
 }
 
+/* header / footer 固定，中間 .scroll 區捲動：視窗再矮按鈕也不會被切掉 */
 .panel {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: calc(100vh - 16px); /* margin 8 × 2 */
   margin: 8px;
   padding: 16px 18px 14px;
   background: #fffdf8;
@@ -13,7 +18,14 @@ body {
   user-select: none;
 }
 
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -52,8 +64,11 @@ header {
   padding: 4px 0;
 }
 .row label {
-  width: 56px;
+  flex: 0 1 auto;
+  min-width: 84px;
+  max-width: 160px;
   font-size: 13px;
+  line-height: 1.35;
   color: #5a4f44;
 }
 .row input {
@@ -70,6 +85,7 @@ header {
 .row .unit { font-size: 12px; color: #ad9f8c; }
 
 footer {
+  flex-shrink: 0;
   display: flex;
   justify-content: flex-end;
   gap: 8px;

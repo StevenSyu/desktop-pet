@@ -7,6 +7,8 @@ import { liveQuery } from '../core/live-query'
 
 const channels = signal<Channel[]>([])
 const allEnabled = signal(true)
+const pomoShowOnAll = signal(true)
+void window.channelsBridge.getPomodoroShowOnAll().then((v) => { pomoShowOnAll.value = v })
 const knownSources = signal<SourceMatch[]>([])
 const skins = signal<DiscoveredSkin[]>([])
 const defaultSkin = signal<string>('')
@@ -159,6 +161,14 @@ function App(): preact.JSX.Element {
           </div>
           <div class="crow-bottom">
             <button class="skin-pick" onClick={() => window.channelsBridge.openSkinPicker('all')}>造型：{skinName(defaultSkin.value)} ⚙</button>
+            <button
+              class={'pomo' + (pomoShowOnAll.value ? ' on' : '')}
+              disabled={!allEnabled.value}
+              title={!allEnabled.value ? '「全部」寵物隱藏中' : pomoShowOnAll.value ? '蕃茄鐘控制列顯示中（點按隱藏）' : '顯示蕃茄鐘控制列'}
+              onClick={() => { const next = !pomoShowOnAll.value; pomoShowOnAll.value = next; window.channelsBridge.setPomodoroShowOnAll(next) }}
+              aria-pressed={pomoShowOnAll.value}
+              aria-label="全部寵物蕃茄鐘控制列切換"
+            >🍅</button>
             <button class={'eye' + (allEnabled.value ? ' on' : '')} disabled={allEnabled.value && activePetCount(channels.value, allEnabled.value) <= 1} title={allEnabled.value && activePetCount(channels.value, allEnabled.value) <= 1 ? '至少保留一隻顯示寵物（先顯示其他頻道）' : allEnabled.value ? '顯示「全部」寵物中（點按隱藏）' : '「全部」寵物已隱藏（點按顯示）'} onClick={() => window.channelsBridge.setAllEnabled(!allEnabled.value)} aria-label="全部寵物顯示切換"></button>
           </div>
         </div>

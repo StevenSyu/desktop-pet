@@ -12,6 +12,7 @@
         <button id="close" class="x" aria-label="關閉">×</button>
       </header>
 
+      <main class="scroll">
       <section class="group">
         <div class="g-title">走動間隔</div>
         <div class="g-desc">每隔多久 may 會自動走一次。</div>
@@ -41,7 +42,7 @@
           <label>啟用蕃茄鐘</label><input id="pomoEnabled" type="checkbox" />
         </div>
         <div class="row">
-          <label>顯示於「全部」</label><input id="pomoShowOnAll" type="checkbox" />
+          <label>「全部」寵物顯示控制列</label><input id="pomoShowOnAll" type="checkbox" />
         </div>
         <div class="row">
           <label>工作時間</label><input id="pomoWork" type="number" min="1" max="180" step="1" /><span class="unit">分</span>
@@ -57,6 +58,7 @@
           </select>
         </div>
       </section>
+      </main>
 
       <footer>
         <button id="reset" class="ghost">恢復預設</button>

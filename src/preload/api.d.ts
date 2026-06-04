@@ -96,6 +96,8 @@ declare global {
       openSkinPicker: (channelId: string) => void
       getDefaultSkin: () => Promise<string>
       onDefaultSkinUpdated: (cb: (id: string) => void) => void
+      getPomodoroShowOnAll: () => Promise<boolean>
+      setPomodoroShowOnAll: (v: boolean) => void
     }
   }
 }

@@ -115,11 +115,13 @@ const SETTINGS_W = 340
 const SETTINGS_H = 620
 
 export function createSettingsWindow(): BrowserWindow {
+  // 矮螢幕 clamp 到工作區內；內容超出由 settings.html 的 .scroll 區捲動
+  const h = Math.min(SETTINGS_H, screen.getPrimaryDisplay().workArea.height - 24)
   const win = new BrowserWindow({
     ...toolWindowChrome({ title: '進階設定' }),
     width: SETTINGS_W,
-    height: SETTINGS_H,
-    ...centeredPos(SETTINGS_W, SETTINGS_H),
+    height: h,
+    ...centeredPos(SETTINGS_W, h),
     alwaysOnTop: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),

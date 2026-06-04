@@ -20,4 +20,8 @@ contextBridge.exposeInMainWorld('channelsBridge', {
   openSkinPicker: (channelId: string) => ipcRenderer.send('open-skin-picker', { channelId }),
   getDefaultSkin: (): Promise<string> => ipcRenderer.invoke('get-default-skin'),
   onDefaultSkinUpdated: (cb: (id: string) => void) => ipcRenderer.on('default-skin-updated', (_e, id: string) => cb(id)),
+  // 「全部」寵物的蕃茄鐘控制列開關（存於 Prefs.pomodoro.showOnAll，非 Channel 欄位）
+  getPomodoroShowOnAll: (): Promise<boolean> =>
+    ipcRenderer.invoke('get-prefs').then((p: { pomodoro: { showOnAll: boolean } }) => p.pomodoro.showOnAll),
+  setPomodoroShowOnAll: (v: boolean) => ipcRenderer.send('set-pomodoro-prefs', { showOnAll: v }),
 })
