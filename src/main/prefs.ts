@@ -35,7 +35,7 @@ const DEFAULTS: Prefs = {
   pomodoro: { ...DEFAULT_POMODORO_PREFS },
 }
 
-function sanitizePomodoro(raw: unknown): PomodoroPrefs {
+export function sanitizePomodoro(raw: unknown): PomodoroPrefs {
   const o = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
   const clampMin = (v: unknown, fallback: number): number => {
     const n = typeof v === 'number' && Number.isFinite(v) ? Math.round(v) : fallback

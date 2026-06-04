@@ -11,6 +11,7 @@ import {
 } from '../core/pomodoro-timer'
 import type { CardView } from '../core/card-view'
 import { getPrefs, updatePrefsStore, subscribePrefs } from './prefs-store'
+import { sanitizePomodoro } from './prefs'
 import { broadcastToPets, getPetWindow } from './window'
 import { handleCommand } from '../ipc/main-helpers'
 
@@ -89,7 +90,7 @@ export function initPomodoro(deps: PomodoroDeps): void {
   handleCommand('pomodoro-resume', () => dispatch(deps, { type: 'RESUME', now: Date.now() }))
   handleCommand('pomodoro-stop', () => dispatch(deps, { type: 'STOP' }))
   handleCommand('set-pomodoro-prefs', (partial) => {
-    const next = { ...getPrefs().pomodoro, ...partial }
+    const next = sanitizePomodoro({ ...getPrefs().pomodoro, ...partial })
     updatePrefsStore({ pomodoro: next }) // prefs-changed broadcast 由 subscribePrefs 統一處理
   })
 
@@ -97,7 +98,8 @@ export function initPomodoro(deps: PomodoroDeps): void {
     if (!changed.has('pomodoro')) return
     if (p.pomodoro.enabled) {
       startInterval(deps)
-      dispatch(deps, { type: 'CONFIGURE', prefs: { workMs: p.pomodoro.workMs, breakMs: p.pomodoro.breakMs, afterBreak: p.pomodoro.afterBreak } })
+      const { workMs, breakMs, afterBreak } = p.pomodoro
+      dispatch(deps, { type: 'CONFIGURE', prefs: { workMs, breakMs, afterBreak } })
     } else {
       // 行為決策：關全域開關 → 立即停止回 idle
       dispatch(deps, { type: 'STOP' })
