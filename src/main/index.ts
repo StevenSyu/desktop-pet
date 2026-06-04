@@ -302,8 +302,8 @@ app.whenReady().then(async () => {
     broadcastUnread()
     broadcastMessages()
   })
-  handleCommand('clear-messages', () => {
-    store.clear()
+  handleCommand('clear-messages', (ids) => {
+    store.removeByIds(ids)
     broadcastUnread()
     broadcastMessages()
   })

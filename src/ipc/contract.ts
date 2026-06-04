@@ -29,7 +29,7 @@ export interface Commands {
   'open-center': { channelId: string }
   'mark-read': string
   'mark-read-ids': string[]
-  'clear-messages': void
+  'clear-messages': string[]
   'drag-start': { channelId: string; sx: number; sy: number }
   'drag-move': { channelId: string; sx: number; sy: number }
   'drag-end': { channelId: string }

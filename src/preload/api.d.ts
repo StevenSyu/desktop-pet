@@ -50,7 +50,7 @@ declare global {
       onDndChanged: (cb: (enabled: boolean) => void) => void
       getMessages: () => Promise<StoredMessage[]>
       markReadIds: (ids: string[]) => void
-      clearMessages: () => void
+      clearMessages: (ids: string[]) => void
       onMessagesUpdated: (cb: (msgs: StoredMessage[]) => void) => void
       showCard: (channelId: string, view: CardView) => void
       hideCard: (channelId: string) => void

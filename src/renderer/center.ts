@@ -262,7 +262,11 @@ document.querySelector('#mark-all')!.addEventListener('click', () => {
   const ids = centerView(state).items.filter((m) => !m.read).map((m) => m.id)
   if (ids.length) window.petBridge.markReadIds(ids)
 })
-document.querySelector('#clear')!.addEventListener('click', () => window.petBridge.clearMessages())
+document.querySelector('#clear')!.addEventListener('click', () => {
+  // 與「全部已讀」同範圍：只清當前分頁 + session/type 篩選後可見的訊息
+  const ids = centerView(state).items.map((m) => m.id)
+  if (ids.length) window.petBridge.clearMessages(ids)
+})
 document.querySelector('#close')!.addEventListener('click', () => window.close())
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return

@@ -62,3 +62,22 @@ describe('MessageStore', () => {
     expect(() => s.markRead('nope')).not.toThrow()
   })
 })
+
+describe('MessageStore removeByIds', () => {
+  it('只刪指定 ids，其他保留；不存在的 id 被忽略', () => {
+    const s = new MessageStore({ now: () => 0 })
+    s.push(ev('done', 'a'))
+    s.push(ev('error', 'b'))
+    s.push(ev('done', 'c'))
+    s.removeByIds(['a', 'c', 'nope'])
+    expect(s.list().map((m) => m.id)).toEqual(['b'])
+  })
+
+  it('空陣列為 no-op', () => {
+    const s = new MessageStore({ now: () => 0 })
+    s.push(ev('done', 'a'))
+    s.push(ev('error', 'b'))
+    s.removeByIds([])
+    expect(s.list().map((m) => m.id)).toEqual(['b', 'a'])
+  })
+})
