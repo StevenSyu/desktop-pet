@@ -84,3 +84,14 @@ renderer「初查＋訂閱更新」一律走 `src/core/live-query.ts` 的 `liveQ
 ## 工具視窗工廠
 
 通知中心／卡片／進階設定／造型挑選／寵物設定的視窗建立集中在 `src/main/window-factory.ts`；單例開窗（已開則 focus、或關舊開新）用 `makeOpener(create, { replace? })`，推播端以 `opener.current()` 取窗（未開 → null，`pushTo` 自 no-op）。
+
+## Renderer Widget（自包含 UI 模組）
+
+寵物視窗中與 FSM／互動／自走無共享狀態的 UI concern，抽成自包含 widget module，不留在 `renderer/main.ts`：
+
+- `src/renderer/pomodoro-bar.ts` — 蕃茄鐘 hover 控制列：顯示規則、倒數、雙語意 ▶。`initPomodoroBar(bridge, channelId) → { setHovering }`。
+- `src/renderer/scale-handle.ts` — 寵物縮放：scale 狀態唯一持有處（main push ＋ 把手拖曳兩個來源收斂於此）。`initScaleHandle(bridge, opts) → { isResizing }`。
+
+模式：**bridge 以窄面注入**（petBridge 的 Pick 子集，測試 fake 少寫）；**DOM 元素自查**（ids 是 widget 實作細節）；測試用 `// @vitest-environment jsdom` + fake bridge（`tests/renderer/`）。main.ts 只剩 init 一行＋hover 通知。
+
+反例（不抽）：`tick()` 動畫合成需同時讀 FSM／互動／自走三個 reducer——本質三方合併，main.ts 是其正當持有者。
