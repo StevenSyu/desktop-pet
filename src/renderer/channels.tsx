@@ -99,6 +99,7 @@ function ChannelRow({ ch }: { ch: Channel }): preact.JSX.Element {
           disabled={!ch.enabled}
           title={!ch.enabled ? '頻道停用中' : ch.pomodoroEnabled ? '蕃茄鐘控制列顯示中（點按隱藏）' : '顯示蕃茄鐘控制列'}
           onClick={(e) => { stop(e); upsert({ ...ch, pomodoroEnabled: !ch.pomodoroEnabled }) }}
+          aria-pressed={ch.pomodoroEnabled}
           aria-label="蕃茄鐘控制列切換"
         >🍅</button>
         <button class={'eye' + (ch.showPet ? ' on' : '')} disabled={!ch.enabled || lockLast} title={!ch.enabled ? '頻道停用中（無寵物）' : lockLast ? '至少保留一隻顯示寵物' : ch.showPet ? '顯示寵物中（點按隱藏）' : '寵物已隱藏（點按顯示）'} onClick={(e) => { stop(e); upsert({ ...ch, showPet: !ch.showPet }) }} aria-label="寵物顯示切換"></button>
