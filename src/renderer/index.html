@@ -12,11 +12,12 @@
       <div id="channel-label" hidden></div>
       <div id="badge" hidden></div>
       <div id="resize-handle" hidden></div>
-      <div id="pomodoro-bar" hidden>
-        <span id="pomo-time">--:--</span>
-        <button id="pomo-toggle" title="開始">▶</button>
-        <button id="pomo-stop" title="停止">■</button>
-      </div>
+    </div>
+    <!-- 蕃茄鐘控制列：在 pet-shell 外，不受 transform: scale 縮放，pet 縮小後仍可點擊 -->
+    <div id="pomodoro-bar" hidden>
+      <span id="pomo-time">--:--</span>
+      <button id="pomo-toggle" title="開始">▶</button>
+      <button id="pomo-stop" title="停止">■</button>
     </div>
     <script type="module" src="./main.ts"></script>
   </body>

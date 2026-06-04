@@ -320,10 +320,11 @@ function bindHover(): void {
   const enableInteractive = () => window.petBridge.setInteractive(myChannel, true)
   const disableInteractive = () => window.petBridge.setInteractive(myChannel, false)
 
-  // hover 偵測綁在涵蓋整個視窗的 body（非 #pet）：把手（pointer-events:auto）疊在 #pet 右下角，
+  // hover 偵測綁在涵蓋整個視窗的 body（非 #pet / #pet-shell）：
   // 若綁 #pet，滑鼠移到把手會觸發 #pet mouseleave → 隱藏把手 → 又落回 #pet mouseenter → 無限閃爍。
-  // body 是 #pet/把手/名稱標籤的共同祖先，子元素間移動不會觸發 body 的 mouseleave。
-  shellEl.addEventListener('mouseenter', () => {
+  // #pomodoro-bar 在 shell 外（不受 scale 縮放），故共同祖先是 body——
+  // 子元素（pet/把手/標籤/蕃茄列）之間移動不會觸發 body 的 mouseleave。
+  document.body.addEventListener('mouseenter', () => {
     labelHovering = true
     applyLabel()
     handleEl.hidden = false
@@ -334,7 +335,7 @@ function bindHover(): void {
     syncPomoTicker()
     renderPomoBar()
   })
-  shellEl.addEventListener('mouseleave', () => {
+  document.body.addEventListener('mouseleave', () => {
     labelHovering = false
     applyLabel()
     if (!resizing) {
