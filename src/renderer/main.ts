@@ -7,7 +7,6 @@ import { resolveAnimation, type AnimationContext } from '../core/anim-resolver'
 import { initialWalkEngineState, walkEngineReduce, type WalkCommand, type WalkEngineEvent } from '../core/walk-engine'
 import { stripMarkdown } from '../core/markdown-strip'
 import { sanitizeLabelMode, shouldShowLabel, type ChannelLabelMode } from '../core/channel-label'
-import { clampScale, scaleFromDrag } from '../core/pet-scale'
 import {
   reduce,
   initialInteractionState,
@@ -20,6 +19,7 @@ import type { CardView } from '../core/card-view'
 import { cardSummary } from '../core/card-summary'
 import { liveQuery } from '../core/live-query'
 import { initPomodoroBar } from './pomodoro-bar'
+import { initScaleHandle } from './scale-handle'
 
 const myChannel = new URLSearchParams(location.search).get('c') ?? 'all'
 const DISPLAY_SCALE = 0.7
@@ -36,9 +36,8 @@ petEl.style.width = `${SPRITE_FORMAT.frameWidth * DISPLAY_SCALE}px`
 petEl.style.height = `${SPRITE_FORMAT.frameHeight * DISPLAY_SCALE}px`
 petEl.style.backgroundSize = `${SPRITE_FORMAT.sheetWidth * DISPLAY_SCALE}px ${SPRITE_FORMAT.sheetHeight * DISPLAY_SCALE}px`
 const handleEl = document.querySelector<HTMLDivElement>('#resize-handle')!
-let scale = 1
-function applyScale(): void { shellEl.style.transform = `scale(${scale})` }
-window.petBridge.onSetScale((s) => { scale = clampScale(s); applyScale() })
+// 寵物縮放：scale 狀態 + main push + 把手拖曳全在 scale-handle.ts
+const scaleHandle = initScaleHandle(window.petBridge, { shellEl, handleEl, channelId: myChannel, baseW: BASE_W, baseH: BASE_H })
 
 // 蕃茄鐘 hover 控制列：自包含 widget（顯示規則/倒數/控制全在 pomodoro-bar.ts）
 const pomodoroBar = initPomodoroBar(window.petBridge, myChannel)
@@ -282,7 +281,7 @@ function bindHover(): void {
   document.body.addEventListener('mouseleave', () => {
     labelHovering = false
     applyLabel()
-    if (!resizing) {
+    if (!scaleHandle.isResizing()) {
       handleEl.hidden = true
       disableInteractive()
     }
@@ -292,34 +291,6 @@ function bindHover(): void {
 
 bindHover()
 
-let resizing = false
-handleEl.addEventListener('pointerdown', (e) => {
-  e.preventDefault(); e.stopPropagation()
-  resizing = true
-  handleEl.setPointerCapture(e.pointerId)
-  window.petBridge.setInteractive(myChannel, true)
-  const startScale = scale
-  const startX = e.screenX, startY = e.screenY
-  let raf = 0
-  const onMove = (ev: PointerEvent) => {
-    const next = scaleFromDrag(startScale, ev.screenX - startX, ev.screenY - startY, BASE_W, BASE_H)
-    scale = next; applyScale()
-    if (!raf) raf = requestAnimationFrame(() => { raf = 0; window.petBridge.setScale(myChannel, scale) })
-  }
-  const onUp = () => {
-    handleEl.releasePointerCapture(e.pointerId)
-    handleEl.removeEventListener('pointermove', onMove)
-    handleEl.removeEventListener('pointerup', onUp)
-    resizing = false
-    window.petBridge.setScale(myChannel, scale)
-    if (!shellEl.matches(':hover')) {
-      handleEl.hidden = true
-      window.petBridge.setInteractive(myChannel, false)
-    }
-  }
-  handleEl.addEventListener('pointermove', onMove)
-  handleEl.addEventListener('pointerup', onUp)
-})
 
 // 拖動／點擊：pointer 事件轉成 reducer input；DOM pointer capture 留在 adapter
 shellEl.addEventListener('pointerdown', (e) => {
