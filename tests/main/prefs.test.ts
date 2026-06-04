@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { loadPrefs, savePrefs } from '../../src/main/prefs'
 import { DEFAULT_WALK_BOUNDS } from '../../src/core/walk-planner'
 import { DEFAULT_SKIN_ID } from '../../src/core/skins'
+import { DEFAULT_POMODORO_PREFS } from '../../src/core/pomodoro-timer'
 
 const dirs: string[] = []
 function tempDir(): string {
@@ -25,6 +26,7 @@ const FULL_DEFAULTS = {
   allEnabled: true,
   channels: [],
   knownSources: [],
+  pomodoro: { ...DEFAULT_POMODORO_PREFS },
 }
 
 describe('loadPrefs', () => {

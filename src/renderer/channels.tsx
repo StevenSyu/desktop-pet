@@ -60,7 +60,7 @@ function createChannel(): void {
   const name = draftName.value.trim()
   if (!name) return
   pendingSelectNew = true
-  upsert({ id: '', name, skin: skins.value.find((s) => s.valid)?.id ?? '', enabled: false, showPet: true, members: [] })
+  upsert({ id: '', name, skin: skins.value.find((s) => s.valid)?.id ?? '', enabled: false, showPet: true, pomodoroEnabled: false, members: [] })
   draftName.value = ''
   adding.value = false
 }

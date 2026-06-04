@@ -15,6 +15,7 @@ type BridgePrefs = {
   allEnabled: boolean
   channels: Channel[]
   knownSources: SourceMatch[]
+  pomodoro: { enabled: boolean; workMs: number; breakMs: number; afterBreak: 'loop' | 'pause'; showOnAll: boolean }
 }
 
 declare global {

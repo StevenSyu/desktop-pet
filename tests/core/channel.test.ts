@@ -18,6 +18,7 @@ const ch = (id: string, members: SourceMatch[], enabled = true, showPet = true):
   skin: 'may',
   enabled,
   showPet,
+  pomodoroEnabled: false,
   members,
 })
 const msg = (kind: string, name: string | undefined, read: boolean) => ({
@@ -105,13 +106,22 @@ describe('sanitizeChannels', () => {
       'garbage',
     ]
     expect(sanitizeChannels(raw)).toEqual([
-      { id: 'c1', name: 'A', skin: 'may', enabled: true, showPet: true, members: [{ kind: 'claude-code' }] },
-      { id: 'c3', name: 'C', skin: '', enabled: false, showPet: true, members: [{ name: 'desktop-notify' }] },
+      { id: 'c1', name: 'A', skin: 'may', enabled: true, showPet: true, pomodoroEnabled: false, members: [{ kind: 'claude-code' }] },
+      { id: 'c3', name: 'C', skin: '', enabled: false, showPet: true, pomodoroEnabled: false, members: [{ name: 'desktop-notify' }] },
     ])
   })
   it('保留 showPet、舊檔無 showPet → true', () => {
     expect(sanitizeChannels([{ id: 'a', name: 'a', skin: '', enabled: true, showPet: false, members: [{ kind: 'k' }] }])[0].showPet).toBe(false)
     expect(sanitizeChannels([{ id: 'b', name: 'b', skin: '', enabled: true, members: [{ kind: 'k' }] }])[0].showPet).toBe(true)
+  })
+  it('sanitizeChannels：pomodoroEnabled 預設 false、保留明確 true', () => {
+    const raw = [
+      { id: 'c1', name: 'A', skin: '', enabled: true, showPet: true, members: [{ kind: 'x' }] },
+      { id: 'c2', name: 'B', skin: '', enabled: true, showPet: true, pomodoroEnabled: true, members: [{ kind: 'y' }] },
+    ]
+    const out = sanitizeChannels(raw)
+    expect(out[0].pomodoroEnabled).toBe(false)
+    expect(out[1].pomodoroEnabled).toBe(true)
   })
 })
 
@@ -131,7 +141,7 @@ describe('sanitizeSources', () => {
 })
 
 describe('activePetCount', () => {
-  const ch = (enabled: boolean, showPet = true): Channel => ({ id: 'x', name: 'x', skin: '', enabled, showPet, members: [{ kind: 'k' }] })
+  const ch = (enabled: boolean, showPet = true): Channel => ({ id: 'x', name: 'x', skin: '', enabled, showPet, pomodoroEnabled: false, members: [{ kind: 'k' }] })
   it('= allEnabled 的 1 + 啟用且顯示寵物的頻道數', () => {
     expect(activePetCount([ch(true), ch(false)], true)).toBe(2) // all + 1 啟用顯示
     expect(activePetCount([ch(true), ch(true)], false)).toBe(2) // 0 + 2 啟用顯示

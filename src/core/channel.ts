@@ -1,7 +1,7 @@
 import type { NotifySource } from './events'
 
 export interface SourceMatch { kind?: string; name?: string }
-export interface Channel { id: string; name: string; skin: string; enabled: boolean; showPet: boolean; members: SourceMatch[] }
+export interface Channel { id: string; name: string; skin: string; enabled: boolean; showPet: boolean; pomodoroEnabled: boolean; members: SourceMatch[] }
 
 export function matchesSource(match: SourceMatch, source: NotifySource): boolean {
   if (match.kind == null && match.name == null) return false
@@ -56,9 +56,10 @@ export function sanitizeChannels(raw: unknown): Channel[] {
     const skin = typeof o.skin === 'string' ? o.skin : ''
     const enabled = typeof o.enabled === 'boolean' ? o.enabled : false
     const showPet = typeof o.showPet === 'boolean' ? o.showPet : true // 向後相容：舊檔無 showPet → 顯示
+    const pomodoroEnabled = typeof o.pomodoroEnabled === 'boolean' ? o.pomodoroEnabled : false // 向後相容：舊檔無此欄 → 關閉
     const members = Array.isArray(o.members) ? sanitizeSources(o.members) : []
     if (!id || !name || members.length === 0) continue
-    out.push({ id, name, skin, enabled, showPet, members })
+    out.push({ id, name, skin, enabled, showPet, pomodoroEnabled, members })
   }
   return out
 }
@@ -145,7 +146,7 @@ export function applySourceEvent(state: ChannelState, source: NotifySource, opts
   let petsChanged = false
   const hasMember = (pred: (m: SourceMatch) => boolean): boolean => channels.some((c) => c.members.some(pred))
   if (source.name && addedNamedSource && channels.length < opts.maxAuto && !hasMember((m) => m.kind === source.kind && m.name === source.name)) {
-    channels = [...channels, { id: opts.nextId(), name: source.name, skin: opts.defaultSkin, enabled: true, showPet: true, members: [{ kind: source.kind, name: source.name }] }]
+    channels = [...channels, { id: opts.nextId(), name: source.name, skin: opts.defaultSkin, enabled: true, showPet: true, pomodoroEnabled: false, members: [{ kind: source.kind, name: source.name }] }]
     channelsChanged = true
     petsChanged = true
   }

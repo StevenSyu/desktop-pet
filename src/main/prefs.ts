@@ -8,6 +8,7 @@ import {
 import { DEFAULT_SKIN_ID, isValidSkinId } from '../core/skins'
 import { type SourceMatch, sanitizeSources, sanitizeChannels, type Channel } from '../core/channel'
 import { sanitizeLabelMode, type ChannelLabelMode } from '../core/channel-label'
+import { DEFAULT_POMODORO_PREFS, type PomodoroPrefs } from '../core/pomodoro-timer'
 
 export interface Prefs {
   autoWalk: boolean
@@ -18,6 +19,7 @@ export interface Prefs {
   allEnabled: boolean
   channels: Channel[]
   knownSources: SourceMatch[]
+  pomodoro: PomodoroPrefs
 }
 
 const FILENAME = 'prefs.json'
@@ -30,12 +32,28 @@ const DEFAULTS: Prefs = {
   allEnabled: true,
   channels: [],
   knownSources: [],
+  pomodoro: { ...DEFAULT_POMODORO_PREFS },
+}
+
+function sanitizePomodoro(raw: unknown): PomodoroPrefs {
+  const o = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
+  const clampMin = (v: unknown, fallback: number): number => {
+    const n = typeof v === 'number' && Number.isFinite(v) ? Math.round(v) : fallback
+    return Math.min(180 * 60_000, Math.max(60_000, n)) // 1–180 分鐘
+  }
+  return {
+    enabled: typeof o.enabled === 'boolean' ? o.enabled : DEFAULT_POMODORO_PREFS.enabled,
+    workMs: clampMin(o.workMs, DEFAULT_POMODORO_PREFS.workMs),
+    breakMs: clampMin(o.breakMs, DEFAULT_POMODORO_PREFS.breakMs),
+    afterBreak: o.afterBreak === 'pause' ? 'pause' : 'loop',
+    showOnAll: typeof o.showOnAll === 'boolean' ? o.showOnAll : DEFAULT_POMODORO_PREFS.showOnAll,
+  }
 }
 
 export function loadPrefs(userDataDir: string): Prefs {
   const path = join(userDataDir, FILENAME)
   if (!existsSync(path)) {
-    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk }, skin: DEFAULTS.skin, channelLabelMode: 'hidden', dnd: DEFAULTS.dnd, allEnabled: true, channels: [], knownSources: [] }
+    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk }, skin: DEFAULTS.skin, channelLabelMode: 'hidden', dnd: DEFAULTS.dnd, allEnabled: true, channels: [], knownSources: [], pomodoro: { ...DEFAULTS.pomodoro } }
   }
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>
@@ -49,9 +67,10 @@ export function loadPrefs(userDataDir: string): Prefs {
       allEnabled: typeof parsed.allEnabled === 'boolean' ? parsed.allEnabled : true,
       channels: sanitizeChannels(parsed.channels),
       knownSources: sanitizeSources(parsed.knownSources),
+      pomodoro: sanitizePomodoro(parsed.pomodoro),
     }
   } catch {
-    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk }, skin: DEFAULTS.skin, channelLabelMode: 'hidden', dnd: DEFAULTS.dnd, allEnabled: true, channels: [], knownSources: [] }
+    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk }, skin: DEFAULTS.skin, channelLabelMode: 'hidden', dnd: DEFAULTS.dnd, allEnabled: true, channels: [], knownSources: [], pomodoro: { ...DEFAULTS.pomodoro } }
   }
 }
 
