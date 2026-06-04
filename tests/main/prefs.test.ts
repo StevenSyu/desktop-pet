@@ -113,9 +113,41 @@ describe('savePrefs', () => {
       allEnabled: true,
       channels: [],
       knownSources: [],
+      pomodoro: { enabled: true, workMs: 1_500_000, breakMs: 300_000, afterBreak: 'loop', showOnAll: true },
     }
     savePrefs(d, prefs)
     expect(existsSync(join(d, 'prefs.json'))).toBe(true)
     expect(JSON.parse(readFileSync(join(d, 'prefs.json'), 'utf8'))).toEqual(prefs)
+  })
+
+  it('loadPrefs：pomodoro 邊界值 sanitize（NaN/負數/超大/非法 afterBreak）', () => {
+    const d = tempDir()
+    // 寫入含非法 pomodoro 的 prefs.json
+    writeFileSync(
+      join(d, 'prefs.json'),
+      JSON.stringify({
+        autoWalk: true,
+        walk: { intervalMinMs: 5_000, intervalMaxMs: 10_000, durationMinMs: 1000, durationMaxMs: 4000 },
+        skin: 'default',
+        channelLabelMode: 'hidden',
+        dnd: false,
+        allEnabled: true,
+        channels: [],
+        knownSources: [],
+        pomodoro: {
+          enabled: 'yes', // 非 boolean → false
+          workMs: -5, // 負數 → clamp 到 60_000
+          breakMs: 999_999_999_999, // 超大 → clamp 到 10_800_000 (180 分鐘)
+          afterBreak: 'banana', // 非法值 → 'loop'
+          showOnAll: undefined, // 缺欄 → fallback DEFAULT_POMODORO_PREFS.showOnAll (true)
+        },
+      }),
+    )
+    const p = loadPrefs(d)
+    expect(p.pomodoro.enabled).toBe(false)
+    expect(p.pomodoro.workMs).toBe(60_000)
+    expect(p.pomodoro.breakMs).toBe(10_800_000)
+    expect(p.pomodoro.afterBreak).toBe('loop')
+    expect(p.pomodoro.showOnAll).toBe(true)
   })
 })
