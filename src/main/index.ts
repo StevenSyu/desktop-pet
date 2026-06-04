@@ -19,7 +19,7 @@ import { registerPetScheme, registerPetProtocol } from './pet-protocol'
 import { findFreePort, generateToken, writeEndpointFile } from './endpoint'
 import { startIngestServer } from './ingest'
 import { MessageStore } from '../core/message-store'
-import { bus } from './bus'
+import { busEmit, busOn, type PetBounds } from './bus'
 import { getPrefs, updatePrefsStore, subscribePrefs } from './prefs-store'
 import { handleCommand, handleQuery, pushTo } from '../ipc/main-helpers'
 import type { AppEvent } from '../core/events'
@@ -40,7 +40,7 @@ interface CardState {
   state: CardLifecycleState // show/loaded/hide/dismiss 時序決策在 core 的 cardReduce
   dragOffset: { x: number; y: number } | null
 }
-type PetBounds = { x: number; y: number; width: number; height: number }
+
 const cardWindows = new Map<string, CardState>()
 let pendingDetailId: string | null = null
 let pendingChannelTab: string | null = null
@@ -349,10 +349,10 @@ app.whenReady().then(async () => {
   })
   handleQuery('get-all-enabled', () => getPrefs().allEnabled)
   handleCommand('set-all-enabled', (v) => applyAllEnabled(v))
-  handleCommand('open-skin-picker', ({ channelId }) => bus.emit('open-skins', channelId))
+  handleCommand('open-skin-picker', ({ channelId }) => busEmit('open-skins', channelId))
   // 快速關閉目前頻道的寵物（右鍵選單）：停用該頻道（'all' → allEnabled false）。
   // 防呆保險：至少保留一隻（選單項已 disable，這裡再擋一次避免 race）。
-  bus.on('close-pet', (channelId: string) => {
+  busOn('close-pet', (channelId: string) => {
     const p = getPrefs()
     if (activePetCount(p.channels, p.allEnabled) <= 1) return
     if (channelId === 'all') {
@@ -395,16 +395,16 @@ app.whenReady().then(async () => {
     return t
   })
 
-  bus.on('pet-drag-start', (channelId: string) => startCardDragSync(channelId))
-  bus.on('pet-drag-end', (channelId: string) => endCardDragSync(channelId))
+  busOn('pet-drag-start', (channelId: string) => startCardDragSync(channelId))
+  busOn('pet-drag-end', (channelId: string) => endCardDragSync(channelId))
 
-  bus.on('pet-moved', (channelId: string, bounds?: PetBounds) => repositionCard(channelId, false, bounds)) // 拖動 / display-removed 重吸附後同步卡片
+  busOn('pet-moved', (channelId: string, bounds?: PetBounds) => repositionCard(channelId, false, bounds)) // 拖動 / display-removed 重吸附後同步卡片
   screen.on('display-metrics-changed', () => { for (const id of cardWindows.keys()) repositionCard(id) }) // 解析度 / 排列變更
 
-  bus.on('open-center', (channelId?: string) => openCenter(channelId))
-  bus.on('open-settings', () => settingsOpener.open())
-  bus.on('open-skins', (channelId: string = 'all') => skinOpener.open(channelId))
-  bus.on('open-channels', () => channelsOpener.open())
+  busOn('open-center', (channelId?: string) => openCenter(channelId))
+  busOn('open-settings', () => settingsOpener.open())
+  busOn('open-skins', (channelId: string = 'all') => skinOpener.open(channelId))
+  busOn('open-channels', () => channelsOpener.open())
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) reconcilePets()

@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { DEFAULT_SKIN_ID } from '../core/skins'
 import { scanSkins } from './skin-registry'
-import { bus } from './bus'
+import { busEmit, busOn } from './bus'
 import { isMac, isWindows, pinWindow } from './win-util'
 import { type ChannelLabelMode } from '../core/channel-label'
 import { defaultPosition, isWithinAnyDisplay } from '../core/window-position'
@@ -188,7 +188,7 @@ function registerHandlers(): void {
           { label: '常態顯示', type: 'radio', checked: prefs.channelLabelMode === 'always', click: () => setLabelMode('always') },
         ],
       },
-      { label: '寵物設定…', click: () => bus.emit('open-channels') },
+      { label: '寵物設定…', click: () => busEmit('open-channels') },
       {
         label: '自動走動',
         type: 'checkbox',
@@ -200,14 +200,14 @@ function registerHandlers(): void {
         },
       },
       { label: '勿擾模式', type: 'checkbox', checked: prefs.dnd, click: (mi) => applyDnd(mi.checked) },
-      { label: '進階設定…', click: () => bus.emit('open-settings') },
+      { label: '進階設定…', click: () => busEmit('open-settings') },
       { type: 'separator' },
-      { label: '通知中心', click: () => bus.emit('open-center') },
+      { label: '通知中心', click: () => busEmit('open-center') },
       { type: 'separator' },
       {
         label: petChannelIds().length >= 2 ? '關閉這隻寵物' : '關閉這隻寵物（至少保留一隻）',
         enabled: petChannelIds().length >= 2,
-        click: () => bus.emit('close-pet', channelId),
+        click: () => busEmit('close-pet', channelId),
       },
       { label: '關閉小幫手', click: () => app.quit() },
     ])
@@ -222,7 +222,7 @@ function registerHandlers(): void {
     const cursor = screen.getCursorScreenPoint()
     const bounds = win.getBounds()
     dragOffsets.set(channelId, { x: cursor.x - bounds.x, y: cursor.y - bounds.y })
-    bus.emit('pet-drag-start', channelId)
+    busEmit('pet-drag-start', channelId)
   })
   handleCommand('drag-move', ({ channelId }) => {
     const win = getPetWindow(channelId)
@@ -233,11 +233,11 @@ function registerHandlers(): void {
     const x = Math.round(cursor.x - off.x)
     const y = Math.round(cursor.y - off.y)
     win.setPosition(x, y)
-    bus.emit('pet-moved', channelId, { x, y, width: bounds.width, height: bounds.height })
+    busEmit('pet-moved', channelId, { x, y, width: bounds.width, height: bounds.height })
   })
   handleCommand('drag-end', ({ channelId }) => {
     dragOffsets.delete(channelId)
-    bus.emit('pet-drag-end', channelId)
+    busEmit('pet-drag-end', channelId)
     const win = getPetWindow(channelId)
     if (!win) return
     const [x, y] = win.getPosition()
@@ -253,7 +253,7 @@ function registerHandlers(): void {
     setPetContentSize(win, s)
     const d = screen.getDisplayMatching(win.getBounds())
     saveWindowState(app.getPath('userData'), channelId, { displayId: d.id, x: b.x, y: b.y, scale: s })
-    bus.emit('pet-moved', channelId, win.getBounds())
+    busEmit('pet-moved', channelId, win.getBounds())
   })
 
   // ===== walk（per-pet）=====
@@ -296,7 +296,7 @@ function registerHandlers(): void {
   handleCommand('walk-cancel', ({ channelId }) => endWalk(channelId, true))
 
   // ===== 全域命令 / 查詢（不分 pet）=====
-  handleCommand('open-center', ({ channelId }) => bus.emit('open-center', channelId))
+  handleCommand('open-center', ({ channelId }) => busEmit('open-center', channelId))
   handleQuery('get-auto-walk', () => getPrefs().autoWalk)
   handleQuery('get-prefs', () => getPrefs())
   handleCommand('open-pets-folder', () => {
@@ -327,7 +327,7 @@ function registerHandlers(): void {
         const primary = screen.getPrimaryDisplay()
         const pos = defaultPosition({ id: primary.id, workArea: primary.workArea }, { width: PET_WIDTH, height: PET_HEIGHT }, MARGIN)
         win.setPosition(pos.x, pos.y)
-        bus.emit('pet-moved', channelId, { ...win.getBounds(), x: pos.x, y: pos.y })
+        busEmit('pet-moved', channelId, { ...win.getBounds(), x: pos.x, y: pos.y })
       }
     }
   })
