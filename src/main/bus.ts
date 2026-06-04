@@ -25,6 +25,7 @@ export function busEmit<K extends keyof BusEvents>(event: K, ...args: BusEvents[
   bus.emit(event, ...args)
 }
 
-export function busOn<K extends keyof BusEvents>(event: K, listener: (...args: BusEvents[K]) => void): void {
+export function busOn<K extends keyof BusEvents>(event: K, listener: (...args: BusEvents[K]) => void): () => void {
   bus.on(event, listener as (...args: unknown[]) => void)
+  return () => bus.off(event, listener as (...args: unknown[]) => void)
 }

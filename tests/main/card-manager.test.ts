@@ -124,13 +124,13 @@ describe('card-manager', () => {
   })
 
   it('dismissById 關掉所有顯示同 id 的卡片並通知各自寵物標已讀', () => {
-    const { manager, cards, pets } = setup(['all', 'ch-1'])
+    const { manager, cards, pets, ipcHandler } = setup(['all', 'ch-1'])
     manager.show('all', view('m1'))
     manager.show('ch-1', view('m1'))
     cards.get('all')!.fireLoaded()
     cards.get('ch-1')!.fireLoaded()
 
-    manager.dismissById('m1')
+    ipcHandler('card-clicked')({ id: 'm1' })
 
     for (const cid of ['all', 'ch-1']) {
       expect(cards.get(cid)!.hide).toHaveBeenCalled()
@@ -139,10 +139,10 @@ describe('card-manager', () => {
   })
 
   it('dismissById 不同 id → 卡片不動（id 比對在 cardReduce）', () => {
-    const { manager, cards } = setup()
+    const { manager, cards, ipcHandler } = setup()
     manager.show('all', view('m1'))
     cards.get('all')!.fireLoaded()
-    manager.dismissById('other')
+    ipcHandler('card-clicked')({ id: 'other' })
     expect(cards.get('all')!.hide).not.toHaveBeenCalled()
   })
 

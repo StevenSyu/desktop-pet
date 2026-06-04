@@ -26,10 +26,6 @@ export interface CardManagerDeps {
 export interface CardManager {
   /** 顯示一張卡片（未載入完成 → reducer 暫存 pending，loaded 事件補 flush）。 */
   show: (channelId: string, view: CardView) => void
-  /** 關閉所有顯示同一訊息（同 event id）的卡片並通知各自寵物標已讀。 */
-  dismissById: (id: string) => void
-  /** 隱藏指定頻道卡片（不標已讀；DND/hide-card 用）。 */
-  hideFor: (channelId: string) => void
   /** 關閉指定頻道卡片視窗（頻道寵物收掉時連帶收卡片）。 */
   closeFor: (channelId: string) => void
 }
@@ -137,8 +133,6 @@ export function initCardManager(deps: CardManagerDeps): CardManager {
       ensure(channelId)
       dispatch(channelId, { kind: 'show', view })
     },
-    dismissById,
-    hideFor: (channelId) => dispatch(channelId, { kind: 'hide' }),
     closeFor: (channelId) => {
       const cs = cards.get(channelId)
       if (cs && !cs.win.isDestroyed()) cs.win.close()
