@@ -10,7 +10,8 @@ import {
 } from './window-factory'
 import { loadWindowStates, saveWindowState } from './window-state'
 import { initCardManager, type CardManager } from './card-manager'
-import { matchingChannels, unreadByChannel, activePetCount, applySourceEvent, healKnownKinds, healSkins, type Channel, type SourceMatch } from '../core/channel'
+import { unreadByChannel, activePetCount, applySourceEvent, healKnownKinds, healSkins, type Channel, type SourceMatch } from '../core/channel'
+import { routeEvent } from '../core/event-route'
 import { desiredPetIds, diffFleet } from '../core/pet-fleet'
 import { resolveCenterPos } from '../core/center-pos'
 import { DEFAULT_SKIN_ID } from '../core/skins'
@@ -79,7 +80,8 @@ function applyAllEnabled(v: boolean): void {
   broadcastUnread()
 }
 
-// 通知音：總開關（prefs.soundEnabled）；呼叫點皆在 DND guard 之後、卡片 fan-out 之前（事件層一次）
+// 通知音（蕃茄鐘路徑）：soundEnabled 檢查在此；DND guard 在 pomodoro-driver 的 showInternal。
+// 外部事件路徑的響音決策在 core 的 routeEvent，不走這裡。
 function playNotifySound(): void {
   if (getPrefs().soundEnabled) shell.beep()
 }
@@ -207,11 +209,10 @@ app.whenReady().then(async () => {
       autoDetectChannel(event.source)
       broadcastUnread()
       broadcastMessages()
-      const p = getPrefs()
-      if (p.dnd) return // 勿擾模式：不彈卡片、不演反應動畫、不響音
-      playNotifySound() // 事件層一次（多寵物窗 fan-out 不疊響）
-      const targets = new Set<string>([...(p.allEnabled ? ['all'] : []), ...matchingChannels(event.source, p.channels)])
-      for (const id of targets) {
+      // 路由決策在 core 的 routeEvent（勿擾吞掉／響音一次／目標集合），此處只執行副作用
+      const r = routeEvent(getPrefs(), event.source)
+      if (r.sound) shell.beep()
+      for (const id of r.targets) {
         const win = getPetWindow(id)
         if (!win || win.isDestroyed()) continue
         if (win.webContents.isLoading()) {
