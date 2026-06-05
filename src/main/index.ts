@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen } from 'electron'
+import { app, BrowserWindow, screen, shell } from 'electron'
 import { createPetWindow, getSkinSheetPath, getPetWindow, petChannelIds, closePetWindow, builtinRoot, setSkinSheetPaths, broadcastToPets } from './window'
 import {
   makeOpener,
@@ -77,6 +77,11 @@ function applyAllEnabled(v: boolean): void {
   updatePrefsStore({ allEnabled: v }) // all-enabled-updated push 由訂閱處理
   reconcilePets()
   broadcastUnread()
+}
+
+// 通知音：總開關（prefs.soundEnabled）；呼叫點皆在 DND guard 之後、卡片 fan-out 之前（事件層一次）
+function playNotifySound(): void {
+  if (getPrefs().soundEnabled) shell.beep()
 }
 
 function broadcastUnread(): void {
@@ -203,7 +208,8 @@ app.whenReady().then(async () => {
       broadcastUnread()
       broadcastMessages()
       const p = getPrefs()
-      if (p.dnd) return // 勿擾模式：不彈卡片、不演反應動畫
+      if (p.dnd) return // 勿擾模式：不彈卡片、不演反應動畫、不響音
+      playNotifySound() // 事件層一次（多寵物窗 fan-out 不疊響）
       const targets = new Set<string>([...(p.allEnabled ? ['all'] : []), ...matchingChannels(event.source, p.channels)])
       for (const id of targets) {
         const win = getPetWindow(id)
@@ -290,7 +296,7 @@ app.whenReady().then(async () => {
     }
   })
 
-  initPomodoro({ showCard: (channelId, view) => cardManager.show(channelId, view) })
+  initPomodoro({ showCard: (channelId, view) => cardManager.show(channelId, view), playSound: playNotifySound })
   handleQuery('get-pending-detail', () => {
     const id = pendingDetailId
     pendingDetailId = null

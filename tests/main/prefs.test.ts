@@ -27,6 +27,7 @@ const FULL_DEFAULTS = {
   channels: [],
   knownSources: [],
   pomodoro: { ...DEFAULT_POMODORO_PREFS },
+  soundEnabled: true,
 }
 
 describe('loadPrefs', () => {
@@ -99,6 +100,14 @@ describe('loadPrefs', () => {
     writeFileSync(join(d, 'prefs.json'), JSON.stringify({ dnd: 'yes' }))
     expect(loadPrefs(d).dnd).toBe(false)
   })
+  it('soundEnabled: 預設 true；缺欄/非 boolean → true；明確 false 保留', () => {
+    expect(loadPrefs(tempDir()).soundEnabled).toBe(true)
+    const d = tempDir()
+    writeFileSync(join(d, 'prefs.json'), JSON.stringify({ soundEnabled: 'no' }))
+    expect(loadPrefs(d).soundEnabled).toBe(true)
+    writeFileSync(join(d, 'prefs.json'), JSON.stringify({ soundEnabled: false }))
+    expect(loadPrefs(d).soundEnabled).toBe(false)
+  })
 })
 
 describe('savePrefs', () => {
@@ -114,6 +123,7 @@ describe('savePrefs', () => {
       channels: [],
       knownSources: [],
       pomodoro: { enabled: true, workMs: 1_500_000, breakMs: 300_000, afterBreak: 'loop', showOnAll: true },
+      soundEnabled: false,
     }
     savePrefs(d, prefs)
     expect(existsSync(join(d, 'prefs.json'))).toBe(true)

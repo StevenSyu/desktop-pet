@@ -71,7 +71,8 @@ describe('pomodoro-driver fan-out（targets 編排）', () => {
     state.prefs.channels = [ch('ch-on'), ch('ch-off', { pomodoroEnabled: false })]
     state.petWindows = new Set(['all', 'ch-on', 'ch-off'])
     const showCard = vi.fn()
-    initPomodoro({ showCard })
+    const playSound = vi.fn()
+    initPomodoro({ showCard, playSound })
 
     commandHandler('pomodoro-start')()
     vi.advanceTimersByTime(61_000) // work 60s 結束
@@ -90,7 +91,8 @@ describe('pomodoro-driver fan-out（targets 編排）', () => {
     state.prefs.channels = [ch('ch-on')]
     state.petWindows = new Set(['ch-on']) // 無 all
     const showCard = vi.fn()
-    initPomodoro({ showCard })
+    const playSound = vi.fn()
+    initPomodoro({ showCard, playSound })
 
     commandHandler('pomodoro-start')()
     vi.advanceTimersByTime(61_000)
@@ -102,7 +104,8 @@ describe('pomodoro-driver fan-out（targets 編排）', () => {
   it('DND 開啟 → 卡片吞掉、timer 照走（之後 break 結束仍觸發下一次嘗試）', () => {
     state.prefs.dnd = true
     const showCard = vi.fn()
-    initPomodoro({ showCard })
+    const playSound = vi.fn()
+    initPomodoro({ showCard, playSound })
 
     commandHandler('pomodoro-start')()
     vi.advanceTimersByTime(61_000) // work 結束：吞
@@ -118,12 +121,35 @@ describe('pomodoro-driver fan-out（targets 編排）', () => {
     state.prefs.channels = [ch('ch-on')]
     state.petWindows = new Set(['all', 'ch-on'])
     const showCard = vi.fn()
-    initPomodoro({ showCard })
+    const playSound = vi.fn()
+    initPomodoro({ showCard, playSound })
 
     commandHandler('pomodoro-start')()
     vi.advanceTimersByTime(61_000)
 
     const targets = showCard.mock.calls.map((c) => c[0])
     expect(targets).toEqual(['ch-on'])
+  })
+})
+
+describe('pomodoro-driver 音效', () => {
+  it('phase 結束 → playSound 呼叫一次（與卡片同層）', () => {
+    const showCard = vi.fn()
+    const playSound = vi.fn()
+    initPomodoro({ showCard, playSound })
+    commandHandler('pomodoro-start')()
+    vi.advanceTimersByTime(61_000)
+    expect(playSound).toHaveBeenCalledOnce()
+  })
+
+  it('DND 開啟 → 卡片與音效一起被吞', () => {
+    state.prefs.dnd = true
+    const showCard = vi.fn()
+    const playSound = vi.fn()
+    initPomodoro({ showCard, playSound })
+    commandHandler('pomodoro-start')()
+    vi.advanceTimersByTime(61_000)
+    expect(showCard).not.toHaveBeenCalled()
+    expect(playSound).not.toHaveBeenCalled()
   })
 })

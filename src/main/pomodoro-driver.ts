@@ -19,6 +19,8 @@ import { handleCommand, handleQuery } from '../ipc/main-helpers'
 interface PomodoroDeps {
   /** 顯示一張卡片（card-manager 的 show）。 */
   showCard: (channelId: string, view: CardView) => void
+  /** 播通知音（index.ts 的 playNotifySound——內含 soundEnabled 檢查）。 */
+  playSound: () => void
 }
 
 function targets(): string[] {
@@ -36,6 +38,7 @@ export function initPomodoro(deps: PomodoroDeps): void {
 
   function showInternal(view: Omit<CardView, 'id'>): void {
     if (getPrefs().dnd) return // 勿擾：與外部通知一致，吞掉（timer 照走）
+    deps.playSound()
     const id = `pomo-${++cardSeq}-${Date.now()}`
     for (const cid of targets()) deps.showCard(cid, { ...view, id })
   }

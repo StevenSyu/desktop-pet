@@ -20,6 +20,7 @@ export interface Prefs {
   channels: Channel[]
   knownSources: SourceMatch[]
   pomodoro: PomodoroPrefs
+  soundEnabled: boolean
 }
 
 const FILENAME = 'prefs.json'
@@ -33,6 +34,7 @@ const DEFAULTS: Prefs = {
   channels: [],
   knownSources: [],
   pomodoro: { ...DEFAULT_POMODORO_PREFS },
+  soundEnabled: true,
 }
 
 export function sanitizePomodoro(raw: unknown): PomodoroPrefs {
@@ -53,7 +55,7 @@ export function sanitizePomodoro(raw: unknown): PomodoroPrefs {
 export function loadPrefs(userDataDir: string): Prefs {
   const path = join(userDataDir, FILENAME)
   if (!existsSync(path)) {
-    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk }, skin: DEFAULTS.skin, channelLabelMode: 'hidden', dnd: DEFAULTS.dnd, allEnabled: true, channels: [], knownSources: [], pomodoro: { ...DEFAULTS.pomodoro } }
+    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk }, skin: DEFAULTS.skin, channelLabelMode: 'hidden', dnd: DEFAULTS.dnd, allEnabled: true, channels: [], knownSources: [], pomodoro: { ...DEFAULTS.pomodoro }, soundEnabled: DEFAULTS.soundEnabled }
   }
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>
@@ -68,9 +70,10 @@ export function loadPrefs(userDataDir: string): Prefs {
       channels: sanitizeChannels(parsed.channels),
       knownSources: sanitizeSources(parsed.knownSources),
       pomodoro: sanitizePomodoro(parsed.pomodoro),
+      soundEnabled: typeof parsed.soundEnabled === 'boolean' ? parsed.soundEnabled : DEFAULTS.soundEnabled,
     }
   } catch {
-    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk }, skin: DEFAULTS.skin, channelLabelMode: 'hidden', dnd: DEFAULTS.dnd, allEnabled: true, channels: [], knownSources: [], pomodoro: { ...DEFAULTS.pomodoro } }
+    return { autoWalk: DEFAULTS.autoWalk, walk: { ...DEFAULTS.walk }, skin: DEFAULTS.skin, channelLabelMode: 'hidden', dnd: DEFAULTS.dnd, allEnabled: true, channels: [], knownSources: [], pomodoro: { ...DEFAULTS.pomodoro }, soundEnabled: DEFAULTS.soundEnabled }
   }
 }
 
