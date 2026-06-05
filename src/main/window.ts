@@ -200,6 +200,7 @@ function registerHandlers(): void {
         },
       },
       { label: '勿擾模式', type: 'checkbox', checked: prefs.dnd, click: (mi) => applyDnd(mi.checked) },
+      { label: '通知音效', type: 'checkbox', checked: prefs.soundEnabled, click: (mi) => updatePrefsStore({ soundEnabled: mi.checked }) },
       { label: '進階設定…', click: () => busEmit('open-settings') },
       { type: 'separator' },
       { label: '通知中心', click: () => busEmit('open-center') },
@@ -315,6 +316,7 @@ function registerHandlers(): void {
     broadcastToPets('dnd-changed', enabled)
   }
   handleCommand('set-dnd', (enabled) => applyDnd(enabled))
+  handleCommand('set-sound-enabled', (v) => updatePrefsStore({ soundEnabled: v }))
   handleQuery('get-dnd', () => getPrefs().dnd)
 
   // ===== display-removed：每隻寵物各自失效重吸附 =====

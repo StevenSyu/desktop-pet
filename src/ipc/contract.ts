@@ -38,6 +38,7 @@ export interface Commands {
   'walk-cancel': { channelId: string }
   'set-walk-bounds': Partial<WalkBounds>
   'set-dnd': boolean
+  'set-sound-enabled': boolean
   'open-pets-folder': void
   'show-card': { channelId: string; view: CardView }
   'hide-card': { channelId: string }

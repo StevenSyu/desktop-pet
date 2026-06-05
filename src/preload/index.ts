@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld('petBridge', {
   onPomodoroChanged: (cb: (s: PomodoroSnapshot) => void) => subscribePush('pomodoro-changed', cb),
   onPrefsChanged: (cb: (prefs: Prefs) => void) => subscribePush('prefs-changed', cb),
   setDnd: (enabled: boolean) => sendCommand('set-dnd', enabled),
+  setSoundEnabled: (v: boolean) => sendCommand('set-sound-enabled', v),
   getDnd: () => invokeQuery('get-dnd'),
   onDndOn: (cb: () => void) => subscribePush('dnd-on', cb),
   onDndChanged: (cb: (enabled: boolean) => void) => subscribePush('dnd-changed', cb),

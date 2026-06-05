@@ -16,6 +16,7 @@ type BridgePrefs = {
   channels: Channel[]
   knownSources: SourceMatch[]
   pomodoro: { enabled: boolean; workMs: number; breakMs: number; afterBreak: 'loop' | 'pause'; showOnAll: boolean }
+  soundEnabled: boolean
 }
 
 declare global {
@@ -55,6 +56,7 @@ declare global {
       ) => void
       onPrefsChanged: (cb: (prefs: BridgePrefs) => void) => void
       setDnd: (enabled: boolean) => void
+      setSoundEnabled: (v: boolean) => void
       getDnd: () => Promise<boolean>
       onDndOn: (cb: () => void) => void
       onDndChanged: (cb: (enabled: boolean) => void) => void

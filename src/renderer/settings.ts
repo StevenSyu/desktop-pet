@@ -56,20 +56,25 @@ function readForm(): WalkBounds {
   }
 }
 
+const soundEnabled = $<HTMLInputElement>('soundEnabled')
+
 window.petBridge.getPrefs().then((p) => {
   applyBounds(p.walk)
   applyPomodoro(p.pomodoro)
+  soundEnabled.checked = p.soundEnabled
 })
 
 $('save').addEventListener('click', () => {
   window.petBridge.setWalkBounds(readForm())
   window.petBridge.setPomodoroPrefs(readPomodoro())
+  window.petBridge.setSoundEnabled(soundEnabled.checked)
   window.close()
 })
 
 $('reset').addEventListener('click', () => {
   applyBounds(DEFAULT_WALK_BOUNDS)
   applyPomodoro(DEFAULT_POMODORO_PREFS)
+  soundEnabled.checked = true
   hint.textContent = '已恢復預設（尚未儲存）。'
   hint.className = 'hint'
 })
