@@ -6,11 +6,12 @@ import { scanSkins } from './skin-registry'
 import { busEmit, busOn } from './bus'
 import { isMac, isWindows, pinWindow } from './win-util'
 import { type ChannelLabelMode } from '../core/channel-label'
+import { petMenuTemplate, type PetMenuAction, type PetMenuItem } from '../core/pet-menu'
 import { defaultPosition, isWithinAnyDisplay } from '../core/window-position'
 import { stackPosition } from '../core/pet-layout'
 import { clampScale } from '../core/pet-scale'
 import { sanitizeWalkBounds } from '../core/walk-planner'
-import { WalkSession } from '../core/walk-session'
+import { initWalkDriver } from './walk-driver'
 import { loadWindowStates, saveWindowState } from './window-state'
 import { type Prefs } from './prefs'
 import { getPrefs, updatePrefsStore, subscribePrefs } from './prefs-store'
@@ -67,7 +68,7 @@ export function broadcastToPets<K extends keyof Pushes>(channel: K, ...args: Pus
   for (const w of petWindows.values()) pushTo(w, channel, ...args)
 }
 export function closePetWindow(channelId: string): void {
-  endWalk(channelId, false)
+  walkDriver.endWalk(channelId, false)
   const w = petWindows.get(channelId)
   if (w && !w.isDestroyed()) w.close()
   petWindows.delete(channelId)
@@ -77,20 +78,15 @@ export function builtinRoot(): string {
   return app.isPackaged ? process.resourcesPath : app.getAppPath()
 }
 
-// ===== per-pet 拖動與走動狀態 =====
+// ===== per-pet 拖動狀態 =====
 const dragOffsets = new Map<string, { x: number; y: number }>()
-const walks = new Map<string, { session: WalkSession; timer: NodeJS.Timeout | null }>()
-function endWalk(channelId: string, notify: boolean): void {
-  const walk = walks.get(channelId)
-  if (!walk) return
-  if (walk.timer) clearTimeout(walk.timer)
-  walk.session.cancel()
-  walks.delete(channelId)
-  if (notify) pushTo(getPetWindow(channelId), 'walk-ended')
-}
-function endAllWalks(notify: boolean): void {
-  for (const id of [...walks.keys()]) endWalk(id, notify)
-}
+// 走動驅動在 walk-driver.ts（自註冊 walk-start/walk-cancel）；Electron 能力以 deps 注入
+const walkDriver = initWalkDriver({
+  getWindow: (id) => getPetWindow(id),
+  workAreaFor: (point) => screen.getDisplayNearestPoint(point).workArea,
+  notifyEnded: (id) => pushTo(getPetWindow(id), 'walk-ended'),
+  notifyDirection: (id, direction) => pushTo(getPetWindow(id), 'walk-direction', direction),
+})
 
 function setLabelMode(mode: ChannelLabelMode): void {
   updatePrefsStore({ channelLabelMode: mode }) // broadcast 由 subscribePrefs 統一處理
@@ -175,43 +171,60 @@ function registerHandlers(): void {
     if (win) setPetInteractive(win, interactive)
   })
 
+  // 選單顯示狀態的決策在 core 的 petMenuTemplate（純模板），此處只 dispatch action 副作用
+  function runMenuAction(action: PetMenuAction, channelId: string, checked: boolean): void {
+    switch (action.type) {
+      case 'set-label-mode':
+        setLabelMode(action.mode)
+        break
+      case 'open-channels':
+        busEmit('open-channels')
+        break
+      case 'toggle-auto-walk': {
+        const next = updatePrefsStore({ autoWalk: checked })
+        broadcastToPets('auto-walk-changed', next.autoWalk)
+        if (!next.autoWalk) walkDriver.endAllWalks(true)
+        break
+      }
+      case 'toggle-dnd':
+        applyDnd(checked)
+        break
+      case 'toggle-sound':
+        updatePrefsStore({ soundEnabled: checked })
+        break
+      case 'open-settings':
+        busEmit('open-settings')
+        break
+      case 'open-center':
+        busEmit('open-center')
+        break
+      case 'close-pet':
+        busEmit('close-pet', channelId)
+        break
+      case 'quit':
+        app.quit()
+        break
+    }
+  }
+  function menuSpecToElectron(items: PetMenuItem[], dispatch: (action: PetMenuAction, checked: boolean) => void): Electron.MenuItemConstructorOptions[] {
+    return items.map((it) =>
+      it.kind === 'separator'
+        ? { type: 'separator' as const }
+        : {
+            label: it.label,
+            type: it.kind === 'normal' ? undefined : it.kind, // submenu 項不可標 normal，留給 Electron 推斷
+            checked: it.checked,
+            enabled: it.enabled,
+            submenu: it.submenu ? menuSpecToElectron(it.submenu, dispatch) : undefined,
+            click: it.action ? (mi) => dispatch(it.action!, mi.checked) : undefined,
+          },
+    )
+  }
   handleCommand('show-context-menu', ({ channelId }) => {
     const win = getPetWindow(channelId)
     if (!win) return
-    const prefs = getPrefs()
-    const menu = Menu.buildFromTemplate([
-      {
-        label: '名稱標籤',
-        submenu: [
-          { label: '隱藏', type: 'radio', checked: prefs.channelLabelMode === 'hidden', click: () => setLabelMode('hidden') },
-          { label: '滑過時顯示', type: 'radio', checked: prefs.channelLabelMode === 'hover', click: () => setLabelMode('hover') },
-          { label: '常態顯示', type: 'radio', checked: prefs.channelLabelMode === 'always', click: () => setLabelMode('always') },
-        ],
-      },
-      { label: '寵物設定…', click: () => busEmit('open-channels') },
-      {
-        label: '自動走動',
-        type: 'checkbox',
-        checked: prefs.autoWalk,
-        click: (mi) => {
-          const next = updatePrefsStore({ autoWalk: mi.checked })
-          broadcastToPets('auto-walk-changed', next.autoWalk)
-          if (!next.autoWalk) endAllWalks(true)
-        },
-      },
-      { label: '勿擾模式', type: 'checkbox', checked: prefs.dnd, click: (mi) => applyDnd(mi.checked) },
-      { label: '通知音效', type: 'checkbox', checked: prefs.soundEnabled, click: (mi) => updatePrefsStore({ soundEnabled: mi.checked }) },
-      { label: '進階設定…', click: () => busEmit('open-settings') },
-      { type: 'separator' },
-      { label: '通知中心', click: () => busEmit('open-center') },
-      { type: 'separator' },
-      {
-        label: petChannelIds().length >= 2 ? '關閉這隻寵物' : '關閉這隻寵物（至少保留一隻）',
-        enabled: petChannelIds().length >= 2,
-        click: () => busEmit('close-pet', channelId),
-      },
-      { label: '關閉小幫手', click: () => app.quit() },
-    ])
+    const spec = petMenuTemplate(getPrefs(), petChannelIds().length)
+    const menu = Menu.buildFromTemplate(menuSpecToElectron(spec, (action, checked) => runMenuAction(action, channelId, checked)))
     menu.popup({ window: win })
   })
 
@@ -219,7 +232,7 @@ function registerHandlers(): void {
   handleCommand('drag-start', ({ channelId }) => {
     const win = getPetWindow(channelId)
     if (!win) return
-    endWalk(channelId, true) // 走動中被拖 → 立即停
+    walkDriver.endWalk(channelId, true) // 走動中被拖 → 立即停
     const cursor = screen.getCursorScreenPoint()
     const bounds = win.getBounds()
     dragOffsets.set(channelId, { x: cursor.x - bounds.x, y: cursor.y - bounds.y })
@@ -256,45 +269,6 @@ function registerHandlers(): void {
     saveWindowState(app.getPath('userData'), channelId, { displayId: d.id, x: b.x, y: b.y, scale: s })
     busEmit('pet-moved', channelId, win.getBounds())
   })
-
-  // ===== walk（per-pet）=====
-  handleCommand('walk-start', (req) => {
-    const { channelId } = req
-    const win = getPetWindow(channelId)
-    if (!win) return
-    endWalk(channelId, false)
-    const { x: startX, y: startY, width: winWidth } = win.getBounds()
-    const display = screen.getDisplayNearestPoint({ x: startX, y: startY })
-    const walk = { session: new WalkSession(), timer: null as NodeJS.Timeout | null }
-    const res = walk.session.start(
-      // petWidth 用實際視窗寬（含 scale），固定 PET_WIDTH 會讓放大的寵物走出螢幕右緣被切
-      { startX, requestedDirection: req.direction, distance: req.distance, duration: req.duration, workArea: display.workArea, petWidth: winWidth },
-      Date.now(),
-    )
-    if (!res.ok) {
-      pushTo(win, 'walk-ended')
-      return
-    }
-    walks.set(channelId, walk)
-    if (res.flippedTo) pushTo(win, 'walk-direction', res.flippedTo)
-    const step = (): void => {
-      const w = getPetWindow(channelId)
-      if (!w) {
-        endWalk(channelId, false)
-        return
-      }
-      const frame = walk.session.step(Date.now())
-      if (!frame) return
-      w.setPosition(frame.x, startY)
-      if (frame.done) {
-        endWalk(channelId, true)
-        return
-      }
-      walk.timer = setTimeout(step, 16)
-    }
-    step()
-  })
-  handleCommand('walk-cancel', ({ channelId }) => endWalk(channelId, true))
 
   // ===== 全域命令 / 查詢（不分 pet）=====
   handleCommand('open-center', ({ channelId }) => busEmit('open-center', channelId))
