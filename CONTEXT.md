@@ -35,13 +35,19 @@ payload 為 `void` 表示該 channel 不帶資料；helper 的型別會讓對應
 
 **整類項**＝member 只有 `kind`、無 `name` 的來源（UI 顯示「全部來源」），命中該 kind 全部來源（含未來新專案）。
 
-同樣模式的純化：卡片視窗幾何在 `src/core/card-layout.ts`（`cardWindowBounds`：drag 偏移／可見卡翻轉＋陰影外擴），通知中心開窗位置在 `src/core/center-pos.ts`（`resolveCenterPos`：記住的位置失效時退回寵物旁）。
+同樣模式的純化：卡片視窗幾何在 `src/core/card-layout.ts`（`cardWindowBounds`：drag 偏移／可見卡翻轉＋陰影外擴），通知中心開窗位置在 `src/core/center-pos.ts`（`resolveCenterPos`：記住的位置失效時退回寵物旁），寵物右鍵選單在 `src/core/pet-menu.ts`（`petMenuTemplate`：radio／checkbox checked、「至少保留一隻」enabled 規則；click 副作用以 action tag 表達，window.ts 只轉 Electron Menu ＋ dispatch）。
+
+## Event Route（事件路由）
+
+外部通知一筆事件的路由決策在 `src/core/event-route.ts`：`routeEvent(state, source) → { sound, targets }`——勿擾吞掉（無目標、不響音）、響音一次（事件層，多寵物 fan-out 不疊響）、目標集合（allEnabled 的 `'all'` ＋ 命中的啟用頻道）。adapter（`index.ts` ingest 的 `onEvent`）只執行副作用：beep、pushTo（含「剛長出的寵物還在載入 → 等 did-finish-load 再推」的首訊息保護）。蕃茄鐘響音不走此路：soundEnabled 檢查在 `index.ts` 的 `playNotifySound`、DND guard 在 pomodoro-driver 的 `showInternal`。
 
 ## Walk Engine（自走狀態機）
 
 renderer 端自走的完整生命週期（何時走、走哪邊、何時取消、何時重排）集中在 `src/core/walk-engine.ts` 的 reducer：`walkEngineReduce(state, event, ctx) → { state, commands }`。adapter（`renderer/main.ts`）只把 DOM/IPC 事件轉成 `WalkEngineEvent`、把 `start`/`cancel` 指令轉成 `petBridge.walkStart/walkCancel`。
 
 **取消語意**：engine 只發 `cancel` 指令，`walking` 不就地清掉——等 main 推 `walkEnded` 才轉 false，與位移實況（main 的 `walk-session`）保持單一事實來源。位移本身（clamp／step／撞牆反轉）仍在 main 的 per-channel `WalkSession`；邊界 clamp 用實際視窗寬（含 scale）。
+
+main 端驅動（16ms step loop、per-pet 走動狀態、walk-start／walk-cancel handler）在 `src/main/walk-driver.ts`，Electron 能力以 deps 注入（與 card-manager 同模式）。結束路徑三種：拖動中斷／cancel／走完 → 推 `walk-ended`；視窗消失 → 靜默清掉。
 
 ## Prefs Store（單一寫入 seam）
 
