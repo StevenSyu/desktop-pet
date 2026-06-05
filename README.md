@@ -56,7 +56,15 @@ npm run dist:win    # Windows
 npm run dist:linux  # Linux
 ```
 
-macOS 產物在 `release/desktop-notify-<版本>-arm64.dmg`，拖進「應用程式」即可。未做簽章／公證（個人用）：本機 build 可直接開；從別處下載被 Gatekeeper 擋時右鍵 →「開啟」一次。跨平台注意事項見 [docs/CROSS_PLATFORM.md](docs/CROSS_PLATFORM.md)。
+macOS 產物在 `release/desktop-notify-<版本>-arm64.dmg`，拖進「應用程式」即可。
+
+**從 GitHub Releases 下載的 dmg**（ad-hoc 簽名、未公證）：首次開啟會被 Gatekeeper 擋——右鍵 app →「開啟」，或到「系統設定 → 隱私權與安全性」按「強制打開」。若仍顯示「已損毀」（舊版 release），終端機執行：
+
+```bash
+xattr -cr /Applications/desktop-notify.app
+```
+
+跨平台注意事項見 [docs/CROSS_PLATFORM.md](docs/CROSS_PLATFORM.md)。
 
 ## 加新造型
 

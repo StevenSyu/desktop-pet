@@ -21,8 +21,10 @@ mac:
   target: dmg
   category: public.app-category.developer-tools
   icon: assets/icon.png # 企鵝 idle 第一格合成（electron-builder 自此產 .icns）
-  # 個人使用：不做 Apple 簽章 / 公證（ad-hoc）。
-  identity: null
+  # 個人使用：無 Apple Developer ID / 公證。'-' = ad-hoc 簽整個 bundle——
+  # null（完全不簽）會讓 Gatekeeper 報「damaged」且無放行選項；
+  # ad-hoc 簽後變成「無法驗證開發者」，可右鍵開啟或於隱私設定放行。
+  identity: '-'
 win:
   target:
     - target: nsis
